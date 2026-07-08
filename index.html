@@ -57,6 +57,9 @@
   .app-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px}
   .app-top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
   .app-icon{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;font-family:var(--mono);font-size:18px;font-weight:700;flex-shrink:0}
+  img.app-icon{border:1px solid var(--line);object-fit:cover}
+  .shots{display:flex;gap:12px;margin:0 0 18px}
+  .shots img{width:calc(50% - 6px);height:auto;border-radius:14px;border:1px solid var(--line);display:block}
   .app-name{font-size:20px;font-family:var(--serif)}
   .app-kind{font-size:13px;color:var(--muted)}
   .app-desc{color:var(--muted);font-size:15.5px;margin:0 0 18px}
@@ -144,7 +147,7 @@
     <div class="work-grid">
       <div class="app-card reveal">
         <div class="app-top">
-          <div class="app-icon" style="background:#27AE60;color:#06230F">BC</div>
+          <img class="app-icon" src="assets/birdcage-icon.png" alt="Bird Cage app icon" width="52" height="52">
           <div>
             <div class="app-name">Bird Cage</div>
             <div class="app-kind">Public safety</div>
@@ -158,13 +161,17 @@
       </div>
       <div class="app-card reveal">
         <div class="app-top">
-          <div class="app-icon" style="background:#22261F;color:#E9EDE9;border:1px solid var(--line)">CW</div>
+          <img class="app-icon" src="assets/courtwatch-icon.png" alt="CourtWatch app icon" width="52" height="52">
           <div>
             <div class="app-name">CourtWatch</div>
             <div class="app-kind">Legal tools</div>
           </div>
         </div>
         <p class="app-desc">Court-date tracking with alerts, email sign-in, and paid subscriptions — taken from first idea to a finished App Store submission in a single day.</p>
+        <div class="shots">
+          <img src="assets/courtwatch-detail.webp" alt="CourtWatch case detail screen — the whole case at a glance" loading="lazy">
+          <img src="assets/courtwatch-alerts.webp" alt="CourtWatch notifications screen — know the moment anything changes" loading="lazy">
+        </div>
         <div class="tags">
           <span class="tag">Subscriptions</span><span class="tag">Email sign-in</span><span class="tag">1-day build</span>
         </div>
