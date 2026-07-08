@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Launch — iOS apps built and shipped in days</title>
+<meta name="description" content="App Launch designs, builds, and ships iPhone apps for companies without a development team — from idea to App Store submission in days, not months. You own every account, every key, and every line of code.">
+<meta property="og:title" content="App Launch — iOS apps built and shipped in days">
+<meta property="og:description" content="From idea to the App Store review queue in days, not months. You own everything.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2331C971'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='monospace' font-size='14' font-weight='700' fill='%2306230F'%3EAL%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0B0D0B; --card:#141714; --card-2:#181C18; --line:#242923;
+    --text:#E9EDE9; --muted:#96A096; --faint:#6B756B;
+    --green:#31C971; --green-deep:#0F3B23; --green-dim:#1E5C38;
+    --serif:Georgia,'Times New Roman',serif;
+    --sans:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:Consolas,'SF Mono',Menlo,monospace;
+  }
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--green);text-decoration:none}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 24px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--green)}
+  h1,h2,h3{font-family:var(--serif);font-weight:400;text-wrap:balance;margin:0}
+  h2{font-size:clamp(28px,4vw,38px);line-height:1.2}
+  .sub{color:var(--muted);max-width:58ch}
+
+  header{position:sticky;top:0;background:rgba(11,13,11,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:10}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;max-width:1020px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:600;font-size:17px;letter-spacing:.01em}
+  .brand-mark{width:30px;height:30px;border-radius:8px;background:var(--green);color:#06230F;display:grid;place-items:center;font-family:var(--mono);font-size:13px;font-weight:700}
+  .nav-links{display:flex;gap:26px;font-size:14px}
+  .nav-links a{color:var(--muted)}
+  .nav-links a:hover{color:var(--text)}
+
+  .hero{padding:96px 0 72px;border-bottom:1px solid var(--line)}
+  .hero h1{font-size:clamp(38px,6vw,62px);line-height:1.12;max-width:17ch}
+  .hero h1 em{font-style:italic;color:var(--green)}
+  .hero .sub{font-size:19px;margin:26px 0 36px}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-block;padding:14px 26px;border-radius:10px;font-size:16px;font-weight:600;font-family:var(--sans)}
+  .btn-green{background:var(--green);color:#06230F}
+  .btn-green:hover{background:#3BD97F}
+  .btn-ghost{border:1px solid var(--line);color:var(--text)}
+  .btn-ghost:hover{border-color:var(--muted)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:64px}
+  .stat{background:var(--card);padding:22px 24px}
+  .stat b{display:block;font-family:var(--mono);font-size:34px;font-weight:400;color:var(--green);font-variant-numeric:tabular-nums}
+  .stat span{font-size:13.5px;color:var(--muted)}
+
+  section{padding:88px 0;border-bottom:1px solid var(--line)}
+  .sect-head{margin-bottom:44px;display:flex;flex-direction:column;gap:14px}
+
+  .work-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+  .app-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px}
+  .app-top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+  .app-icon{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;font-family:var(--mono);font-size:18px;font-weight:700;flex-shrink:0}
+  .app-name{font-size:20px;font-family:var(--serif)}
+  .app-kind{font-size:13px;color:var(--muted)}
+  .app-desc{color:var(--muted);font-size:15.5px;margin:0 0 18px}
+  .tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .tag{font-family:var(--mono);font-size:12px;color:var(--green);background:var(--green-deep);border-radius:6px;padding:4px 10px}
+  .app-status{font-size:13px;color:var(--faint);border-top:1px solid var(--line);padding-top:14px}
+  .app-status b{color:var(--muted);font-weight:600}
+
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;position:relative}
+  .step-num{font-family:var(--mono);font-size:13px;color:var(--green);margin-bottom:10px;display:block}
+  .step h3{font-size:18px;margin-bottom:8px;font-family:var(--sans);font-weight:600}
+  .step p{margin:8px 0 0;font-size:15px;color:var(--muted)}
+
+  .price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px;align-items:stretch}
+  .price-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:30px;display:flex;flex-direction:column}
+  .price-card.featured{border-color:var(--green)}
+  .pop{align-self:flex-start;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);background:var(--green-deep);border-radius:6px;padding:4px 10px;margin-bottom:14px}
+  .price-name{font-family:var(--serif);font-size:22px}
+  .price-amt{font-family:var(--mono);font-size:38px;color:var(--text);margin:14px 0 4px;font-variant-numeric:tabular-nums}
+  .price-amt small{font-size:15px;color:var(--muted);font-family:var(--sans)}
+  .price-for{font-size:14px;color:var(--faint);margin-bottom:18px}
+  .price-list{list-style:none;margin:0 0 26px;padding:0;font-size:15px;color:var(--muted);flex:1}
+  .price-list li{padding:7px 0 7px 26px;position:relative}
+  .price-list li::before{content:"✓";position:absolute;left:0;color:var(--green);font-family:var(--mono)}
+  .terms{margin-top:28px;font-size:14px;color:var(--faint);max-width:70ch}
+
+  .pledge{text-align:center;padding:96px 24px}
+  .pledge blockquote{font-family:var(--serif);font-style:italic;font-size:clamp(24px,3.5vw,34px);line-height:1.4;max-width:26ch;margin:0 auto;color:var(--text)}
+  .pledge blockquote em{color:var(--green);font-style:italic}
+  .pledge p{color:var(--muted);max-width:60ch;margin:24px auto 0;font-size:16px}
+
+  .contact-box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:44px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:36px;align-items:center}
+  .contact-box h2{font-size:clamp(24px,3vw,32px)}
+  .contact-actions{display:flex;flex-direction:column;gap:14px}
+  .contact-note{font-size:14px;color:var(--faint)}
+
+  footer{padding:40px 0 56px;color:var(--faint);font-size:13.5px}
+  .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+  @media (max-width:640px){.nav-links{display:none}.hero{padding:64px 0 56px}section{padding:64px 0}.contact-box{padding:30px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <div class="brand"><span class="brand-mark">AL</span>App Launch</div>
+    <nav class="nav-links">
+      <a href="#work">Work</a>
+      <a href="#process">Process</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="eyebrow">iOS apps · built end to end</p>
+    <h1>Your app, in the App&nbsp;Store review queue in <em>days</em> — not months.</h1>
+    <p class="sub">App Launch designs, builds, and ships iPhone apps for companies that don't have a development team. You own every account, every key, and every line of code — from day one.</p>
+    <div class="cta-row">
+      <a class="btn btn-green" href="mailto:info@georgialea.com?subject=Free%2015-minute%20call%20—%20my%20app%20idea">Book a free 15-minute call</a>
+      <a class="btn btn-ghost" href="#work">See our work</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>2</b><span>real apps built and shipped end to end</span></div>
+      <div class="stat"><b>1 day</b><span>fastest idea-to-App-Store submission</span></div>
+      <div class="stat"><b>100%</b><span>client-owned — accounts, code, and data</span></div>
+    </div>
+  </div>
+</div>
+
+<section id="work">
+  <div class="wrap">
+    <div class="sect-head reveal">
+      <p class="eyebrow">Work</p>
+      <h2>Don't take our word for it. Hold the apps.</h2>
+      <p class="sub">Both of these were built with the exact process we'd use for yours — same tools, same pace, same standards.</p>
+    </div>
+    <div class="work-grid">
+      <div class="app-card reveal">
+        <div class="app-top">
+          <div class="app-icon" style="background:#27AE60;color:#06230F">BC</div>
+          <div>
+            <div class="app-name">Bird Cage</div>
+            <div class="app-kind">Public safety</div>
+          </div>
+        </div>
+        <p class="app-desc">Live FBI wanted-fugitive data on your phone: daily-synced listings, follow-your-region push alerts, and a home-screen widget. Serious data handled with serious legal care.</p>
+        <div class="tags">
+          <span class="tag">Live federal data</span><span class="tag">Push alerts</span><span class="tag">Widget</span>
+        </div>
+        <div class="app-status"><b>Status:</b> built &amp; running on devices · App Store submission in preparation</div>
+      </div>
+      <div class="app-card reveal">
+        <div class="app-top">
+          <div class="app-icon" style="background:#22261F;color:#E9EDE9;border:1px solid var(--line)">CW</div>
+          <div>
+            <div class="app-name">CourtWatch</div>
+            <div class="app-kind">Legal tools</div>
+          </div>
+        </div>
+        <p class="app-desc">Court-date tracking with alerts, email sign-in, and paid subscriptions — taken from first idea to a finished App Store submission in a single day.</p>
+        <div class="tags">
+          <span class="tag">Subscriptions</span><span class="tag">Email sign-in</span><span class="tag">1-day build</span>
+        </div>
+        <div class="app-status"><b>Status:</b> submitted to Apple App Review · July 2026</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="process">
+  <div class="wrap">
+    <div class="sect-head reveal">
+      <p class="eyebrow">Process</p>
+      <h2>A proven path, walked twice already.</h2>
+      <p class="sub">Every engagement follows the same written playbook we used on our own apps — no improvising, no surprises.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><span class="step-num">Step 1</span><h3>Accounts &amp; setup</h3><p>You create the accounts, in your name. We never own anything of yours — that protects both of us.</p></div>
+      <div class="step reveal"><span class="step-num">Step 2</span><h3>Design &amp; build</h3><p>A working preview running on your own phone within days — not a slide deck, the actual app.</p></div>
+      <div class="step reveal"><span class="step-num">Step 3</span><h3>Data &amp; alerts</h3><p>Live data feeds and push notifications, wired up and tested on real devices.</p></div>
+      <div class="step reveal"><span class="step-num">Step 4</span><h3>Payments</h3><p>Subscriptions and paywalls through Apple's own billing — tested end to end in sandbox before launch.</p></div>
+      <div class="step reveal"><span class="step-num">Step 5</span><h3>App Store submission</h3><p>Listing, screenshots, privacy questionnaire, review notes — handled. One review-rejection round is included; Apple usually finds something.</p></div>
+      <div class="step reveal"><span class="step-num">Step 6</span><h3>Launch &amp; handoff</h3><p>Keys returned, documentation delivered. Stay on a care plan or walk away owning everything — your call.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="sect-head reveal">
+      <p class="eyebrow">Pricing</p>
+      <h2>Plain numbers, no discovery-call games.</h2>
+    </div>
+    <div class="price-grid">
+      <div class="price-card reveal">
+        <div class="price-name">Starter launch</div>
+        <div class="price-amt">$4,500</div>
+        <div class="price-for">A focused free app, done right</div>
+        <ul class="price-list">
+          <li>One core feature, polished</li>
+          <li>Built in about a week</li>
+          <li>App Store submission included</li>
+          <li>You own all accounts &amp; code</li>
+        </ul>
+        <a class="btn btn-ghost" href="mailto:info@georgialea.com?subject=Starter%20launch%20—%20my%20app%20idea">Start with this</a>
+      </div>
+      <div class="price-card featured reveal">
+        <span class="pop">Most popular</span>
+        <div class="price-name">Full build</div>
+        <div class="price-amt">$9,500</div>
+        <div class="price-for">A complete product with revenue</div>
+        <ul class="price-list">
+          <li>Sign-in, live data &amp; push alerts</li>
+          <li>Subscriptions &amp; paywall, tested end to end</li>
+          <li>App Store submission included</li>
+          <li>You own all accounts &amp; code</li>
+        </ul>
+        <a class="btn btn-green" href="mailto:info@georgialea.com?subject=Full%20build%20—%20my%20app%20idea">Get a quote</a>
+      </div>
+      <div class="price-card reveal">
+        <div class="price-name">Care plan</div>
+        <div class="price-amt">$400<small>/month</small></div>
+        <div class="price-for">After launch, stay healthy</div>
+        <ul class="price-list">
+          <li>Updates &amp; bug fixes</li>
+          <li>App Store maintenance</li>
+          <li>Small improvements each month</li>
+          <li>Cancel anytime</li>
+        </ul>
+        <a class="btn btn-ghost" href="mailto:info@georgialea.com?subject=Care%20plan">Ask about care</a>
+      </div>
+    </div>
+    <p class="terms reveal">Terms on every package: half to start, half at App Store submission. Your Apple Developer membership ($99/yr to Apple) and any data services are billed to accounts you own. If your idea needs something these packages don't cover, we'll quote it straight.</p>
+  </div>
+</section>
+
+<section class="pledge">
+  <p class="eyebrow reveal">The ownership pledge</p>
+  <blockquote class="reveal">"You own the accounts, the code, and the app. We hold <em>time-limited keys</em> — and hand them back."</blockquote>
+  <p class="reveal">Most agencies keep your app hostage inside their accounts. We refuse to work that way: every account is created by you, in your name, before a line of code is written. Fire us any day and you lose nothing.</p>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="contact-box reveal">
+      <div>
+        <p class="eyebrow">Contact</p>
+        <h2>Tell us your idea in two sentences.</h2>
+        <p class="sub" style="font-size:16px;margin-top:14px">That's genuinely all we need to tell you whether it fits, what it would cost, and how fast it could ship. If it's not a fit, we'll say so on the first call.</p>
+      </div>
+      <div class="contact-actions">
+        <a class="btn btn-green" href="mailto:info@georgialea.com?subject=My%20app%20idea">Email your idea</a>
+        <a class="btn btn-ghost" href="mailto:info@georgialea.com?subject=Free%2015-minute%20call">Book a 15-minute call</a>
+        <span class="contact-note">info@georgialea.com · replies within one business day</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>App Launch is a Georgia Lea company · Austell, Georgia</span>
+    <span>© 2026 Georgia Lea. All rights reserved.</span>
+  </div>
+</footer>
+
+<script>
+  var els=document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+    },{threshold:.12});
+    els.forEach(function(el){io.observe(el);});
+  }else{
+    els.forEach(function(el){el.classList.add('in');});
+  }
+</script>
+</body>
+</html>
