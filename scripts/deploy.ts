@@ -57,18 +57,26 @@ async function main() {
       });
       madeDirs.add(remoteDir);
     }
-    const form = new FormData();
-    form.append('dir', remoteDir);
-    form.append('file-1', new Blob([readFileSync(file)]), path.posix.basename(rel));
-    const res = await fetch(`${HOST}/execute/Fileman/upload_files`, {
-      method: 'POST',
-      headers: AUTH,
-      body: form,
-    });
-    const j: any = await res.json();
-    const ok = j.data?.succeeded === 1;
+    let ok = false;
+    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+      try {
+        const form = new FormData();
+        form.append('dir', remoteDir);
+        form.append('file-1', new Blob([readFileSync(file)]), path.posix.basename(rel));
+        const res = await fetch(`${HOST}/execute/Fileman/upload_files`, {
+          method: 'POST',
+          headers: AUTH,
+          body: form,
+        });
+        const j: any = await res.json();
+        ok = j.data?.succeeded === 1;
+      } catch {
+        // transient network reset — brief pause, then retry
+        await new Promise((r) => setTimeout(r, 3000 * attempt));
+      }
+    }
     console.log(` ${ok ? 'ok' : 'FAILED'}: ${rel}`);
-    if (!ok) throw new Error(`upload failed for ${rel}: ${JSON.stringify(j).slice(0, 300)}`);
+    if (!ok) throw new Error(`upload failed for ${rel} after 3 attempts`);
   }
   console.log('Done. Verify: https://thr.ypj.mybluehost.me/ (and georgialea.com once DNS points here)');
 }
