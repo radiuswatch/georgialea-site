@@ -15,7 +15,9 @@ const env = readFileSync('C:/Users/memph/.bluehost-cpanel.env', 'utf-8');
 const get = (k: string) => env.match(new RegExp(`${k}=(.*)`))![1].trim();
 const HOST = `https://${get('CPANEL_HOST')}:2083`;
 const AUTH = { Authorization: `cpanel ${get('CPANEL_USER')}:${get('CPANEL_TOKEN')}` };
-const REMOTE_ROOT = '/home1/thrypjmy/public_html';
+// The domain root belongs to the GALEA page (georgialea.com is Georgia Law
+// Enforcement Associates' home) — this app-business site lives under /apps.
+const REMOTE_ROOT = '/home1/thrypjmy/public_html/apps';
 const LOCAL_ROOT = path.resolve(__dirname, '..');
 const SKIP = new Set(['.git', 'scripts', 'README.md', 'node_modules']);
 
