@@ -46,6 +46,7 @@ function walk(dir: string): string[] {
 async function main() {
   const files = walk(LOCAL_ROOT);
   console.log(`publishing ${files.length} files to ${REMOTE_ROOT} ...`);
+  const failures: string[] = [];
   const madeDirs = new Set<string>();
   for (const file of files) {
     const rel = path.relative(LOCAL_ROOT, file).replaceAll('\\', '/');
@@ -76,9 +77,15 @@ async function main() {
       }
     }
     console.log(` ${ok ? 'ok' : 'FAILED'}: ${rel}`);
-    if (!ok) throw new Error(`upload failed for ${rel} after 3 attempts`);
+    if (!ok) failures.push(rel);
   }
-  console.log('Done. Verify: https://thr.ypj.mybluehost.me/ (and georgialea.com once DNS points here)');
+  if (failures.length > 0) {
+    console.log(`Done with ${failures.length} failure(s): ${failures.join(', ')}`);
+    console.log('(Large files can exceed the upload limit — if the file is unchanged on the server, this is harmless.)');
+    process.exitCode = 1;
+  } else {
+    console.log('Done. Verify: https://georgialea.com/apps/');
+  }
 }
 
 main().catch((e) => {
