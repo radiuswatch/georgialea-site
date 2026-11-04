@@ -1,0 +1,19 @@
+# ClipNow on Bluehost (Apache)
+
+# Always use HTTPS: phone Save/Share, screen-awake and add-to-home-screen need it
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Serve the app manifest with the right type
+AddType application/manifest+json .webmanifest
+
+# Don't cache the page itself so updates show up right away; cache icons for a week
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.png$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
