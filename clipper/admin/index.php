@@ -289,7 +289,8 @@ $view = $_GET['view'] ?? 'subs';
     ?>
       <tr data-f="<?= e($filter) ?>" data-q="<?= e(strtolower($s['name'] . ' ' . $s['email'] . ' ' . $s['plan'])) ?>">
         <td class="who"><b><?= e($s['name'] ?: '(no name)') ?></b><span><?= e($s['email'] ?: 'no email') ?></span></td>
-        <td><?= e($s['plan']) ?><div class="sub num"><?= cn_money($s['cents'], $s['currency']) ?>/<?= $s['interval'] === 'year' ? 'yr' : 'mo' ?></div></td>
+        <td><?= e($s['plan']) ?><div class="sub num"><?= $s['cents'] === 0 && $s['coupon'] ? 'Free' : cn_money($s['cents'], $s['currency']) . '/' . ($s['interval'] === 'year' ? 'yr' : 'mo') ?></div>
+          <?php if ($s['coupon']): ?><div class="sub"><?= e($s['coupon']) ?></div><?php endif; ?></td>
         <td><span class="badge s-<?= e($s['status']) ?>"><?= e($label) ?></span>
           <?php if ($s['late']): ?><div class="sub">Owes <?= cn_money($s['due_cents'], $s['currency']) ?><?= $s['late_since'] ? ' since ' . day($s['late_since']) : '' ?></div><?php endif; ?>
           <?php if ($s['cancel_at_end'] && $s['status'] !== 'canceled'): ?><div class="sub">Cancels <?= day($s['period_end']) ?></div><?php endif; ?>

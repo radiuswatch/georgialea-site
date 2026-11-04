@@ -120,6 +120,13 @@ function cn_shape(array $s): array {
   $cents = (int)($price['unit_amount'] ?? 0) * (int)($s['items']['data'][0]['quantity'] ?? 1);
   $interval = $price['recurring']['interval'] ?? 'month';
   $plan = cn_plan_name($s['metadata']['plan'] ?? '', (int)($price['unit_amount'] ?? 0), $price['nickname'] ?? '');
+  // Apply a coupon (e.g. the 100%-off family code) so revenue and the price shown are what's really billed.
+  $coupon = $s['discount']['coupon'] ?? null;
+  $listCents = $cents;
+  if ($coupon) {
+    if (!empty($coupon['percent_off'])) $cents = (int)round($cents * (100 - (float)$coupon['percent_off']) / 100);
+    elseif (!empty($coupon['amount_off'])) $cents = max(0, $cents - (int)$coupon['amount_off']);
+  }
   $cust = is_array($s['customer'] ?? null) ? $s['customer'] : ['id' => $s['customer'] ?? ''];
   $inv = is_array($s['latest_invoice'] ?? null) ? $s['latest_invoice'] : [];
   return [
@@ -133,6 +140,8 @@ function cn_shape(array $s): array {
     'plan'        => $plan,
     'interval'    => $interval,
     'cents'       => $cents,
+    'list_cents'  => $listCents,
+    'coupon'      => $coupon ? ($coupon['name'] ?: ($coupon['percent_off'] ? $coupon['percent_off'] . '% off' : 'Discount')) : '',
     'currency'    => strtoupper($price['currency'] ?? 'usd'),
     'created'     => (int)($s['created'] ?? 0),
     'period_end'  => (int)($s['current_period_end'] ?? 0),
