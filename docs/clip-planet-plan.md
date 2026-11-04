@@ -34,7 +34,7 @@ FTC rules on earnings claims apply to the marketing.
   - Highlight finder: decodes the audio track and scores every 0.5 s for loudness, a strong
     opening (first 3 s), peaks and dead air. Picks the top N non-overlapping windows.
   - 9:16 render with fill-crop (drag to reframe) or fit-with-blurred-bars, hook text burned
-    in, progress bar, watermark.
+    in, progress bar. No watermark.
   - Export via canvas + MediaRecorder in real time (MP4 on Chrome/Safari, WebM elsewhere).
   - Per-platform captions with character limits, campaign tags, length warnings, copy
     button and a link to each platform's upload page.
@@ -43,6 +43,14 @@ FTC rules on earnings claims apply to the marketing.
 
 **To start charging today (no code):** create 3 recurring products in Stripe (monthly +
 yearly prices, 7-day trial), make a Payment Link for each, paste the 6 URLs into `CONFIG.stripe`.
+In each Payment Link, set "After payment" → redirect to
+`https://georgialea.com/apps/clipper/?welcome=starter` (or `pro` / `agency`).
+
+**Trial (client-side for now):** the studio's 7-day trial starts at the first export and is
+tracked in the browser. After day 7 exports are locked until the `?welcome=` redirect marks
+the device as a member. This is easy to get around (clear site data, another browser), so
+real enforcement needs sign-in plus a Stripe webhook that checks subscription status.
+That comes first in the weeks 1–3 build.
 
 ## 3b. Trending search (live on the page)
 
@@ -124,8 +132,7 @@ Rough cost per clip (30 s, 1080p): transcription ~$0.003, LLM captions ~$0.005, 
 compute ~$0.01, storage/egress ~$0.005 → **≈ $0.02–0.03**. A Pro user at 300 clips/month
 costs ~$9. Margins stay healthy if fair-use limits apply and long uploads get transcoded once.
 
-Growth levers: free studio with watermark (every exported clip advertises the product),
-referral credit (1 free month per paid referral), and a campaign marketplace where
+Growth levers: 7-day free trial on every plan (no free-forever tier for now), referral credit (1 free month per paid referral), and a campaign marketplace where
 creators post paid campaigns and Clip Planet takes a listing fee or a % of the campaign
 budget (not of clipper earnings).
 

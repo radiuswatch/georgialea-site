@@ -152,6 +152,9 @@
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
+  .trial-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--green-deep);border:1px solid var(--green-dim);border-radius:12px;padding:12px 16px;font-size:14.5px;color:#BFE9CF;max-width:680px}
+  .trial-bar b{color:var(--text)}
+  .trial-bar.ended{background:var(--warn-deep);border-color:#5A4418;color:#F1D9A6}
   .callout{background:var(--warn-deep);border:1px solid #5A4418;color:#F1D9A6;border-radius:12px;padding:14px 16px;font-size:14.5px;margin-top:18px}
   .callout b{color:#FFE7B5}
 
@@ -358,8 +361,9 @@
   <div class="wrap">
     <div class="sect-head reveal">
       <p class="eyebrow">Studio</p>
-      <h2>Try it right now, in your browser.</h2>
-      <p class="sub">Your video never leaves your computer. Everything below runs on your own device.</p>
+      <h2>Clip it right here, in your browser.</h2>
+      <p class="sub">Every plan starts with a 7-day free trial. Your trial starts with your first export. Your video never leaves your device.</p>
+      <div class="trial-bar" id="trialBar" hidden></div>
     </div>
 
     <div class="studio reveal">
@@ -445,7 +449,7 @@
         </div>
         <div class="plat-grid" id="plats"></div>
 
-        <div class="callout"><b>Free preview:</b> download each clip and post it with the copied caption; the Open button takes you to that platform's upload page. <b>Paid plans</b> connect your accounts once, then post or schedule to every platform in one click.</div>
+        <div class="callout"><b>For now:</b> save each clip and post it with the copied caption. The Open button takes you to that platform's upload page. <b>Coming to all plans:</b> connect your accounts once, then post or schedule to every platform in one click.</div>
       </div>
     </div>
   </div>
@@ -490,7 +494,7 @@
     <div class="sect-head reveal">
       <p class="eyebrow">Pricing</p>
       <h2>Monthly plans. Cancel anytime.</h2>
-      <p class="sub">Every plan starts with a 7-day free trial. The studio above stays free forever (with a small watermark).</p>
+      <p class="sub">Every plan starts with a 7-day free trial with full access. Cancel before day 7 and you pay nothing.</p>
     </div>
     <div class="seg bill-toggle reveal" id="billing">
       <button data-v="m" class="on">Monthly</button><button data-v="y">Yearly (2 months free)</button>
@@ -504,7 +508,7 @@
           <li>60 clips a month</li>
           <li>Connect 3 platforms</li>
           <li>Auto captions (spoken words on screen)</li>
-          <li>No watermark, 1080p exports</li>
+          <li>1080p HD exports</li>
         </ul>
         <a class="btn btn-ghost" data-plan="starter" href="#">Start free trial</a>
       </div>
@@ -550,7 +554,7 @@
       <details><summary>How do clippers actually make money?</summary><p>Mostly three ways: paid clipping campaigns, where a creator or brand pays you per 1,000 views on clips of their content; platform programs that pay for views, which have follower and region requirements; and affiliate or referral links in your bio. Clip Planet doesn't pay you. It makes the posting fast enough that you can do it daily.</p></details>
       <details><summary>Will I make money every day?</summary><p>Nobody can honestly promise that. Earnings depend on views, and views take time to build. What we can promise is that you'll spend minutes, not hours, on each batch of clips, so you can keep showing up long enough to find what works.</p></details>
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
-      <details><summary>Does my video get uploaded to your servers?</summary><p>Not in the free studio. It all runs in your browser. On paid plans, clips are uploaded only so we can post them to the accounts you connect, and they're deleted after 30 days.</p></details>
+      <details><summary>Does my video get uploaded to your servers?</summary><p>No. Clipping runs entirely in your browser, so your video stays on your device. When one-click posting arrives, clips will be uploaded only to post them to the accounts you connect, and deleted after 30 days.</p></details>
       <details><summary>How do I cancel?</summary><p>From your account page, any time, in two clicks. No calls, no emails, no "are you sure" mazes.</p></details>
     </div>
   </div>
@@ -799,10 +803,6 @@ function drawFrame(ctx, v, W, H, clip, t){
     ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(0, H-Math.round(H*0.006), W, Math.round(H*0.006));
     ctx.fillStyle = '#31C971'; ctx.fillRect(0, H-Math.round(H*0.006), W*p, Math.round(H*0.006));
   }
-  // free-tier watermark
-  ctx.font = '600 ' + Math.round(W*0.03) + 'px ' + getComputedStyle(document.body).fontFamily;
-  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(255,255,255,.55)';
-  ctx.fillText(CONFIG.brand, W*0.96, H*0.965);
 }
 function wrap(ctx, text, max){
   var words = text.split(/\s+/), lines = [], cur = '';
@@ -858,7 +858,11 @@ function renderClips(){
   });
   updExportBtn();
 }
-function updExportBtn(){ var n = S.clips.filter(function(c){return c.picked;}).length; var b=$('#exportBtn'); b.textContent = 'Export selected (' + n + ')'; b.disabled = !n; }
+function updExportBtn(){
+  var n = S.clips.filter(function(c){return c.picked;}).length, b = $('#exportBtn');
+  if (trial().ended){ b.textContent = 'Trial ended. Choose a plan'; b.disabled = false; return; }
+  b.textContent = 'Export selected (' + n + ')'; b.disabled = !n;
+}
 
 var HOOKS = [
   'Wait for it…', 'Nobody expected this', 'This changed everything', 'He really said that', 'Watch till the end',
@@ -956,6 +960,9 @@ function renderClip(clip, H, onProgress){
 $('#exportBtn').addEventListener('click', function(){
   var btn = this, picked = S.clips.filter(function(c){ return c.picked; });
   if (!picked.length) return;
+  var tr = trial();
+  if (tr.ended){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); toast('Your free trial has ended. Pick a plan to keep exporting.'); return; }
+  if (!tr.started && !tr.member){ store('cp_trial', { start:Date.now() }); renderTrial(); }
   var H = +$('#quality').value, st = $('#exStatus');
   btn.disabled = true;
   var lock = null;
@@ -1307,6 +1314,33 @@ function calc(){
   $('#rDay').textContent = money(day); $('#rMonth').textContent = money(month); $('#rNet').textContent = money(month - CONFIG.proMonthly);
 }
 $$('.calc input').forEach(function(i){ i.addEventListener('input', calc); }); calc();
+
+/* ---------- Free trial ---------- */
+// 7 days from the first export. Members are recognised on this device when Stripe's
+// "after payment" redirect sends them to ...clipper/?welcome=<plan>.
+// This is a client-side check only. Real enforcement needs sign-in (see docs/clip-planet-plan.md).
+var TRIAL_DAYS = 7;
+(function(){
+  var m = /[?&]welcome=(starter|pro|agency)\b/.exec(location.search);
+  if (m){ store('cp_member', { plan:m[1], since:Date.now() }); try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} setTimeout(function(){ toast('Welcome to ' + CONFIG.brand + ' ' + m[1].charAt(0).toUpperCase() + m[1].slice(1) + '!'); }, 600); }
+})();
+function trial(){
+  var mem = store('cp_member'); if (mem && mem.plan) return { member:mem.plan };
+  var t = store('cp_trial');
+  if (!t || !t.start) return { started:false };
+  var left = TRIAL_DAYS - (Date.now() - t.start) / 864e5;
+  return { started:true, left:Math.max(0, Math.ceil(left)), ended:left <= 0 };
+}
+function renderTrial(){
+  var tr = trial(), bar = $('#trialBar');
+  bar.classList.toggle('ended', !!tr.ended);
+  if (tr.member){ bar.hidden = false; bar.innerHTML = '<span><b>' + esc(tr.member.charAt(0).toUpperCase() + tr.member.slice(1)) + ' plan</b> is active on this device.</span>'; }
+  else if (!tr.started){ bar.hidden = true; }
+  else if (tr.ended){ bar.hidden = false; bar.innerHTML = '<span><b>Your free trial has ended.</b> Pick a plan to keep exporting clips.</span><a class="btn btn-green btn-sm" href="#pricing">See plans</a>'; }
+  else { bar.hidden = false; bar.innerHTML = '<span><b>Free trial:</b> ' + tr.left + ' day' + (tr.left===1?'':'s') + ' left. Pick a plan any time to keep going after.</span><a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>'; }
+  var eb = $('#exportBtn'); if (tr.ended) eb.dataset.locked = '1'; else delete eb.dataset.locked;
+}
+renderTrial();
 
 /* ---------- Pricing ---------- */
 var bill = 'm';
