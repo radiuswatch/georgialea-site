@@ -1,6 +1,6 @@
 {
-  "name": "Clip Planet",
-  "short_name": "Clip Planet",
+  "name": "ClipNow",
+  "short_name": "ClipNow",
   "description": "Find trending videos, clip them, post everywhere.",
   "start_url": "./",
   "scope": "./",

@@ -1,7 +1,7 @@
-# Clip Planet: product & build plan
+# ClipNow: product & build plan
 
 Internal planning doc. Not deployed (`docs/` is in the deploy script's SKIP list).
-Live prototype: `clipper/index.html` → publishes to `georgialea.com/apps/clipper/`.
+Live prototype: `clipper/index.html` → will live at `https://clipnow.vip/` (until then: `georgialea.com/apps/clipper/`).
 
 ## 1. The product in one sentence
 
@@ -44,7 +44,7 @@ FTC rules on earnings claims apply to the marketing.
 **To start charging today (no code):** create 3 recurring products in Stripe (monthly +
 yearly prices, 7-day trial), make a Payment Link for each, paste the 6 URLs into `CONFIG.stripe`.
 In each Payment Link, set "After payment" → redirect to
-`https://georgialea.com/apps/clipper/?welcome=starter` (or `pro` / `agency`).
+`https://clipnow.vip/?welcome=starter` (or `pro` / `agency`).
 
 **Trial (client-side for now):** the studio's 7-day trial starts at the first export and is
 tracked in the browser. After day 7 exports are locked until the `?welcome=` redirect marks
@@ -133,7 +133,7 @@ compute ~$0.01, storage/egress ~$0.005 → **≈ $0.02–0.03**. A Pro user at 3
 costs ~$9. Margins stay healthy if fair-use limits apply and long uploads get transcoded once.
 
 Growth levers: 7-day free trial on every plan (no free-forever tier for now), referral credit (1 free month per paid referral), and a campaign marketplace where
-creators post paid campaigns and Clip Planet takes a listing fee or a % of the campaign
+creators post paid campaigns and ClipNow takes a listing fee or a % of the campaign
 budget (not of clipper earnings).
 
 ## 7. Legal & trust checklist
