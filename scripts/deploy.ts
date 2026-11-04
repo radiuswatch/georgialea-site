@@ -19,7 +19,7 @@ const AUTH = { Authorization: `cpanel ${get('CPANEL_USER')}:${get('CPANEL_TOKEN'
 // Enforcement Associates' home) — this app-business site lives under /apps.
 const REMOTE_ROOT = '/home1/thrypjmy/public_html/apps';
 const LOCAL_ROOT = path.resolve(__dirname, '..');
-const SKIP = new Set(['.git', 'scripts', 'README.md', 'node_modules']);
+const SKIP = new Set(['.git', 'scripts', 'docs', 'README.md', 'node_modules']);
 
 async function api2(module: string, func: string, params: Record<string, string>) {
   const q = new URLSearchParams({

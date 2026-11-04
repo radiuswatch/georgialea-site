@@ -1,0 +1,130 @@
+# Clip Planet: product & build plan
+
+Internal planning doc. Not deployed (`docs/` is in the deploy script's SKIP list).
+Live prototype: `clipper/index.html` → publishes to `georgialea.com/apps/clipper/`.
+
+## 1. The product in one sentence
+
+Upload one long video, get the best moments as vertical clips with hooks and captions,
+and post them to TikTok, YouTube Shorts, Instagram Reels, Facebook Reels, Snapchat
+Spotlight and X in three steps, for a monthly subscription.
+
+## 2. Who pays and why
+
+| Customer | What they want | Plan |
+|---|---|---|
+| New clipper (side income) | A simple daily routine that turns campaign footage into paid views | Starter $19 |
+| Daily clipper | Post more clips to more platforms in less time, track payouts | Pro $49 |
+| Clipping team / agency | Many accounts, team seats, per-account payout reports | Agency $149 |
+| Creators clipping their own content | Repurpose streams/podcasts without an editor | Starter or Pro |
+
+**How clippers earn (we don't pay them, we make them faster):**
+1. **Paid clipping campaigns.** Creators and brands pay per 1,000 views on clips of their content.
+   Rates are commonly ~$0.50–$3 per 1K. Campaigns set rules (required tags, minimum views, caps).
+2. **Platform creator programs.** These have follower, view and region requirements.
+3. **Affiliate / referral links** in bio.
+
+Never promise income on the site. The estimator is user-entered arithmetic with a disclaimer.
+FTC rules on earnings claims apply to the marketing.
+
+## 3. What exists today (prototype, no backend)
+
+- Landing page, how-it-works, daily plan checklist (localStorage), earnings estimator, pricing, FAQ.
+- **Working studio, 100% in the browser:**
+  - Highlight finder: decodes the audio track and scores every 0.5 s for loudness, a strong
+    opening (first 3 s), peaks and dead air. Picks the top N non-overlapping windows.
+  - 9:16 render with fill-crop (drag to reframe) or fit-with-blurred-bars, hook text burned
+    in, progress bar, watermark.
+  - Export via canvas + MediaRecorder in real time (MP4 on Chrome/Safari, WebM elsewhere).
+  - Per-platform captions with character limits, campaign tags, length warnings, copy
+    button and a link to each platform's upload page.
+- Pricing buttons read Stripe Payment Links from `CONFIG.stripe` at the top of the script.
+  Empty links fall back to an email to info@georgialea.com.
+
+**To start charging today (no code):** create 3 recurring products in Stripe (monthly +
+yearly prices, 7-day trial), make a Payment Link for each, paste the 6 URLs into `CONFIG.stripe`.
+
+## 4. Full platform architecture (paid tiers)
+
+```
+Browser (Next.js app)
+  ├─ Auth (Clerk or Supabase Auth)
+  ├─ Upload direct to storage (S3/R2 presigned, resumable via tus)
+  └─ Dashboard: clips, schedule, connected accounts, payouts
+API (Node/TypeScript)
+  ├─ Stripe Billing + webhooks → plan limits
+  ├─ OAuth connections per platform (tokens encrypted at rest)
+  └─ Job queue (BullMQ on Redis)
+Workers (GPU optional)
+  ├─ ffmpeg: cut, 9:16 reframe, captions burn-in, loudness normalize
+  ├─ Whisper (or a speech-to-text API): word-level transcript → animated captions
+  ├─ Highlight model: transcript + audio energy + scene cuts + face tracking
+  ├─ LLM (Claude API): hook text, titles, hashtags per platform, "why this clip" notes
+  └─ Publisher: per-platform upload + status polling + retries
+Postgres: users, plans, videos, clips, posts, campaigns, view snapshots
+```
+
+### Highlight scoring v2
+Score = audio energy (have) + speech rate + laughter/applause detection + transcript
+"quotability" (LLM rates each candidate segment as a standalone hook) + scene-change
+density + face presence. Always cut on sentence boundaries from the transcript.
+
+### Smart reframing
+Face/body tracking (MediaPipe or similar) keeps the speaker centered in 9:16. Two speakers →
+split-screen layout.
+
+## 5. Posting to each platform: what it actually takes
+
+Plan 3–8 weeks for API approvals. Ship "download + copy caption" first (the prototype already does it).
+
+| Platform | API | Gate to pass |
+|---|---|---|
+| TikTok | Content Posting API (direct post) | App review + audit. Unaudited apps can only post privately. |
+| YouTube Shorts | YouTube Data API v3 `videos.insert` | Google OAuth verification. Default quota is enough for ~6 uploads/day per project, so request a quota increase. |
+| Instagram Reels | Instagram Graph API (content publishing) | Meta app review. User needs a Business/Creator account. Rate limits per account per 24 h. |
+| Facebook Reels | Graph API Reels publishing on Pages | Meta app review. Posts to Pages, not personal profiles. |
+| Snapchat Spotlight | Limited public API | Start with manual upload. Revisit if API access opens up. |
+| X | X API v2 media upload + post | Paid API tier required for write access at volume. |
+
+Rules to build in from day one: per-platform length/size/aspect checks, rate-limit-aware
+scheduler, token refresh, clear "posted / failed / needs reconnect" states.
+
+## 6. Pricing & unit economics
+
+| | Starter | Pro | Agency |
+|---|---|---|---|
+| Monthly | $19 | $49 | $149 |
+| Yearly | $190 | $490 | $1,490 |
+| Clips / month | 60 | Unlimited (fair use ~600) | Unlimited |
+| Platforms | 3 | 6 | 6 × 10 accounts |
+
+Rough cost per clip (30 s, 1080p): transcription ~$0.003, LLM captions ~$0.005, render
+compute ~$0.01, storage/egress ~$0.005 → **≈ $0.02–0.03**. A Pro user at 300 clips/month
+costs ~$9. Margins stay healthy if fair-use limits apply and long uploads get transcoded once.
+
+Growth levers: free studio with watermark (every exported clip advertises the product),
+referral credit (1 free month per paid referral), and a campaign marketplace where
+creators post paid campaigns and Clip Planet takes a listing fee or a % of the campaign
+budget (not of clipper earnings).
+
+## 7. Legal & trust checklist
+
+- Terms of Service: users must own or have permission for uploaded content. DMCA agent +
+  takedown process.
+- Earnings disclaimer on every page that mentions money.
+- Privacy policy: what's stored, 30-day deletion of renders, OAuth token handling.
+- Each platform's developer policies: no posting without user action/consent, no
+  engagement manipulation, honest "posted via" disclosure where required.
+- Stripe: clear cancellation (FTC click-to-cancel), trial reminder email before first charge.
+
+## 8. Roadmap
+
+1. **Week 0 (now):** prototype live, Stripe Payment Links wired, collect emails/trials.
+2. **Weeks 1–3:** accounts + uploads + server-side ffmpeg render + Whisper captions + Stripe
+   Billing portal. Apply for TikTok, Google and Meta API access on day 1.
+3. **Weeks 4–6:** one-click posting to YouTube + Instagram/Facebook as approvals land;
+   scheduler; LLM hooks/titles.
+4. **Weeks 6–8:** TikTok direct post after the audit; view tracking (pull stats via each API);
+   payout report per campaign.
+5. **Later:** campaign marketplace, smart reframing, team seats, mobile app (App Planet
+   can build the iOS client).
