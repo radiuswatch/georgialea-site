@@ -141,7 +141,8 @@ function cn_shape(array $s): array {
     'interval'    => $interval,
     'cents'       => $cents,
     'list_cents'  => $listCents,
-    'coupon'      => $coupon ? ($coupon['name'] ?: ($coupon['percent_off'] ? $coupon['percent_off'] . '% off' : 'Discount')) : '',
+    'promo_id'    => (string)($s['discount']['promotion_code'] ?? ''),
+    'coupon'      => $coupon ?($coupon['name'] ?: ($coupon['percent_off'] ? $coupon['percent_off'] . '% off' : 'Discount')) : '',
     'currency'    => strtoupper($price['currency'] ?? 'usd'),
     'created'     => (int)($s['created'] ?? 0),
     'period_end'  => (int)($s['current_period_end'] ?? 0),
@@ -162,6 +163,70 @@ function cn_plan_name(string $key, int $unitCents, string $nickname): string {
 
 function cn_money(int $cents, string $cur = 'USD'): string {
   return ($cur === 'USD' ? '$' : "$cur ") . number_format($cents / 100, 2);
+}
+
+/* ---------- Family codes (single-use, 100% off Platinum) ---------- */
+
+/** The 100%-off-forever Platinum coupon (metadata purpose=family). Created on first use. */
+function cn_family_coupon(): string {
+  foreach (cn_stripe('GET', '/v1/coupons', ['limit' => 100])['data'] as $c) {
+    if (($c['metadata']['purpose'] ?? '') === 'family' && !empty($c['valid'])) return $c['id'];
+  }
+  $platinum = '';
+  foreach (cn_stripe('GET', '/v1/products', ['active' => 'true', 'limit' => 100])['data'] as $p) {
+    if (($p['metadata']['plan'] ?? '') === 'agency') { $platinum = $p['id']; break; }
+  }
+  if ($platinum === '') throw new RuntimeException('No Platinum product found in Stripe (a product with metadata plan=agency).');
+  $c = cn_stripe('POST', '/v1/coupons', ['percent_off' => 100, 'duration' => 'forever', 'name' => 'Family: Platinum free',
+    'applies_to' => ['products' => [$platinum]], 'metadata' => ['purpose' => 'family']]);
+  return $c['id'];
+}
+
+/** The no-card-needed Platinum sign-up link (payment link with metadata purpose=family), or ''. */
+function cn_family_link(): string {
+  foreach (cn_stripe('GET', '/v1/payment_links', ['active' => 'true', 'limit' => 100])['data'] as $l) {
+    if (($l['metadata']['purpose'] ?? '') === 'family') return $l['url'];
+  }
+  return '';
+}
+
+/** Make a new single-use code. $days = 0 means it never expires. */
+function cn_create_family_code(string $note, int $days): array {
+  $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I lookalikes
+  for ($try = 0; $try < 5; $try++) {
+    $code = 'FAM-';
+    for ($i = 0; $i < 6; $i++) $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+    $p = ['coupon' => cn_family_coupon(), 'code' => $code, 'max_redemptions' => 1,
+          'metadata' => ['purpose' => 'family', 'note' => mb_substr($note, 0, 200), 'created_by' => 'admin portal']];
+    if ($days > 0) $p['expires_at'] = time() + $days * 86400;
+    try { return cn_stripe('POST', '/v1/promotion_codes', $p); }
+    catch (RuntimeException $e) { if (!str_contains($e->getMessage(), 'already exists')) throw $e; }
+  }
+  throw new RuntimeException('Could not make a unique code. Please try again.');
+}
+
+/** Every family code, newest first, with who redeemed it (from $subs). */
+function cn_family_codes(array $subs): array {
+  $coupon = cn_family_coupon();
+  $byPromo = [];
+  foreach ($subs as $s) if ($s['promo_id'] !== '') $byPromo[$s['promo_id']][] = $s;
+  $out = []; $after = null;
+  do {
+    $q = ['coupon' => $coupon, 'limit' => 100]; if ($after) $q['starting_after'] = $after;
+    $page = cn_stripe('GET', '/v1/promotion_codes', $q);
+    foreach ($page['data'] as $p) {
+      $used = (int)$p['times_redeemed'];
+      $expired = !empty($p['expires_at']) && $p['expires_at'] < time();
+      $status = $used >= (int)($p['max_redemptions'] ?? PHP_INT_MAX) ? 'used' : ($expired ? 'expired' : (!$p['active'] ? 'off' : 'unused'));
+      $who = $byPromo[$p['id']] ?? [];
+      $out[] = ['id' => $p['id'], 'code' => $p['code'], 'note' => $p['metadata']['note'] ?? '', 'created' => (int)$p['created'],
+                'expires' => (int)($p['expires_at'] ?? 0), 'status' => $status, 'max' => $p['max_redemptions'], 'used' => $used,
+                'by' => $who ? ($who[0]['email'] ?: $who[0]['name']) : '', 'by_status' => $who ? $who[0]['status'] : ''];
+    }
+    $after = $page['data'] ? end($page['data'])['id'] : null;
+  } while (!empty($page['has_more']));
+  usort($out, fn($a, $b) => $b['created'] <=> $a['created']);
+  return $out;
 }
 
 /* ---------- Update-payment link ---------- */

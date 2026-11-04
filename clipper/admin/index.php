@@ -94,6 +94,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     back('log');
   }
 
+  if ($do === 'make_code') {
+    $note = trim((string)($_POST['note'] ?? ''));
+    $days = (int)($_POST['days'] ?? 0);
+    if (!in_array($days, [0, 7, 30, 90], true)) $days = 0;
+    try {
+      $p = cn_create_family_code($note, $days);
+      $_SESSION['new_code'] = ['code' => $p['code'], 'note' => $note, 'expires' => (int)($p['expires_at'] ?? 0)];
+      flash("New code {$p['code']} is ready. It works once.");
+    } catch (Throwable $ex) { flash($ex->getMessage(), false); }
+    back('codes');
+  }
+
+  if ($do === 'code_off') {
+    try {
+      $id = (string)($_POST['promo'] ?? '');
+      if (!preg_match('/^promo_\w+$/', $id)) throw new RuntimeException('Unknown code.');
+      $p = cn_stripe('GET', '/v1/promotion_codes/' . $id);
+      if (($p['metadata']['purpose'] ?? '') !== 'family') throw new RuntimeException('That isn\'t a family code.');
+      cn_stripe('POST', '/v1/promotion_codes/' . $id, ['active' => 'false']);
+      flash("Code {$p['code']} is turned off and can't be used.");
+    } catch (Throwable $ex) { flash($ex->getMessage(), false); }
+    back('codes');
+  }
+
   if ($do === 'settings') {
     $key = trim((string)($_POST['stripe_key'] ?? ''));
     if ($key !== '') {
@@ -232,6 +256,7 @@ $view = $_GET['view'] ?? 'subs';
     <div class="mark">CN</div><h1>ClipNow Admin</h1>
     <nav>
       <a href="./" class="<?= $view === 'subs' ? 'on' : '' ?>">Subscriptions</a>
+      <a href="?view=codes" class="<?= $view === 'codes' ? 'on' : '' ?>">Family codes</a>
       <a href="?view=log" class="<?= $view === 'log' ? 'on' : '' ?>">Notice log</a>
       <a href="?view=settings" class="<?= $view === 'settings' ? 'on' : '' ?>">Settings</a>
       <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="logout">Sign out</button></form>
@@ -326,6 +351,76 @@ $view = $_GET['view'] ?? 'subs';
   })();
   </script>
 
+<?php elseif ($view === 'codes'):
+  $codes = []; $link = ''; $error = '';
+  try { $link = cn_family_link(); $codes = cn_family_codes(cn_subscriptions()); } catch (Throwable $ex) { $error = $ex->getMessage(); }
+  $new = $_SESSION['new_code'] ?? null; unset($_SESSION['new_code']);
+  $signup = $link ?: CN_SITE . '/#pricing';
+  $unused = count(array_filter($codes, fn($c) => $c['status'] === 'unused'));
+  $usedN = count(array_filter($codes, fn($c) => $c['status'] === 'used'));
+?>
+  <?php if ($error): ?><div class="flash bad"><?= e($error) ?></div><?php endif; ?>
+  <?php if ($new):
+    $msg = "Here's free ClipNow Platinum for you. Sign up here: $signup and tap \"Add promotion code\", then enter {$new['code']}. It works once"
+      . ($new['expires'] ? ' and expires ' . date('M j, Y', $new['expires']) : '') . '. No card needed.'; ?>
+  <div class="panel" style="border-color:var(--green)">
+    <h2>Your new code</h2>
+    <p><?= $new['note'] !== '' ? 'For ' . e($new['note']) . '. ' : '' ?>Free Platinum, no monthly charge. Works one time<?= $new['expires'] ? ', until ' . e(date('M j, Y', $new['expires'])) : '' ?>.</p>
+    <div class="bar" style="margin:0 0 14px">
+      <code id="newCode" style="font:600 30px var(--mono);letter-spacing:.06em;color:var(--green);background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:8px 16px"><?= e($new['code']) ?></code>
+      <button class="btn" type="button" data-copy="newCode">Copy code</button>
+    </div>
+    <label for="shareMsg">Message to send</label>
+    <textarea id="shareMsg" rows="3" readonly style="width:100%;background:var(--card-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font:inherit;resize:vertical"><?= e($msg) ?></textarea>
+    <p style="margin:10px 0 0"><button class="btn" type="button" data-copy="shareMsg">Copy message</button></p>
+  </div>
+  <?php endif; ?>
+
+  <div class="panel">
+    <h2>Make a family code</h2>
+    <p>Each code gives one person free Platinum forever and works only once. They sign up with the family link<?= $link ? '' : ' (not set up in Stripe yet, so they\'d use the Platinum button on the site, which asks for a card)' ?>, enter the code, and pay $0.</p>
+    <form method="post" class="grid2" style="align-items:end">
+      <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="make_code">
+      <div><label for="note">Who is it for? (only you see this)</label><input id="note" name="note" maxlength="200" placeholder="e.g. Mom, cousin Dee"></div>
+      <div><label for="days">Code expires if not used within</label>
+        <select id="days" name="days"><option value="30">30 days</option><option value="7">7 days</option><option value="90">90 days</option><option value="0">Never</option></select></div>
+      <div><button class="btn go" <?= $error ? 'disabled' : '' ?>>Generate one-time code</button></div>
+    </form>
+    <?php if ($link): ?><p style="margin:14px 0 0">Family sign-up link (no card needed): <a href="<?= e($link) ?>" target="_blank" rel="noopener" style="overflow-wrap:anywhere"><?= e($link) ?></a></p><?php endif; ?>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b><?= $unused ?></b><span>Unused codes</span></div>
+    <div class="stat"><b><?= $usedN ?></b><span>Used</span></div>
+    <div class="stat"><b><?= count($codes) ?></b><span>All codes</span></div>
+  </div>
+  <div class="card"><div class="scroll">
+  <?php if (!$codes): ?><div class="empty">No family codes yet.</div><?php else: ?>
+  <table class="members"><thead><tr><th>Code</th><th>For</th><th>Status</th><th class="hide-sm">Made</th><th class="hide-sm">Expires</th><th></th></tr></thead><tbody>
+  <?php foreach ($codes as $c):
+    $badge = ['unused' => ['s-trialing', 'Unused'], 'used' => ['s-active', 'Used'], 'expired' => ['s-canceled', 'Expired'], 'off' => ['s-canceled', 'Turned off']][$c['status']]; ?>
+    <tr>
+      <td class="who"><b class="num" style="font-family:var(--mono)"><?= e($c['code']) ?></b><?php if ((int)$c['max'] !== 1): ?><span><?= (int)$c['used'] ?> of <?= $c['max'] ? (int)$c['max'] : '∞' ?> uses</span><?php endif; ?></td>
+      <td><?= e($c['note'] ?: '—') ?></td>
+      <td><span class="badge <?= $badge[0] ?>"><?= $badge[1] ?></span><?php if ($c['by']): ?><div class="sub">by <?= e($c['by']) ?><?= $c['by_status'] && $c['by_status'] !== 'active' ? ' (' . e($c['by_status']) . ')' : '' ?></div><?php endif; ?></td>
+      <td class="hide-sm num"><?= day($c['created']) ?></td>
+      <td class="hide-sm num"><?= $c['expires'] ? day($c['expires']) : 'Never' ?></td>
+      <td class="acts" style="white-space:nowrap"><?php if ($c['status'] === 'unused'): ?>
+        <form method="post" class="inline" onsubmit="return confirm('Turn off <?= e($c['code']) ?>? It will stop working.')"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="promo" value="<?= e($c['id']) ?>"><button class="btn" name="do" value="code_off">Turn off</button></form>
+      <?php endif; ?></td>
+    </tr>
+  <?php endforeach; ?>
+  </tbody></table>
+  <?php endif; ?>
+  </div></div>
+  <p class="sub" style="margin-top:12px">Turning off a code stops new sign-ups with it. To end free access for someone who already used one, cancel their subscription from the Subscriptions page (Stripe button).</p>
+  <script>
+  document.querySelectorAll('[data-copy]').forEach(function(b){ b.addEventListener('click', function(){
+    var el=document.getElementById(b.dataset.copy), t=el.value!==undefined?el.value:el.textContent;
+    (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; }, function(){ if(el.select){el.select();} document.execCommand('copy'); b.textContent='Copied'; });
+    setTimeout(function(){ b.textContent=b.dataset.copy==='newCode'?'Copy code':'Copy message'; },1500); }); });
+  </script>
+
 <?php elseif ($view === 'log'): $log = cn_recent_log(200); ?>
   <div class="panel">
     <h2>Automatic notices</h2>
@@ -353,7 +448,7 @@ $view = $_GET['view'] ?? 'subs';
     <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="settings">
     <div class="panel">
       <h2>Stripe</h2>
-      <p>Paste a secret key (starts with <code>sk_live_</code>) or a restricted key (<code>rk_live_</code>) with read access to Customers, Subscriptions and Invoices, and write access to Customer portal. In Stripe: Developers → API keys. Current key: <b><?= e($masked) ?></b></p>
+      <p>Paste a secret key (starts with <code>sk_live_</code>) or a restricted key (<code>rk_live_</code>) with read access to Customers, Subscriptions, Invoices, Products and Payment Links, and write access to Customer portal, Coupons and Promotion codes. In Stripe: Developers → API keys. Current key: <b><?= e($masked) ?></b></p>
       <label for="sk">New key (leave blank to keep the current one)</label>
       <input id="sk" name="stripe_key" autocomplete="off" spellcheck="false" placeholder="sk_live_…">
     </div>
