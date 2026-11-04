@@ -14,7 +14,7 @@ one-line swap).
 ## Clip Planet (`clipper/`)
 
 Subscription clipping product, deployed at `/apps/clipper/`. Static page, no build step:
-an in-browser studio (find highlights → 9:16 clips with hooks → per-platform captions),
+a trending-video search (streamer name or YouTube link; set `CONFIG.youtubeKey` for in-page results), an in-browser studio (find highlights → 9:16 clips with hooks → per-platform captions),
 daily plan, earnings estimator and pricing (Starter $19 · Pro $49 · Agency $149 per month).
 Paste Stripe Payment Links into `CONFIG.stripe` at the top of the page script to take payments.
 Product and build plan: `docs/clip-planet-plan.md` (not deployed).

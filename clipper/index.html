@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0D0B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clip Planet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <title>Clip Planet — Clip once, post everywhere</title>
 <meta name="description" content="Clip Planet turns one long video into ready-to-post vertical clips and gets them onto TikTok, YouTube Shorts, Instagram Reels, Facebook Reels, Snapchat Spotlight and X in a few steps. Built for beginners. Monthly plans, cancel anytime.">
 <meta property="og:title" content="Clip Planet — Clip once, post everywhere">
@@ -21,6 +28,7 @@
     color-scheme:dark;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
   a{color:var(--green);text-decoration:none}
@@ -31,7 +39,7 @@
   .sub{color:var(--muted);max-width:60ch;margin:0}
   button,input,select,textarea{font:inherit;color:inherit}
 
-  header{position:sticky;top:0;background:rgba(11,13,11,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:20}
+  header{padding-top:env(safe-area-inset-top);position:sticky;top:0;background:rgba(11,13,11,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:20}
   .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1080px;margin:0 auto;gap:16px}
   .brand{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:600;font-size:17px}
   .brand-mark{width:30px;height:30px;border-radius:8px;background:var(--green);color:#06230F;display:grid;place-items:center;font-family:var(--mono);font-size:13px;font-weight:700}
@@ -194,10 +202,82 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--green);color:#06230F;font-weight:600;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:60}
   .toast.on{opacity:1;transform:translateX(-50%)}
 
+  /* Trending search */
+  .search{display:flex;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;max-width:680px}
+  .search:focus-within{border-color:var(--green-dim)}
+  .search input{flex:1;min-width:0;background:transparent;border:0;padding:12px 12px;font-size:17px;outline:none}
+  .search input::placeholder{color:var(--faint)}
+  .search .btn{padding:12px 20px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .pills .lbl{font-size:13px;color:var(--faint);margin-right:2px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--muted);cursor:pointer}
+  .pill:hover,.pill.on{color:var(--green);border-color:var(--green-dim);background:var(--green-deep)}
+  .results{margin-top:32px}
+  .results[hidden]{display:none}
+  .res-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .res-head h3{font-family:var(--sans);font-weight:600;font-size:19px}
+  .res-head p{margin:2px 0 0;color:var(--muted);font-size:14px}
+  .res-tabs{display:flex}
+  .res-tabs button{white-space:nowrap;padding:9px 14px}
+  .vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:16px}
+  .vid{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .vid-thumb{position:relative;display:block;aspect-ratio:16/9;background:#000}
+  .vid-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .vid-thumb .dur{position:absolute;right:8px;bottom:8px;font-family:var(--mono);font-size:12px;background:rgba(0,0,0,.78);color:#fff;padding:2px 7px;border-radius:5px}
+  .vid-thumb .hot{position:absolute;left:8px;top:8px;font-family:var(--mono);font-size:11.5px;font-weight:700;background:var(--green);color:#06230F;padding:3px 8px;border-radius:5px}
+  .vid-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+  .vid-body h4{margin:0;font-size:15.5px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .vid-meta{font-size:13px;color:var(--muted);margin:0}
+  .vid-velo{font-family:var(--mono);font-size:12.5px;color:var(--green);margin:0}
+  .vid-actions{display:flex;gap:8px;margin-top:auto;padding-top:6px}
+  .vid-actions .btn{flex:1}
+  .skeleton .vid-thumb,.skeleton .sk{background:linear-gradient(90deg,var(--card) 0%,var(--card-2) 50%,var(--card) 100%);background-size:200% 100%;animation:sk 1.2s infinite}
+  .skeleton .sk{height:12px;border-radius:4px}
+  @keyframes sk{to{background-position:-200% 0}}
+  .links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:12px}
+  .golink{display:flex;flex-direction:column;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;color:var(--text)}
+  .golink:hover{border-color:var(--green-dim)}
+  .golink b{font-weight:600;font-size:15.5px}
+  .golink span{font-size:13.5px;color:var(--muted)}
+  .golink i{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--green)}
+  .src-banner{display:flex;gap:14px;align-items:center;background:var(--green-deep);border:1px solid var(--green-dim);border-radius:12px;padding:12px;margin-bottom:16px}
+  .src-banner img{width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;flex-shrink:0}
+  .src-banner div{min-width:0;font-size:14px;color:#BFE9CF}
+  .src-banner b{display:block;color:var(--text);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .src-banner button{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px;align-self:flex-start}
+
+  /* Mobile app bar */
+  .tabbar{display:none}
+  @media (max-width:700px){
+    .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+    .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--faint);font-size:11.5px;padding:6px 0;min-height:48px;justify-content:center}
+    .tabbar a.on{color:var(--green)}
+    .tabbar svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+    .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+    .search .btn{padding:12px 16px}
+    .modal{padding:0}
+    .modal-box{max-width:none;height:100%;border-radius:0;border:0;padding:calc(12px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));justify-content:center}
+    .modal-box canvas{max-height:72vh}
+    .clips{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .clip-body{padding:10px;gap:8px}
+    .nudge{grid-template-columns:repeat(2,1fr)}
+    .clip-actions{flex-direction:column}
+    .fields[style*="grid-template-columns"]{grid-template-columns:1fr!important}
+    .src-banner img{width:84px}
+  }
+  /* iOS zooms into inputs under 16px; keep touch targets at least 44px */
+  @media (pointer:coarse){
+    .field select,.field input[type=text],.field input[type=number],.field textarea,.clip input[type=text],.plat textarea{font-size:16px}
+    .nudge button{min-height:38px;font-size:12px}
+    .seg button{min-height:44px}
+    .btn-sm{min-height:42px}
+    .stage-tab{min-height:48px}
+  }
   .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
   .reveal.in{opacity:1;transform:none}
-  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
-  @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:60px 0 48px}section{padding:60px 0}.stage{padding:18px}.wrap{padding:0 16px}.nav{padding:12px 16px}}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}.skeleton .vid-thumb,.skeleton .sk{animation:none}}
+  @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:40px 0 40px}section{padding:56px 0}.stage{padding:16px}.wrap{padding:0 max(16px,env(safe-area-inset-left))}.nav{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}.plat-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -211,20 +291,46 @@
       <a href="#daily">Daily plan</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
-      <a class="btn btn-green btn-sm" href="#studio">Try it free</a>
+      <a class="btn btn-green btn-sm" href="#top">Find videos</a>
     </nav>
   </div>
 </header>
 
 <main id="top">
-<section class="hero">
+<section class="hero" id="search">
   <div class="wrap">
     <p class="eyebrow reveal">Clip once · post everywhere</p>
-    <h1 class="reveal">One long video in. <em>A week of clips</em> out.</h1>
-    <p class="sub reveal">Drop in a stream, podcast or vlog. Clip Planet finds the moments worth watching, cuts them into vertical clips with a hook on screen, and writes the caption for every platform. Three steps. No editing experience needed.</p>
-    <div class="cta-row reveal">
-      <a class="btn btn-green" href="#studio">Clip your first video — free</a>
-      <a class="btn btn-ghost" href="#pricing">See plans from $19/mo</a>
+    <h1 class="reveal">Find what's <em>trending today.</em> Clip it. Post it.</h1>
+    <p class="sub reveal">Type a streamer's name or paste a YouTube link to see their top videos of the last 24 hours, ranked by how fast they're getting views. Then clip the best moments and post them everywhere.</p>
+
+    <form class="search reveal" id="searchForm" role="search" autocomplete="off">
+      <input type="search" id="q" enterkeyhint="search" inputmode="search" placeholder="Streamer name or YouTube link" aria-label="Streamer name or YouTube link">
+      <button class="btn btn-green" type="submit">Search</button>
+    </form>
+    <div class="pills reveal" id="pills">
+      <span class="lbl">Top today:</span>
+      <button class="pill" type="button" data-cat="0">All</button>
+      <button class="pill" type="button" data-cat="20">Gaming</button>
+      <button class="pill" type="button" data-cat="24">Entertainment</button>
+      <button class="pill" type="button" data-cat="17">Sports</button>
+      <button class="pill" type="button" data-cat="23">Comedy</button>
+      <button class="pill" type="button" data-cat="10">Music</button>
+    </div>
+    <div class="pills" id="recent" hidden></div>
+
+    <div class="results" id="results" hidden aria-live="polite">
+      <div class="res-head">
+        <div><h3 id="resTitle"></h3><p id="resSub"></p></div>
+        <div class="res-tabs seg" id="resTabs" hidden>
+          <button type="button" data-tab="channel" class="on">Their channel</button><button type="button" data-tab="everyone">Everyone's clips</button>
+        </div>
+      </div>
+      <div id="resBody"></div>
+    </div>
+
+    <div class="cta-row reveal" style="margin-top:30px">
+      <a class="btn btn-ghost" href="#studio">Already have the video? Upload it</a>
+      <a class="btn btn-ghost" href="#pricing">Plans from $19/mo</a>
     </div>
     <div class="plat-row reveal" aria-label="Supported platforms">
       <span class="chip">TikTok</span><span class="chip">YouTube Shorts</span><span class="chip">Instagram Reels</span><span class="chip">Facebook Reels</span><span class="chip">Snapchat Spotlight</span><span class="chip">X</span>
@@ -265,10 +371,15 @@
 
       <!-- Stage 1 -->
       <div class="stage on" data-stage="1">
+        <div class="src-banner" id="srcBanner" hidden>
+          <img alt="">
+          <div><b></b><span>Now upload this video's file. Use the download link from your clipping campaign, or the original if it's your own video. YouTube doesn't allow pulling the file from a link.</span></div>
+          <button type="button" aria-label="Clear selected video">×</button>
+        </div>
         <label class="drop" id="drop">
           <input type="file" id="file" accept="video/*">
-          <h3>Drop a video here, or tap to choose one</h3>
-          <p>MP4, MOV or WebM. A 10 to 60 minute video works best.</p>
+          <h3 id="dropTitle">Drop a video here, or click to choose one</h3>
+          <p id="dropSub">MP4, MOV or WebM. A 10 to 60 minute video works best.</p>
         </label>
         <p class="note"><b>Only clip videos you have the right to use:</b> your own, or a campaign that allows reposting. Reposting other people's videos without permission can get accounts banned and payouts withheld.</p>
 
@@ -466,6 +577,13 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<nav class="tabbar" aria-label="App sections">
+  <a href="#top" data-sec="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</a>
+  <a href="#studio" data-sec="studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
+  <a href="#daily" data-sec="daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
+  <a href="#pricing" data-sec="pricing"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3S9.5 10 12 10.5s4.5 1.3 4.5 3-2 3.5-4.5 3.5-4.5-1.3-4.5-3"/></svg>Plans</a>
+</nav>
+
 <script>
 (function(){
 'use strict';
@@ -481,8 +599,15 @@ var CONFIG = {
     pro:     { m: '', y: '' },
     agency:  { m: '', y: '' }
   },
-  proMonthly: 49
+  proMonthly: 49,
+  // YouTube Data API v3 key (Google Cloud console → APIs & Services → Credentials).
+  // Restrict it to "HTTP referrers: georgialea.com/*" and to the YouTube Data API only.
+  // Empty = search still works, but sends people to YouTube/Twitch/Kick instead of
+  // showing results on this page.
+  youtubeKey: '',
+  region: 'US'
 };
+var MOBILE = window.matchMedia && matchMedia('(pointer:coarse)').matches;
 
 var PLATFORMS = [
   { id:'tiktok',   name:'TikTok',             limit:2200, maxSec:600, url:'https://www.tiktok.com/upload',          tags:4, note:'Up to 10 min · 2,200 chars' },
@@ -506,6 +631,7 @@ function copy(text){
   function fallback(){ var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Caption copied');}catch(e){} ta.remove(); }
 }
 $$('[data-brand]').forEach(function(el){ el.textContent = CONFIG.brand; });
+if (MOBILE){ $('#dropTitle').textContent = 'Tap to choose a video'; $('#dropSub').textContent = 'From Photos, Files or Downloads. A 10 to 60 minute video works best.'; }
 
 /* ---------- State ---------- */
 var S = { file:null, url:null, duration:0, len:30, count:5, frame:'fill', clips:[], exports:[], energy:null, hop:0.5 };
@@ -560,7 +686,7 @@ $('#findBtn').addEventListener('click', function(){
   ready.then(function(){
     if (S.energy) return S.energy;
     st.textContent = 'Listening to the video…'; setProg('#anProg', .1);
-    if (S.file.size > 1.2e9) throw new Error('big');
+    if (S.file.size > (MOBILE ? 4e8 : 1.2e9)) throw new Error('big');   // phones run out of memory decoding huge files
     return S.file.arrayBuffer().then(function(buf){
       setProg('#anProg', .35); st.textContent = 'Decoding audio…';
       var AC = window.AudioContext || window.webkitAudioContext;
@@ -832,26 +958,28 @@ $('#exportBtn').addEventListener('click', function(){
   if (!picked.length) return;
   var H = +$('#quality').value, st = $('#exStatus');
   btn.disabled = true;
+  var lock = null;
+  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function(l){ lock = l; }, function(){}); } catch(e){}
   var total = picked.reduce(function(a,c){ return a + (c.end-c.start); }, 0), doneSec = 0;
-  st.textContent = 'Rendering ' + picked.length + ' clip' + (picked.length>1?'s':'') + '. This plays in real time, about ' + fmt(total) + '. Keep this tab open.';
+  st.textContent = 'Rendering ' + picked.length + ' clip' + (picked.length>1?'s':'') + '. This plays in real time, about ' + fmt(total) + '. ' + (MOBILE ? 'Keep the screen on and stay on this page.' : 'Keep this tab open.');
   var chain = Promise.resolve();
   picked.forEach(function(c, i){
     chain = chain.then(function(){
       return renderClip(c, H, function(p){ setProg('#exProg', (doneSec + p*(c.end-c.start))/total); }).then(function(out){
         doneSec += c.end-c.start;
         var name = slug($('#topic').value || 'clip') + '-' + (S.clips.indexOf(c)+1) + '.' + out.ext;
-        S.exports.push({ name:name, url:URL.createObjectURL(out.blob), size:out.blob.size, dur:c.end-c.start, hook:c.hook });
+        S.exports.push({ name:name, blob:out.blob, url:URL.createObjectURL(out.blob), size:out.blob.size, dur:c.end-c.start, hook:c.hook });
         st.textContent = 'Finished ' + (i+1) + ' of ' + picked.length + '…';
       });
     });
   });
   chain.then(function(){
     st.textContent = 'All done. Download your clips and grab your captions below.';
-    hideProg('#exProg'); btn.disabled = false;
+    hideProg('#exProg'); btn.disabled = false; if (lock) lock.release().catch(function(){});
     $('.stage-tab[data-stage="2"]').classList.add('done');
     renderExports(); renderPlatforms(); goStage(3);
   }, function(err){
-    st.textContent = (err && err.message) || 'Export failed.'; hideProg('#exProg'); btn.disabled = false;
+    st.textContent = (err && err.message) || 'Export failed.'; hideProg('#exProg'); btn.disabled = false; if (lock) lock.release().catch(function(){});
   });
 });
 function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'clip'; }
@@ -865,6 +993,15 @@ function renderExports(){
     row.innerHTML = '<div><div class="n"></div><span>' + fmt(x.dur) + ' · ' + (x.size/1048576).toFixed(1) + ' MB</span></div><a class="btn btn-green btn-sm" download>Download</a>';
     $('.n', row).textContent = x.name;
     var a = $('a', row); a.href = x.url; a.download = x.name;
+    // Phones: the share sheet saves straight to Photos or opens TikTok/Instagram directly
+    var file = window.File ? new File([x.blob], x.name, { type:x.blob.type }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files:[file] })){
+      var sh = document.createElement('button'); sh.className = 'btn btn-green btn-sm'; sh.type = 'button'; sh.textContent = MOBILE ? 'Save or share' : 'Share';
+      sh.addEventListener('click', function(){ navigator.share({ files:[file], title:x.hook || x.name }).catch(function(){}); });
+      if (MOBILE){ a.className = 'btn btn-ghost btn-sm'; }
+      var grp = document.createElement('div'); grp.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end';
+      row.replaceChild(grp, a); grp.appendChild(sh); grp.appendChild(a);
+    }
     box.appendChild(row);
   });
 }
@@ -911,6 +1048,221 @@ function renderPlatforms(){
 }
 ['#campTags','#extraTags'].forEach(function(s){ var t; $(s).addEventListener('input', function(){ clearTimeout(t); t = setTimeout(renderPlatforms, 300); }); });
 renderPlatforms();
+
+/* ---------- Trending search ---------- */
+var YT_API = 'https://www.googleapis.com/youtube/v3/';
+var HOUR = 36e5;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function num(n){ n = Math.round(+n||0); if (n>=9995 && n<1e4) n = 1e4; else if (n>=999500 && n<1e6) n = 1e6; else if (n>=9995e5 && n<1e9) n = 1e9; if (n>=1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'')+'B'; if (n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M'; if (n>=1e3) return (n/1e3).toFixed(n>=1e4?0:1).replace(/\.0$/,'')+'K'; return String(Math.round(n)); }
+function ago(iso){ var h = (Date.now()-new Date(iso))/HOUR; if (h<1) return Math.max(1,Math.round(h*60))+'m ago'; if (h<48) return Math.round(h)+'h ago'; return Math.round(h/24)+'d ago'; }
+function isoDur(d){ var m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(d||''); if (!m) return { s:0, txt:'LIVE' }; var s = (+m[1]||0)*3600+(+m[2]||0)*60+(+m[3]||0); var h = Math.floor(s/3600), mm = Math.floor(s%3600/60), ss = s%60; return { s:s, txt:(h? h+':'+(mm<10?'0':''):'')+mm+':'+(ss<10?'0':'')+ss }; }
+
+function parseQuery(q){
+  q = q.trim(); var m;
+  if ((m = q.match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/i))) return { kind:'video', id:m[1] };
+  if ((m = q.match(/youtube\.com\/channel\/(UC[\w-]{22})/i))) return { kind:'channel', id:m[1] };
+  if ((m = q.match(/youtube\.com\/(@[\w.\-]+)/i))) return { kind:'handle', handle:m[1], name:m[1].slice(1) };
+  if ((m = q.match(/twitch\.tv\/(?!videos\/)([\w]+)/i))) return { kind:'name', name:m[1], from:'twitch' };
+  if ((m = q.match(/kick\.com\/([\w-]+)/i))) return { kind:'name', name:m[1], from:'kick' };
+  if (/^@[\w.\-]+$/.test(q)) return { kind:'handle', handle:q, name:q.slice(1) };
+  return { kind:'name', name:q };
+}
+
+function yt(path, params){
+  params.key = CONFIG.youtubeKey;
+  var url = YT_API + path + '?' + new URLSearchParams(params);
+  var ck = 'cp_yt:' + url;
+  try { var c = JSON.parse(sessionStorage.getItem(ck)); if (c && Date.now()-c.t < HOUR) return Promise.resolve(c.d); } catch(e){}
+  return fetch(url).then(function(r){ return r.json().then(function(j){
+    if (!r.ok || j.error) throw new Error(j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason === 'quotaExceeded' ? 'Search limit reached for today. Try again tomorrow, or use the links below.' : ((j.error && j.error.message) || 'YouTube didn’t answer.'));
+    try { sessionStorage.setItem(ck, JSON.stringify({ t:Date.now(), d:j })); } catch(e){}
+    return j;
+  }); });
+}
+function details(ids){
+  if (!ids.length) return Promise.resolve([]);
+  return yt('videos', { part:'snippet,statistics,contentDetails', id:ids.join(','), maxResults:50 }).then(function(j){ return (j.items||[]).map(toVid); });
+}
+function toVid(it){
+  var sn = it.snippet||{}, st = it.statistics||{}, th = sn.thumbnails||{};
+  var hours = Math.max(1, (Date.now()-new Date(sn.publishedAt))/HOUR);
+  return { id:it.id, title:sn.title, channel:sn.channelTitle, channelId:sn.channelId, published:sn.publishedAt,
+    views:+st.viewCount||0, perHour:(+st.viewCount||0)/hours, dur:isoDur((it.contentDetails||{}).duration),
+    live:sn.liveBroadcastContent === 'live',
+    thumb:(th.high||th.medium||th.default||{}).url || ('https://i.ytimg.com/vi/'+it.id+'/hqdefault.jpg') };
+}
+function byTrend(a, b){ return b.perHour - a.perHour; }
+function resolveChannel(p){
+  var key = 'cp_ch:' + (p.handle||p.name).toLowerCase();
+  var hit = store(key); if (hit) return Promise.resolve(hit);
+  var req = p.handle
+    ? yt('channels', { part:'snippet', forHandle:p.handle }).then(function(j){ var c = (j.items||[])[0]; return c && { id:c.id, title:c.snippet.title }; })
+    : yt('search', { part:'snippet', type:'channel', q:p.name, maxResults:1 }).then(function(j){ var c = (j.items||[])[0]; return c && { id:c.snippet.channelId, title:c.snippet.channelTitle }; });
+  return req.then(function(c){ if (c) store(key, c); return c; });
+}
+function channelTop(channelId){
+  var since = function(h){ return new Date(Date.now()-h*HOUR).toISOString(); };
+  var run = function(h){ return yt('search', { part:'id', channelId:channelId, type:'video', order:'viewCount', publishedAfter:since(h), maxResults:15 }); };
+  return run(24).then(function(j){
+    var ids = (j.items||[]).map(function(i){ return i.id.videoId; });
+    if (ids.length >= 3) return { ids:ids, period:'today' };
+    return run(24*7).then(function(j2){ return { ids:(j2.items||[]).map(function(i){ return i.id.videoId; }), period:'this week' }; });
+  }).then(function(r){ return details(r.ids).then(function(v){ return { vids:v.sort(byTrend), period:r.period }; }); });
+}
+function everyoneTop(name){
+  return yt('search', { part:'id', q:name, type:'video', order:'viewCount', publishedAfter:new Date(Date.now()-24*HOUR).toISOString(), maxResults:15 })
+    .then(function(j){ return details((j.items||[]).map(function(i){ return i.id.videoId; })); }).then(function(v){ return v.sort(byTrend); });
+}
+function trendingChart(cat){
+  var p = { part:'snippet,statistics,contentDetails', chart:'mostPopular', regionCode:CONFIG.region, maxResults:16 };
+  if (+cat) p.videoCategoryId = cat;
+  return yt('videos', p).then(function(j){ return (j.items||[]).map(toVid).sort(byTrend); });
+}
+
+// Searches that always work, even without an API key
+function outLinks(name){
+  var n = encodeURIComponent(name), h = name.replace(/\s+/g,'').toLowerCase();
+  return [
+    { t:'Top YouTube videos of ' + name + ' today', s:'Sorted by views, uploaded in the last 24 hours', u:'https://www.youtube.com/results?search_query=' + n + '&sp=CAMSAggC', p:'YouTube' },
+    { t:'Top YouTube clips this week', s:'Same search, last 7 days', u:'https://www.youtube.com/results?search_query=' + n + '+clips&sp=CAMSAggD', p:'YouTube' },
+    { t:h + "'s top Twitch clips (24h)", s:'Most-watched clips viewers made today', u:'https://www.twitch.tv/' + encodeURIComponent(h) + '/clips?filter=clips&range=24hr', p:'Twitch' },
+    { t:h + "'s Kick clips", s:'Top clips on their Kick channel', u:'https://kick.com/' + encodeURIComponent(h) + '/clips', p:'Kick' }
+  ];
+}
+function linksHtml(list){
+  return '<div class="links-grid">' + list.map(function(l){ return '<a class="golink" target="_blank" rel="noopener" href="' + esc(l.u) + '"><i>' + esc(l.p) + ' ↗</i><b>' + esc(l.t) + '</b><span>' + esc(l.s) + '</span></a>'; }).join('') + '</div>';
+}
+
+var R = { list:[], name:'', tab:'channel', cache:{} };
+function showResults(title, sub){ $('#results').hidden = false; $('#resTitle').textContent = title; $('#resSub').textContent = sub || ''; }
+function loading(){
+  var sk = ''; for (var i=0;i<(MOBILE?3:6);i++) sk += '<div class="vid skeleton"><div class="vid-thumb"></div><div class="vid-body"><div class="sk" style="width:90%"></div><div class="sk" style="width:60%"></div></div></div>';
+  $('#resBody').innerHTML = '<div class="vids">' + sk + '</div>';
+}
+function renderVids(list, extraHtml){
+  R.list = list;
+  if (!list.length){ $('#resBody').innerHTML = '<p class="note">No videos found for that time window.</p>' + (extraHtml||''); return; }
+  $('#resBody').innerHTML = '<div class="vids">' + list.map(function(v, i){
+    var badge = v.live ? 'LIVE' : (i===0 ? 'Trending #1' : (i<3 ? '#' + (i+1) : ''));
+    return '<article class="vid">' +
+      '<a class="vid-thumb" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + esc(v.id) + '"><img loading="lazy" alt="" src="' + esc(v.thumb) + '">' + (badge?'<span class="hot">'+badge+'</span>':'') + (v.dur && v.dur.s ? '<span class="dur">'+v.dur.txt+'</span>' : '') + '</a>' +
+      '<div class="vid-body"><h4>' + esc(v.title) + '</h4>' +
+      '<p class="vid-meta">' + esc(v.channel||'') + (v.views ? ' · ' + num(v.views) + ' views' : '') + (v.published ? ' · ' + ago(v.published) : '') + '</p>' +
+      (v.perHour ? '<p class="vid-velo">+' + num(v.perHour) + ' views/hour</p>' : '') +
+      '<div class="vid-actions"><a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + esc(v.id) + '">Watch</a><button class="btn btn-green btn-sm" type="button" data-clip="' + i + '">Clip this</button></div></div></article>';
+  }).join('') + '</div>' + (extraHtml||'');
+}
+function fail(err, name){
+  $('#resBody').innerHTML = '<p class="note"><b>' + esc(err && err.message || 'Search failed.') + '</b></p>' + (name ? linksHtml(outLinks(name)) : '');
+}
+function remember(q){
+  var list = (store('cp_recent') || []).filter(function(x){ return x.toLowerCase() !== q.toLowerCase(); });
+  list.unshift(q); store('cp_recent', list.slice(0,6)); renderRecent();
+}
+function renderRecent(){
+  var list = store('cp_recent') || [], box = $('#recent');
+  box.hidden = !list.length;
+  box.innerHTML = '<span class="lbl">Recent:</span>' + list.map(function(q){ return '<button class="pill" type="button">' + esc(q) + '</button>'; }).join('');
+}
+$('#recent').addEventListener('click', function(e){ var b = e.target.closest('.pill'); if (!b) return; $('#q').value = b.textContent; search(b.textContent); });
+renderRecent();
+
+function search(q){
+  q = (q||'').trim(); if (!q) { $('#q').focus(); return; }
+  $$('#pills .pill').forEach(function(p){ p.classList.remove('on'); });
+  if (document.activeElement) document.activeElement.blur();   // closes the phone keyboard
+  remember(q);
+  var p = parseQuery(q);
+  R.name = p.name || ''; R.cache = {}; R.tab = 'channel';
+  $('#resTabs').hidden = true;
+  $$('#resTabs button').forEach(function(b){ b.classList.toggle('on', b.dataset.tab==='channel'); });
+
+  if (!CONFIG.youtubeKey){
+    if (p.kind === 'video'){
+      showResults('Your video', 'Tap Clip this to start clipping it.');
+      renderVids([{ id:p.id, title:'YouTube video', thumb:'https://i.ytimg.com/vi/'+p.id+'/hqdefault.jpg' }]);
+    } else {
+      var nm = p.name || p.id;
+      showResults('Top videos of ' + nm + ' today', 'Opens each platform with the right filters already applied.');
+      $('#resBody').innerHTML = linksHtml(outLinks(nm));
+    }
+    scrollToResults(); return;
+  }
+
+  showResults('Searching…', ''); loading(); scrollToResults();
+  var chain;
+  if (p.kind === 'video'){
+    chain = details([p.id]).then(function(v){
+      if (!v.length) throw new Error('That video is private or doesn’t exist.');
+      var me = v[0]; R.name = me.channel;
+      showResults('Your video + ' + me.channel + "'s top today", 'Ranked by views per hour since upload.');
+      return channelTop(me.channelId).then(function(r){
+        renderVids([me].concat(r.vids.filter(function(x){ return x.id !== me.id; })));
+        $('#resTabs').hidden = false;
+      });
+    });
+  } else {
+    chain = (p.kind === 'channel' ? Promise.resolve({ id:p.id, title:'' }) : resolveChannel(p)).then(function(ch){
+      if (!ch){ showResults('No channel found for “' + (p.name||q) + '”', 'Showing everyone’s top videos about them instead.'); R.tab = 'everyone'; return everyoneTop(p.name||q).then(function(v){ renderVids(v, '<p class="note" style="margin-top:20px">More places to look:</p>' + linksHtml(outLinks(p.name||q))); }); }
+      R.name = ch.title || p.name;
+      return channelTop(ch.id).then(function(r){
+        showResults((ch.title || 'Channel') + "'s top videos " + r.period, 'Ranked by views per hour, so new videos taking off rise to the top.');
+        R.cache.channel = r.vids;
+        renderVids(r.vids, p.from ? '<p class="note" style="margin-top:20px">Their clips on ' + (p.from==='twitch'?'Twitch':'Kick') + ':</p>' + linksHtml(outLinks(p.name).filter(function(l){ return l.p.toLowerCase()===p.from; })) : '');
+        $('#resTabs').hidden = false;
+      });
+    });
+  }
+  chain.catch(function(err){ showResults('Search didn’t work', ''); fail(err, p.name || R.name); });
+}
+function scrollToResults(){ var el = $('#results'); var y = el.getBoundingClientRect().top + scrollY - 80; if (MOBILE || y > innerHeight*0.6 + scrollY) scrollTo({ top:y, behavior:'smooth' }); }
+
+$('#searchForm').addEventListener('submit', function(e){ e.preventDefault(); search($('#q').value); });
+$('#resTabs').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if (!b || b.dataset.tab === R.tab) return;
+  R.tab = b.dataset.tab;
+  $$('#resTabs button').forEach(function(x){ x.classList.toggle('on', x===b); });
+  if (R.cache[R.tab]) return renderVids(R.cache[R.tab]);
+  loading();
+  everyoneTop(R.name).then(function(v){ R.cache.everyone = v; if (R.tab==='everyone') renderVids(v); }, function(err){ fail(err, R.name); });
+});
+$('#pills').addEventListener('click', function(e){
+  var b = e.target.closest('.pill'); if (!b) return;
+  $$('#pills .pill').forEach(function(p){ p.classList.toggle('on', p===b); });
+  $('#resTabs').hidden = true;
+  var label = b.textContent === 'All' ? 'everything' : b.textContent;
+  if (!CONFIG.youtubeKey){
+    showResults('Top ' + label + ' videos today', 'Opens YouTube sorted by views, uploaded today.');
+    var term = b.textContent === 'All' ? 'video' : b.textContent.toLowerCase();
+    $('#resBody').innerHTML = linksHtml([{ t:'Most-viewed ' + label + ' videos today', s:'YouTube, last 24 hours, most views first', u:'https://www.youtube.com/results?search_query=' + encodeURIComponent(term) + '&sp=CAMSAggC', p:'YouTube' }, { t:'Biggest streams live on Twitch now', s:'Live channels, most viewers first', u:'https://www.twitch.tv/directory/all', p:'Twitch' }]);
+    scrollToResults(); return;
+  }
+  showResults('Trending in ' + label + ' right now', 'YouTube’s most popular in ' + CONFIG.region + ', ranked by views per hour.'); loading(); scrollToResults();
+  trendingChart(b.dataset.cat).then(function(v){ renderVids(v); }, function(err){ fail(err, ''); });
+});
+$('#resBody').addEventListener('click', function(e){
+  var b = e.target.closest('[data-clip]'); if (!b) return;
+  setSource(R.list[+b.dataset.clip]);
+});
+function setSource(v){
+  S.source = v;
+  var bn = $('#srcBanner'); bn.hidden = false;
+  $('img', bn).src = v.thumb; $('b', bn).textContent = v.title || 'YouTube video';
+  if (v.channel) $('#topic').value = v.channel;
+  goStage(1);
+  document.getElementById('studio').scrollIntoView({ behavior:'smooth' });
+  toast('Video picked. Upload its file to clip it.');
+}
+$('#srcBanner button').addEventListener('click', function(){ S.source = null; $('#srcBanner').hidden = true; });
+
+/* ---------- Mobile app bar ---------- */
+var tabLinks = $$('.tabbar a');
+if ('IntersectionObserver' in window){
+  var secIO = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if (en.isIntersecting){ var id = en.target.id; tabLinks.forEach(function(a){ a.classList.toggle('on', a.dataset.sec === id); }); } });
+  }, { rootMargin:'-45% 0px -50% 0px' });
+  ['search','studio','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
+}
 
 /* ---------- Daily plan ---------- */
 var TASKS = [

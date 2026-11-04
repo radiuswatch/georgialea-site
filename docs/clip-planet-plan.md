@@ -44,6 +44,28 @@ FTC rules on earnings claims apply to the marketing.
 **To start charging today (no code):** create 3 recurring products in Stripe (monthly +
 yearly prices, 7-day trial), make a Payment Link for each, paste the 6 URLs into `CONFIG.stripe`.
 
+## 3b. Trending search (live on the page)
+
+The hero search takes a streamer name, `@handle`, YouTube video/channel link, or a
+Twitch/Kick link. Results are ranked by **views per hour since upload**, so new videos
+taking off beat old ones with big totals. Pills show YouTube's most-popular chart by category.
+
+- **Without a key** (today): it opens YouTube (sorted by views, uploaded today), Twitch
+  (top clips, last 24 h) and Kick with the filters already applied. Pasted YouTube links
+  show the video's thumbnail with Watch / Clip this.
+- **With a key:** results show right on the page. Setup: Google Cloud console → new
+  project → enable "YouTube Data API v3" → Credentials → API key → restrict to HTTP
+  referrer `georgialea.com/*` and to that one API → paste into `CONFIG.youtubeKey`.
+- **Quota:** the free 10,000 units/day covers about 50 streamer searches a day (a search costs
+  ~101–201 units; category pills cost 1). Results are cached for 1 hour per browser and
+  channel lookups are cached permanently. Before launch, move search to a small server
+  that caches results for all users, and request a quota increase from Google.
+- **Twitch in-page results** need a server: Twitch's API requires a client secret, which
+  can't be put in a public page. Add a serverless function `/api/twitch-clips?login=` later.
+- "Clip this" doesn't download from YouTube (that's against YouTube's terms). It shows the
+  picked video in the studio and asks for the file: the campaign's download link or the
+  user's own original.
+
 ## 4. Full platform architecture (paid tiers)
 
 ```
