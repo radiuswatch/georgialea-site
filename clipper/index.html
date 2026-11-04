@@ -69,6 +69,9 @@
   section{padding:80px 0;border-bottom:1px solid var(--line)}
   .sect-head{margin-bottom:40px;display:flex;flex-direction:column;gap:12px}
 
+  .explainer{margin:0 0 28px}
+  .explainer video{display:block;width:100%;aspect-ratio:16/9;border-radius:16px;border:1px solid var(--line);background:#000}
+  .explainer figcaption{font-family:var(--mono);font-size:13px;color:var(--muted);margin-top:10px;text-align:center}
   .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
   .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
   .step-num{font-family:var(--mono);font-size:13px;color:var(--green);display:block;margin-bottom:8px}
@@ -350,6 +353,13 @@
       <h2>Three steps, then repeat tomorrow.</h2>
       <p class="sub">Clippers get paid when their clips get views: through paid clipping campaigns (creators and brands pay per 1,000 views), platform creator programs, and affiliate links. ClipNow handles the busywork so you can post more, more often.</p>
     </div>
+    <figure class="explainer reveal">
+      <video controls playsinline preload="none" poster="explainer-poster.jpg" aria-label="ClipNow explainer video: how to turn one long video into short clips">
+        <source src="explainer.mp4" type="video/mp4">
+        <a href="explainer.mp4">Watch the ClipNow explainer video</a>
+      </video>
+      <figcaption>Watch how it works in under a minute.</figcaption>
+    </figure>
     <div class="steps">
       <div class="step reveal"><span class="step-num">Step 1</span><h3>Drop in a video</h3><p>Use your own content, or footage from a campaign that pays clippers to repost it. Any MP4, MOV or WebM.</p></div>
       <div class="step reveal"><span class="step-num">Step 2</span><h3>Get the best moments</h3><p>We score every second for energy and pick the strongest stretches, already cropped to 9:16 with a hook caption burned in.</p></div>
