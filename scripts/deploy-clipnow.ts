@@ -7,13 +7,21 @@
  *   CLIPNOW_DOCROOT=/home1/thrypjmy/public_html/clipnow.vip
  * (that path is the usual default; use whatever cPanel shows).
  *
+ * Cloud sessions: set CPANEL_HOST, CPANEL_USER, CPANEL_TOKEN and CLIPNOW_DOCROOT as
+ * environment variables, and allow the cPanel host and clipnow.vip in network access.
+ *
  * Run: npx tsx scripts/deploy-clipnow.ts
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const env = readFileSync('C:/Users/memph/.bluehost-cpanel.env', 'utf-8');
-const get = (k: string) => env.match(new RegExp(`${k}=(.*)`))?.[1].trim();
+// Settings come from environment variables (cloud sessions) or, on Joseph's PC, the env file.
+const ENV_FILE = 'C:/Users/memph/.bluehost-cpanel.env';
+const fileEnv = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, 'utf-8') : '';
+const get = (k: string) => process.env[k]?.trim() || fileEnv.match(new RegExp(`${k}=(.*)`))?.[1].trim();
+for (const k of ['CPANEL_HOST', 'CPANEL_USER', 'CPANEL_TOKEN']) {
+  if (!get(k)) throw new Error(`Missing ${k}: set it as an environment variable or in ${ENV_FILE}`);
+}
 const HOST = `https://${get('CPANEL_HOST')}:2083`;
 const AUTH = { Authorization: `cpanel ${get('CPANEL_USER')}:${get('CPANEL_TOKEN')}` };
 const REMOTE_ROOT = get('CLIPNOW_DOCROOT') || '/home1/thrypjmy/public_html/clipnow.vip';
