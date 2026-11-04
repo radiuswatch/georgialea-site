@@ -1,0 +1,12 @@
+# ClipNow admin: only the portal page itself is reachable from the web.
+DirectoryIndex index.php
+Options -Indexes
+
+<FilesMatch "^(lib|cron)\.php$|\.(json|jsonl|log|md)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header set X-Robots-Tag "noindex, nofollow"
+  Header set Cache-Control "no-store"
+</IfModule>

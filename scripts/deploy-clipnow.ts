@@ -1,14 +1,19 @@
 /**
- * Publishes ClipNow (the clipper/ folder) to its own domain, clipnow.vip, on the same
- * Bluehost account as the main site, via the cPanel API (same credentials as deploy.ts).
+ * Publishes ClipNow (the clipper/ folder, including clipper/admin/) to its own domain,
+ * clipnow.vip, on the same Bluehost account as the main site, via the cPanel API
+ * (same credentials as deploy.ts).
  *
- * One-time setup in Bluehost: add clipnow.vip as an additional domain, then copy its
- * document root from cPanel → Domains and put it in the env file as
- *   CLIPNOW_DOCROOT=/home1/thrypjmy/public_html/clipnow.vip
- * (that path is the usual default; use whatever cPanel shows).
+ * clipnow.vip's document root in cPanel → Domains is
+ *   /home1/thrypjmy/public_html/website_05f463c5
+ * (not public_html/clipnow.vip). CLIPNOW_DOCROOT overrides it.
  *
- * Cloud sessions: set CPANEL_HOST, CPANEL_USER, CPANEL_TOKEN and CLIPNOW_DOCROOT as
- * environment variables, and allow the cPanel host and clipnow.vip in network access.
+ * CPANEL_HOST is the cPanel host, optionally with a port:
+ *   sh00529.bluehost.com            → port 2083 (works from a PC)
+ *   cpanel.clipnow.vip:443          → cPanel's proxy address on the normal web port
+ *                                     (use this from cloud sessions, where 2083 is blocked)
+ *
+ * The admin portal's private settings live in ~/clipnow-data/ on the server and are
+ * never uploaded or overwritten by this script.
  *
  * Run: npx tsx scripts/deploy-clipnow.ts
  */
@@ -22,22 +27,50 @@ const get = (k: string) => process.env[k]?.trim() || fileEnv.match(new RegExp(`$
 for (const k of ['CPANEL_HOST', 'CPANEL_USER', 'CPANEL_TOKEN']) {
   if (!get(k)) throw new Error(`Missing ${k}: set it as an environment variable or in ${ENV_FILE}`);
 }
-const HOST = `https://${get('CPANEL_HOST')}:2083`;
+const hostSetting = get('CPANEL_HOST')!.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+const HOST = `https://${/:\d+$/.test(hostSetting) ? hostSetting : `${hostSetting}:2083`}`;
 const AUTH = { Authorization: `cpanel ${get('CPANEL_USER')}:${get('CPANEL_TOKEN')}` };
-const REMOTE_ROOT = get('CLIPNOW_DOCROOT') || '/home1/thrypjmy/public_html/clipnow.vip';
+const REMOTE_ROOT = get('CLIPNOW_DOCROOT') || '/home1/thrypjmy/public_html/website_05f463c5';
 const LOCAL_ROOT = path.resolve(__dirname, '..', 'clipper');
 
-async function upload(file: string): Promise<boolean> {
-  const name = path.basename(file);
+/** Every file to publish, as paths relative to clipper/ (skips names starting with "_"). */
+function listFiles(dir = ''): string[] {
+  return readdirSync(path.join(LOCAL_ROOT, dir)).flatMap((n) => {
+    if (n.startsWith('_')) return [];
+    const rel = dir ? `${dir}/${n}` : n;
+    return statSync(path.join(LOCAL_ROOT, rel)).isDirectory() ? listFiles(rel) : [rel];
+  });
+}
+
+async function api2(module: string, func: string, params: Record<string, string>): Promise<any> {
+  const body = new URLSearchParams({ cpanel_jsonapi_version: '2', cpanel_jsonapi_module: module, cpanel_jsonapi_func: func, ...params });
+  const res = await fetch(`${HOST}/json-api/cpanel`, { method: 'POST', headers: AUTH, body });
+  return (await res.json()).cpanelresult;
+}
+
+async function ensureDir(rel: string): Promise<void> {
+  if (!rel) return;
+  const parent = path.posix.dirname(rel);
+  await ensureDir(parent === '.' ? '' : parent);
+  // Fails harmlessly when the folder already exists.
+  await api2('Fileman', 'mkdir', { path: `${REMOTE_ROOT}/${parent === '.' ? '' : parent}`.replace(/\/$/, ''), name: path.posix.basename(rel), permissions: '0755' });
+}
+
+async function upload(rel: string): Promise<boolean> {
+  const dir = path.posix.dirname(rel);
+  const remoteDir = dir === '.' ? REMOTE_ROOT : `${REMOTE_ROOT}/${dir}`;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const form = new FormData();
-      form.append('dir', REMOTE_ROOT);
+      form.append('dir', remoteDir);
       form.append('overwrite', '1');
-      form.append('file-1', new Blob([readFileSync(file)]), name);
+      form.append('file-1', new Blob([readFileSync(path.join(LOCAL_ROOT, rel))]), path.posix.basename(rel));
       const res = await fetch(`${HOST}/execute/Fileman/upload_files`, { method: 'POST', headers: AUTH, body: form });
       const j: any = await res.json();
-      if (j.data?.succeeded === 1) return true;
+      if (j.data?.succeeded === 1) {
+        await api2('Fileman', 'fileop', { op: 'chmod', metadata: '0644', sourcefiles: `${remoteDir}/${path.posix.basename(rel)}` });
+        return true;
+      }
     } catch {
       // transient connection reset; wait and retry
     }
@@ -47,22 +80,20 @@ async function upload(file: string): Promise<boolean> {
 }
 
 async function main() {
-  // clipper/ is flat: index.html, manifest, icons, .htaccess
-  const files = readdirSync(LOCAL_ROOT)
-    .map((n) => path.join(LOCAL_ROOT, n))
-    .filter((f) => statSync(f).isFile() && !path.basename(f).startsWith('_'));
-  console.log(`publishing ${files.length} files to ${REMOTE_ROOT} ...`);
+  const files = listFiles();
+  console.log(`publishing ${files.length} files to ${REMOTE_ROOT} via ${HOST} ...`);
+  for (const d of new Set(files.map((f) => path.posix.dirname(f)).filter((d) => d !== '.'))) await ensureDir(d);
   const failures: string[] = [];
   for (const f of files) {
     const ok = await upload(f);
-    console.log(` ${ok ? 'ok' : 'FAILED'}: ${path.basename(f)}`);
-    if (!ok) failures.push(path.basename(f));
+    console.log(` ${ok ? 'ok' : 'FAILED'}: ${f}`);
+    if (!ok) failures.push(f);
   }
   if (failures.length) {
     console.log(`Done with ${failures.length} failure(s): ${failures.join(', ')}`);
     process.exitCode = 1;
   } else {
-    console.log('Done. Verify: https://clipnow.vip/');
+    console.log('Done. Verify: https://clipnow.vip/ and https://clipnow.vip/admin/');
   }
 }
 
