@@ -601,9 +601,10 @@ var CONFIG = {
   // Paste Stripe Payment Links here (Stripe dashboard → Payment Links → recurring price).
   // Empty links fall back to an email so the buttons are never dead.
   stripe: {
-    starter: { m: '', y: '' },
-    pro:     { m: '', y: '' },
-    agency:  { m: '', y: '' }
+    // Stripe TEST mode links. Replace with the live-mode links before taking real payments.
+    starter: { m: 'https://buy.stripe.com/test_3cI4gy2Cl09j10EdkPaVa00', y: 'https://buy.stripe.com/test_4gMaEW2Cl4pzdNqbcHaVa01' }, // Silver
+    pro:     { m: 'https://buy.stripe.com/test_4gM28q90J3lv9xa0y3aVa02', y: 'https://buy.stripe.com/test_3cIdR83Gp5tDbFi1C7aVa03' }, // Gold
+    agency:  { m: 'https://buy.stripe.com/test_6oU3cu5Ox8FP6kYbcHaVa04', y: 'https://buy.stripe.com/test_9B6eVc5Ox3lv24I2GbaVa05' }  // Platinum
   },
   proMonthly: 19.99,
   // YouTube Data API v3 key (Google Cloud console → APIs & Services → Credentials).
