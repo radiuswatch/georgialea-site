@@ -483,7 +483,7 @@
         <div class="result">
           <div><b id="rDay">$0</b><span>per day</span></div>
           <div><b id="rMonth">$0</b><span>per month</span></div>
-          <div><b id="rNet">$0</b><span>after Pro plan</span></div>
+          <div><b id="rNet">$0</b><span>after Gold plan</span></div>
         </div>
         <p class="note">This is arithmetic, not a promise. Views vary a lot, most new accounts start well below their goal, and campaigns often cap payouts or only count views that meet their rules.</p>
       </div>
@@ -503,7 +503,7 @@
     </div>
     <div class="price-grid">
       <div class="price-card reveal">
-        <div class="price-name">Starter</div>
+        <div class="price-name">Silver</div>
         <div class="price-amt" data-m="9.99" data-y="99.90">$9.99<small>/month</small></div>
         <div class="price-for">For your first 30 days of clipping</div>
         <ul class="price-list">
@@ -516,7 +516,7 @@
       </div>
       <div class="price-card featured reveal">
         <span class="pop">Most popular</span>
-        <div class="price-name">Pro</div>
+        <div class="price-name">Gold</div>
         <div class="price-amt" data-m="19.99" data-y="199.90">$19.99<small>/month</small></div>
         <div class="price-for">For daily clippers chasing payouts</div>
         <ul class="price-list">
@@ -529,11 +529,11 @@
         <a class="btn btn-green" data-plan="pro" href="#">Start free trial</a>
       </div>
       <div class="price-card reveal">
-        <div class="price-name">Agency</div>
+        <div class="price-name">Platinum</div>
         <div class="price-amt" data-m="99.99" data-y="999.90">$99.99<small>/month</small></div>
         <div class="price-for">For teams running many accounts</div>
         <ul class="price-list">
-          <li>Everything in Pro</li>
+          <li>Everything in Gold</li>
           <li>Up to 10 accounts per platform</li>
           <li>3 team seats</li>
           <li>Payout reports per account</li>
@@ -1324,7 +1324,7 @@ $$('.calc input').forEach(function(i){ i.addEventListener('input', calc); }); ca
 var TRIAL_DAYS = 7;
 (function(){
   var m = /[?&]welcome=(starter|pro|agency)\b/.exec(location.search);
-  if (m){ store('cp_member', { plan:m[1], since:Date.now() }); try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} setTimeout(function(){ toast('Welcome to ' + CONFIG.brand + ' ' + m[1].charAt(0).toUpperCase() + m[1].slice(1) + '!'); }, 600); }
+  if (m){ store('cp_member', { plan:m[1], since:Date.now() }); try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} setTimeout(function(){ toast('Welcome to ' + CONFIG.brand + ' ' + { starter:'Silver', pro:'Gold', agency:'Platinum' }[m[1]] + '!'); }, 600); }
 })();
 function trial(){
   var mem = store('cp_member'); if (mem && mem.plan) return { member:mem.plan };
