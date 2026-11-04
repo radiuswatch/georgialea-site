@@ -104,14 +104,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     back('codes');
   }
 
-  if ($do === 'code_off') {
+  if (in_array($do, ['code_off', 'code_on', 'code_delete'], true)) {
     try {
       $id = (string)($_POST['promo'] ?? '');
       if (!preg_match('/^promo_\w+$/', $id)) throw new RuntimeException('Unknown code.');
       $p = cn_stripe('GET', '/v1/promotion_codes/' . $id);
       if (($p['metadata']['purpose'] ?? '') !== 'family') throw new RuntimeException('That isn\'t a family code.');
-      cn_stripe('POST', '/v1/promotion_codes/' . $id, ['active' => 'false']);
-      flash("Code {$p['code']} is turned off and can't be used.");
+      if ($do === 'code_on') {
+        if ((int)$p['times_redeemed'] >= (int)($p['max_redemptions'] ?? PHP_INT_MAX)) throw new RuntimeException("{$p['code']} has already been used, so it can't be turned back on.");
+        cn_stripe('POST', '/v1/promotion_codes/' . $id, ['active' => 'true']);
+        flash("Code {$p['code']} is turned on again and can be used once.");
+      } else {
+        // Stripe never deletes promotion codes, so "delete" turns it off for good and hides it here.
+        if (!empty($p['active'])) cn_stripe('POST', '/v1/promotion_codes/' . $id, ['active' => 'false']);
+        if ($do === 'code_delete') {
+          $hidden = cn_read('deleted-codes.json', []);
+          $hidden[$id] = ['code' => $p['code'], 'at' => time()];
+          cn_write('deleted-codes.json', $hidden);
+          flash("Code {$p['code']} is deleted. It can't be used" . ((int)$p['times_redeemed'] ? '; whoever already used it keeps their membership.' : '.'));
+        } else {
+          flash("Code {$p['code']} is turned off and can't be used.");
+        }
+      }
     } catch (Throwable $ex) { flash($ex->getMessage(), false); }
     back('codes');
   }
@@ -352,6 +366,8 @@ $view = $_GET['view'] ?? 'subs';
 <?php elseif ($view === 'codes'):
   $codes = []; $link = ''; $error = '';
   try { $link = cn_family_link(); $codes = cn_family_codes(cn_subscriptions()); } catch (Throwable $ex) { $error = $ex->getMessage(); }
+  $hidden = cn_read('deleted-codes.json', []);
+  $codes = array_values(array_filter($codes, fn($c) => !isset($hidden[$c['id']])));
   $new = $_SESSION['new_code'] ?? null; unset($_SESSION['new_code']);
   $signup = $link ?: CN_SITE . '/#pricing';
   $unused = count(array_filter($codes, fn($c) => $c['status'] === 'unused'));
@@ -400,15 +416,19 @@ $view = $_GET['view'] ?? 'subs';
       <td><?= e($c['note'] ?: '—') ?></td>
       <td><span class="badge <?= $badge[0] ?>"><?= $badge[1] ?></span><?php if ($c['by']): ?><div class="sub">by <?= e($c['by']) ?><?= $c['by_status'] && $c['by_status'] !== 'active' ? ' (' . e($c['by_status']) . ')' : '' ?></div><?php endif; ?></td>
       <td class="hide-sm num"><?= day($c['created']) ?></td>
-      <td class="acts" style="white-space:nowrap"><?php if ($c['status'] === 'unused'): ?>
-        <form method="post" class="inline" onsubmit="return confirm('Turn off <?= e($c['code']) ?>? It will stop working.')"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="promo" value="<?= e($c['id']) ?>"><button class="btn" name="do" value="code_off">Turn off</button></form>
-      <?php endif; ?></td>
+      <td class="acts" style="white-space:nowrap">
+        <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="promo" value="<?= e($c['id']) ?>">
+          <?php if ($c['status'] === 'unused'): ?><button class="btn" name="do" value="code_off" onclick="return confirm('Turn off <?= e($c['code']) ?>? It will stop working until you turn it back on.')">Turn off</button><?php endif; ?>
+          <?php if ($c['status'] === 'off'): ?><button class="btn" name="do" value="code_on">Turn on</button><?php endif; ?>
+          <button class="btn warn" name="do" value="code_delete" onclick="return confirm('Delete <?= e($c['code']) ?>? It will stop working for good and disappear from this list.<?= $c['status'] === 'used' ? ' The person who used it keeps their membership.' : '' ?>')">Delete</button>
+        </form>
+      </td>
     </tr>
   <?php endforeach; ?>
   </tbody></table>
   <?php endif; ?>
   </div></div>
-  <p class="sub" style="margin-top:12px">Turning off a code stops new sign-ups with it. To end free access for someone who already used one, cancel their subscription from the Subscriptions page (Stripe button).</p>
+  <p class="sub" style="margin-top:12px"><b>Turn off</b> pauses an unused code (you can turn it back on). <b>Delete</b> stops a code for good and removes it from this list. Neither one takes away a membership someone already started with a code; to end that, cancel their subscription from the Subscriptions page (Stripe button).</p>
   <script>
   document.querySelectorAll('[data-copy]').forEach(function(b){ b.addEventListener('click', function(){
     var el=document.getElementById(b.dataset.copy), t=el.value!==undefined?el.value:el.textContent;
