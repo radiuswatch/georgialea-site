@@ -96,10 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($do === 'make_code') {
     $note = trim((string)($_POST['note'] ?? ''));
-    $days = (int)($_POST['days'] ?? 0);
-    if (!in_array($days, [0, 7, 30, 90], true)) $days = 0;
     try {
-      $p = cn_create_family_code($note, $days);
+      $p = cn_create_family_code($note, 0); // single use, never expires
       $_SESSION['new_code'] = ['code' => $p['code'], 'note' => $note, 'expires' => (int)($p['expires_at'] ?? 0)];
       flash("New code {$p['code']} is ready. It works once.");
     } catch (Throwable $ex) { flash($ex->getMessage(), false); }
@@ -378,12 +376,10 @@ $view = $_GET['view'] ?? 'subs';
 
   <div class="panel">
     <h2>Make a family code</h2>
-    <p>Each code gives one person free Platinum forever and works only once. They sign up with the family link<?= $link ? '' : ' (not set up in Stripe yet, so they\'d use the Platinum button on the site, which asks for a card)' ?>, enter the code, and pay $0.</p>
+    <p>Every code works one time only and never expires. It gives one person free Platinum forever. They sign up with the family link<?= $link ? '' : ' (not set up in Stripe yet, so they\'d use the Platinum button on the site, which asks for a card)' ?>, enter the code, and pay $0.</p>
     <form method="post" class="grid2" style="align-items:end">
       <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="make_code">
       <div><label for="note">Who is it for? (only you see this)</label><input id="note" name="note" maxlength="200" placeholder="e.g. Mom, cousin Dee"></div>
-      <div><label for="days">Code expires if not used within</label>
-        <select id="days" name="days"><option value="30">30 days</option><option value="7">7 days</option><option value="90">90 days</option><option value="0">Never</option></select></div>
       <div><button class="btn go" <?= $error ? 'disabled' : '' ?>>Generate one-time code</button></div>
     </form>
     <?php if ($link): ?><p style="margin:14px 0 0">Family sign-up link (no card needed): <a href="<?= e($link) ?>" target="_blank" rel="noopener" style="overflow-wrap:anywhere"><?= e($link) ?></a></p><?php endif; ?>
@@ -396,7 +392,7 @@ $view = $_GET['view'] ?? 'subs';
   </div>
   <div class="card"><div class="scroll">
   <?php if (!$codes): ?><div class="empty">No family codes yet.</div><?php else: ?>
-  <table class="members"><thead><tr><th>Code</th><th>For</th><th>Status</th><th class="hide-sm">Made</th><th class="hide-sm">Expires</th><th></th></tr></thead><tbody>
+  <table class="members"><thead><tr><th>Code</th><th>For</th><th>Status</th><th class="hide-sm">Made</th><th></th></tr></thead><tbody>
   <?php foreach ($codes as $c):
     $badge = ['unused' => ['s-trialing', 'Unused'], 'used' => ['s-active', 'Used'], 'expired' => ['s-canceled', 'Expired'], 'off' => ['s-canceled', 'Turned off']][$c['status']]; ?>
     <tr>
@@ -404,7 +400,6 @@ $view = $_GET['view'] ?? 'subs';
       <td><?= e($c['note'] ?: '—') ?></td>
       <td><span class="badge <?= $badge[0] ?>"><?= $badge[1] ?></span><?php if ($c['by']): ?><div class="sub">by <?= e($c['by']) ?><?= $c['by_status'] && $c['by_status'] !== 'active' ? ' (' . e($c['by_status']) . ')' : '' ?></div><?php endif; ?></td>
       <td class="hide-sm num"><?= day($c['created']) ?></td>
-      <td class="hide-sm num"><?= $c['expires'] ? day($c['expires']) : 'Never' ?></td>
       <td class="acts" style="white-space:nowrap"><?php if ($c['status'] === 'unused'): ?>
         <form method="post" class="inline" onsubmit="return confirm('Turn off <?= e($c['code']) ?>? It will stop working.')"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="promo" value="<?= e($c['id']) ?>"><button class="btn" name="do" value="code_off">Turn off</button></form>
       <?php endif; ?></td>
