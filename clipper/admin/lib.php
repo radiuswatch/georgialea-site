@@ -20,7 +20,7 @@ define('CN_BRAND', 'ClipNow');
 const CN_PLANS = [
   'starter' => ['name' => 'Silver',   'cents' => [999, 9990]],
   'pro'     => ['name' => 'Gold',     'cents' => [1999, 19990]],
-  'agency'  => ['name' => 'Platinum', 'cents' => [9999, 99990]],
+  'agency'  => ['name' => 'Platinum', 'cents' => [3999, 39990, 9999, 99990]], // 99.99 was the launch price
 ];
 const CN_LATE = ['past_due', 'unpaid'];
 
