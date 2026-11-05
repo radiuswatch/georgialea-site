@@ -55,6 +55,28 @@
   .btn-green{background:var(--green);color:#06230F}
   .btn-green:hover{background:#3BD97F}
   .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  /* Auto-post */
+  .autopost{background:var(--card-2);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:22px}
+  .ap-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .ap-head h4{margin:0;font-size:17px;font-weight:600}
+  .ap-sub{color:var(--muted);font-size:14.5px}
+  .ap-accts{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+  .ap-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13.5px;color:var(--faint)}
+  .ap-chip.on{color:var(--text);border-color:var(--green-dim);background:var(--green-deep)}
+  .ap-chip.on::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .ap-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .ap-note{color:var(--muted);font-size:14px;margin:10px 0 0}
+  .ap-note:empty{display:none}
+  .ap-recent h5{margin:18px 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+  .ap-post{border-top:1px solid var(--line);padding:9px 0;font-size:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .ap-post b{font-weight:600} .ap-post .st{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  .ap-post .st.ok{color:var(--green)} .ap-post .st.bad{color:#F0706A}
+  .ap-post a{font-size:13px}
+  .xp{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);width:100%}
+  .xp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .xp-row input[type=datetime-local]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;color:var(--text);color-scheme:dark}
+  .xp-msg{font-size:13.5px;color:var(--muted)} .xp-msg.ok{color:var(--green)} .xp-msg.bad{color:#F0706A}
+  .export-item{flex-wrap:wrap}
   /* Account / sign-in */
   .nav-links #acctBtn{color:var(--text)}
   .nav-links #acctBtn.in{border-color:var(--green-dim)}
@@ -400,7 +422,7 @@
     <div class="sect-head reveal">
       <p class="eyebrow">Studio</p>
       <h2>Clip it right here, in your browser.</h2>
-      <p class="sub">Every plan starts with a 7-day free trial. Your trial starts with your first export. Your video never leaves your device.</p>
+      <p class="sub">Every plan starts with a 7-day free trial. Your trial starts with your first export. Your video stays on your device; only clips you choose to auto-post are uploaded.</p>
       <div class="trial-bar" id="trialBar" hidden></div>
     </div>
 
@@ -487,7 +509,14 @@
         </div>
         <div class="plat-grid" id="plats"></div>
 
-        <div class="callout"><b>For now:</b> save each clip and post it with the copied caption. The Open button takes you to that platform's upload page. <b>Coming to all plans:</b> connect your accounts once, then post or schedule to every platform in one click.</div>
+        <div class="autopost" id="autopost">
+          <div class="ap-head"><h4>Auto-post</h4><span class="ap-sub" id="apSub">Connect your accounts once, then post or schedule each clip in one tap.</span></div>
+          <div class="ap-accts" id="apAccts"></div>
+          <div class="ap-actions" id="apActions"></div>
+          <p class="ap-note" id="apNote"></p>
+          <div class="ap-recent" id="apRecent" hidden><h5>Recent posts</h5><div id="apRecentList"></div></div>
+        </div>
+        <div class="callout" id="manualNote"><b>Prefer to post yourself?</b> Save each clip, copy its caption, and the Open button takes you to that platform's upload page. Snapchat is manual only.</div>
       </div>
     </div>
   </div>
@@ -544,7 +573,7 @@
         <div class="price-for">For your first 30 days of clipping</div>
         <ul class="price-list">
           <li>60 clips a month</li>
-          <li class="soon">Connect 3 platforms <span class="soon-tag">Coming soon</span></li>
+          <li>Auto-post to 3 platforms at once</li>
           <li class="soon">Auto captions (spoken words on screen) <span class="soon-tag">Coming soon</span></li>
           <li>1080p HD exports</li>
         </ul>
@@ -557,8 +586,8 @@
         <div class="price-for">For daily clippers chasing payouts</div>
         <ul class="price-list">
           <li>Unlimited clips</li>
-          <li class="soon">All 6 platforms, one-click posting <span class="soon-tag">Coming soon</span></li>
-          <li class="soon">Scheduling at each platform's best hours <span class="soon-tag">Coming soon</span></li>
+          <li>One-click posting to TikTok, YouTube, Instagram, Facebook &amp; X</li>
+          <li>Schedule posts up to 60 days ahead</li>
           <li class="soon">Paid-campaign finder &amp; view tracking <span class="soon-tag">Coming soon</span></li>
           <li class="soon">AI hooks, titles &amp; hashtags <span class="soon-tag">Coming soon</span></li>
         </ul>
@@ -592,7 +621,7 @@
       <details><summary>How do clippers actually make money?</summary><p>Mostly three ways: paid clipping campaigns, where a creator or brand pays you per 1,000 views on clips of their content; platform programs that pay for views, which have follower and region requirements; and affiliate or referral links in your bio. ClipNow doesn't pay you. It makes the posting fast enough that you can do it daily.</p></details>
       <details><summary>Will I make money every day?</summary><p>Nobody can honestly promise that. Earnings depend on views, and views take time to build. What we can promise is that you'll spend minutes, not hours, on each batch of clips, so you can keep showing up long enough to find what works.</p></details>
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
-      <details><summary>Does my video get uploaded to your servers?</summary><p>No. Clipping runs entirely in your browser, so your video stays on your device. When one-click posting arrives, clips will be uploaded only to post them to the accounts you connect, and deleted after 30 days.</p></details>
+      <details><summary>Does my video get uploaded to your servers?</summary><p>No. Finding and cutting clips runs entirely in your browser, so your full video stays on your device. The only time anything is uploaded is when you tap <b>Post now</b> or <b>Schedule</b> on a clip: that one clip is sent through our posting partner, Upload-Post, to the accounts you connected, and nothing else.</p></details>
       <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just email us at <a href="mailto:helpdesk@clipnow.vip">helpdesk@clipnow.vip</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
       <details><summary>Where are your privacy policy and terms?</summary><p>Read our <a href="privacy.html">Privacy Policy</a>, <a href="terms.html">Terms of Service</a> and <a href="refunds.html">Refunds &amp; Cancellation Policy</a>. The short version: your videos never leave your device, payments are handled by Stripe, and we don't sell your information.</p></details>
     </div>
@@ -1082,6 +1111,7 @@ function renderExports(){
       var grp = document.createElement('div'); grp.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end';
       row.replaceChild(grp, a); grp.appendChild(sh); grp.appendChild(a);
     }
+    if (window.AutoPost) AutoPost.decorate(row, x);
     box.appendChild(row);
   });
 }
@@ -1109,7 +1139,7 @@ function renderPlatforms(){
   var hook = (S.exports[0] && S.exports[0].hook) || (S.clips[0] && S.clips[0].hook) || '';
   var longest = S.exports.reduce(function(m,x){ return Math.max(m, x.dur); }, 0);
   PLATFORMS.forEach(function(p){
-    var el = document.createElement('div'); el.className = 'plat' + (platOn[p.id]?'':' off');
+    var el = document.createElement('div'); el.className = 'plat' + (platOn[p.id]?'':' off'); el.dataset.p = p.id;
     el.innerHTML =
       '<div class="plat-head"><label><input type="checkbox"> ' + p.name + '</label><span class="plat-meta">' + p.note + '</span></div>' +
       '<textarea aria-label="' + p.name + ' caption"></textarea><div class="count"></div>' +
@@ -1436,6 +1466,7 @@ renderTrial();
       $('#acctBilling').hidden = MEMBER.status === 'none';
     }
     renderTrial();
+    if (window.AutoPost) AutoPost.refresh();
   }
   function refresh(fresh){ return api('me.php' + (fresh ? '?fresh=1' : '')).then(function(j){ if (j && j._status === 200) MEMBER = j.signedIn ? j : null; render(); return MEMBER; }, function(){}); }
   function open(msg){
@@ -1485,6 +1516,143 @@ renderTrial();
     else if (k === 'needed' && !(mem && mem.signedIn)) open('Thanks for joining! Enter the email you used at checkout and we’ll send you a link to sign in.');
     else if (k === 'again') open();
   });
+  window.ClipNowAccount = { open: open, refresh: refresh };
+})();
+
+/* ---------- Auto-post (via api/social.php + api/post.php) ---------- */
+(function(){
+  var info = null, busy = false;
+  var NAMES = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
+  var MAX = 60 * 1048576;
+  function get(path){ return fetch('api/' + path, { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return { ok:false }; }); }); }
+  function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function connected(){ return info && info.accounts ? Object.keys(info.accounts).filter(function(k){ return info.accounts[k].connected; }) : []; }
+  function ready(){ return !!(info && info.available && info.limit > 0 && connected().length); }
+  function targets(){ return connected().filter(function(p){ return platOn[p]; }); }
+
+  function render(){
+    var accts = $('#apAccts'), act = $('#apActions'), note = $('#apNote'), sub = $('#apSub');
+    accts.innerHTML = ''; act.innerHTML = ''; note.textContent = '';
+    var signed = MEMBER && MEMBER.signedIn;
+    Object.keys(NAMES).forEach(function(k){
+      var a = info && info.accounts && info.accounts[k], c = el('span', 'ap-chip' + (a && a.connected ? ' on' : ''), NAMES[k] + (a && a.connected && a.name ? ' · ' + a.name : ''));
+      if (!(a && a.connected)) c.title = 'Not connected';
+      accts.appendChild(c);
+    });
+    function button(cls, text, fn){ var b = el('button', 'btn btn-sm ' + cls, text); b.type = 'button'; b.addEventListener('click', fn); act.appendChild(b); return b; }
+    if (!signed){
+      sub.textContent = 'Members can connect TikTok, YouTube, Instagram, Facebook and X, then post or schedule each clip in one tap.';
+      button('btn-green', 'Sign in to auto-post', function(){ window.ClipNowAccount && ClipNowAccount.open(); });
+      button('btn-ghost', 'See plans', function(){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); });
+    } else if (!info){
+      note.textContent = 'Checking your connected accounts…';
+    } else if (!info.available){
+      note.textContent = 'Auto-posting is being switched on. Check back soon.';
+    } else if (info.limit === 0){
+      sub.textContent = 'Auto-posting comes with every ClipNow plan.';
+      button('btn-green', 'Start a free trial', function(){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); });
+    } else {
+      var n = connected().length;
+      sub.textContent = n ? 'Use Post now or Schedule on each clip above. It posts to the connected platforms you have switched on below.' : 'Connect the accounts you want ClipNow to post to.';
+      var cb = button(n ? 'btn-ghost' : 'btn-green', n ? 'Add or change accounts' : 'Connect accounts', function(){
+        cb.disabled = true; cb.textContent = 'Opening…';
+        fetch('api/social.php', { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:'{"action":"connect"}' })
+          .then(function(r){ return r.json(); }).then(function(j){
+            if (j.ok && j.url){ location.href = j.url; return; }
+            cb.disabled = false; cb.textContent = n ? 'Add or change accounts' : 'Connect accounts'; note.textContent = j.error || 'Couldn’t open the connect page. Please try again.';
+          }, function(){ cb.disabled = false; cb.textContent = 'Connect accounts'; note.textContent = 'You seem to be offline.'; });
+      });
+      if (info.limit < 5) note.textContent = 'Your ' + (info.plan || 'current') + ' plan posts to up to ' + info.limit + ' platforms at a time. Gold and Platinum post everywhere at once.';
+    }
+    renderExports();
+  }
+
+  function recent(){
+    if (!(MEMBER && MEMBER.signedIn && info && info.limit > 0)) { $('#apRecent').hidden = true; return; }
+    get('posts.php').then(function(j){
+      var box = $('#apRecentList'); box.innerHTML = '';
+      var posts = (j && j.posts) || []; $('#apRecent').hidden = !posts.length;
+      posts.slice(0, 8).forEach(function(p){
+        var row = el('div', 'ap-post'), left = el('div'), right = el('div');
+        left.appendChild(el('b', '', p.title || 'Clip'));
+        left.appendChild(document.createTextNode(' · ' + p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
+        var when = p.scheduled ? 'Scheduled for ' + new Date(p.scheduled * 1000).toLocaleString() : new Date(p.at * 1000).toLocaleString();
+        var stTxt = { pending:'Posting…', processing:'Posting…', in_progress:'Posting…', scheduled:'Scheduled', completed:'Posted', success:'Posted', failed:'Failed', error:'Failed', sent:'Sent' }[String(p.status).toLowerCase()] || p.status;
+        var res = p.results || [], good = res.filter(function(r){ return r.ok; }).length;
+        if (res.length && good === 0) stTxt = 'Failed'; else if (res.length && good < res.length) stTxt = 'Partly posted';
+        var st = el('span', 'st' + (stTxt === 'Posted' ? ' ok' : /fail|partly/i.test(stTxt) ? ' bad' : ''), stTxt + ' · ' + when);
+        right.appendChild(st);
+        (p.results || []).forEach(function(r){
+          right.appendChild(document.createTextNode(' '));
+          if (r.ok && r.url){ var a = el('a', '', (NAMES[r.platform] || r.platform) + ' ↗'); a.href = r.url; a.target = '_blank'; a.rel = 'noopener'; right.appendChild(a); }
+          else if (!r.ok && r.error){ right.appendChild(el('span', 'st bad', (NAMES[r.platform] || r.platform) + ': ' + r.error)); }
+        });
+        row.appendChild(left); row.appendChild(right); box.appendChild(row);
+      });
+    });
+  }
+
+  function send(x, when, msg, btns){
+    var t = targets();
+    function say(text, cls){ msg.textContent = text; msg.className = 'xp-msg' + (cls ? ' ' + cls : ''); }
+    if (!t.length) return say('Switch on at least one connected platform in the cards below.', 'bad');
+    if (t.length > info.limit) return say('Your plan posts to up to ' + info.limit + ' platforms at a time. Switch some off below, or upgrade to Gold.', 'bad');
+    if (x.size > MAX) return say('This clip is over 60 MB. Export it at 720p or make it shorter.', 'bad');
+    if (/webm/.test(x.blob.type) && (t.indexOf('instagram') > -1 || t.indexOf('facebook') > -1)) return say('Instagram and Facebook need MP4. Export this clip again in Chrome, Edge or Safari, or switch those off.', 'bad');
+    var fd = new FormData();
+    fd.append('video', x.blob, x.name);
+    t.forEach(function(p){
+      fd.append('platforms[]', p);
+      var ta = document.querySelector('#plats .plat[data-p="' + p + '"] textarea');
+      fd.append('caption[' + p + ']', ta ? ta.value : (x.hook || ''));
+    });
+    if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }
+    // Same clip + same platforms + same time = same key, so a retry can't post twice.
+    x.postKey = x.postKey || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+    fd.append('key', x.postKey + '-' + t.join('') .slice(0, 20) + '-' + (when ? when.replace(/\D/g, '') : 'now'));
+    btns.forEach(function(b){ b.disabled = true; });
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'api/post.php'); xhr.withCredentials = true;
+    xhr.upload.onprogress = function(e){ if (e.lengthComputable) say('Uploading… ' + Math.round(e.loaded / e.total * 100) + '%'); };
+    xhr.onload = function(){
+      var j = {}; try { j = JSON.parse(xhr.responseText); } catch(e){}
+      btns.forEach(function(b){ b.disabled = false; });
+      if (j.ok){
+        var names = t.map(function(p){ return NAMES[p]; }).join(', ');
+        var skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
+        say((j.scheduled ? 'Scheduled for ' + new Date(j.scheduled * 1000).toLocaleString() + ' on ' + names + '.' : 'Sent to ' + names + '. It can take a few minutes to appear.')
+          + (skipped.length ? ' Skipped ' + skipped.join(', ') + ' (not connected).' : ''), 'ok');
+        setTimeout(recent, 1500);
+      } else say(j.error || 'Posting failed. Please try again.', 'bad');
+    };
+    xhr.onerror = function(){ btns.forEach(function(b){ b.disabled = false; }); say('Upload failed. Check your connection and try again.', 'bad'); };
+    say('Uploading…'); xhr.send(fd);
+  }
+
+  window.AutoPost = {
+    refresh: function(){
+      if (!(MEMBER && MEMBER.signedIn)) { info = null; render(); recent(); return; }
+      if (busy) return; busy = true;
+      get('social.php').then(function(j){ busy = false; info = j && j.ok ? j : { available:true, limit:0, accounts:null }; render(); recent(); }, function(){ busy = false; });
+    },
+    decorate: function(row, x){
+      if (!ready()) return;
+      var box = el('div', 'xp'), r1 = el('div', 'xp-row'), msg = el('span', 'xp-msg');
+      var now = el('button', 'btn btn-green btn-sm', 'Post now'), sch = el('button', 'btn btn-ghost btn-sm', 'Schedule…');
+      now.type = sch.type = 'button';
+      var dt = el('input'); dt.type = 'datetime-local'; dt.hidden = true;
+      var d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); dt.value = new Date(d - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
+      var ok = el('button', 'btn btn-green btn-sm', 'Schedule post'); ok.type = 'button'; ok.hidden = true;
+      now.addEventListener('click', function(){ send(x, '', msg, [now, sch, ok]); });
+      sch.addEventListener('click', function(){ dt.hidden = ok.hidden = !dt.hidden; if (!dt.hidden) dt.focus(); });
+      ok.addEventListener('click', function(){ if (!dt.value) return; send(x, dt.value, msg, [now, sch, ok]); });
+      r1.appendChild(now); r1.appendChild(sch); r1.appendChild(dt); r1.appendChild(ok);
+      box.appendChild(r1); box.appendChild(msg); row.appendChild(box);
+    }
+  };
+  var c = /[?&]connected=1/.test(location.search);
+  if (c){ try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} setTimeout(function(){ goStage(3); toast('Accounts updated'); }, 400); }
+  render();
 })();
 
 /* ---------- Pricing ---------- */

@@ -374,6 +374,127 @@ function cn_json_out(array $data, int $code = 200): never {
   exit;
 }
 
+/* ---------- Auto-posting (Upload-Post) ---------- */
+// Each member gets one Upload-Post profile named after their Stripe customer id. Members
+// connect their social accounts on Upload-Post's connect page; ClipNow then sends clips
+// to Upload-Post, which posts them. The API key never leaves the server.
+
+const CN_POST_PLATFORMS = ['tiktok' => 'TikTok', 'youtube' => 'YouTube Shorts', 'instagram' => 'Instagram Reels', 'facebook' => 'Facebook Reels', 'x' => 'X'];
+const CN_POST_MAX_BYTES = 60 * 1048576;
+
+function cn_up(string $method, string $path, array $params = [], bool $multipart = false, array $headers = []): array {
+  $key = (string)(cn_config()['uploadpost_key'] ?? '');
+  if ($key === '') throw new RuntimeException('Auto-posting isn\'t set up yet.');
+  $url = (getenv('CLIPNOW_UP_BASE') ?: 'https://api.upload-post.com/api') . $path;
+  $h = array_merge(['Authorization: Apikey ' . $key], $headers);
+  $ch = curl_init();
+  $o = [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 240, CURLOPT_CONNECTTIMEOUT => 20];
+  if ($method === 'GET') { $o[CURLOPT_URL] = $url . ($params ? '?' . http_build_query($params) : ''); }
+  else {
+    $o[CURLOPT_URL] = $url; $o[CURLOPT_CUSTOMREQUEST] = $method;
+    if ($multipart) {
+      // $params is a list of [name, value] pairs so names like platform[] can repeat.
+      $b = '----clipnow' . bin2hex(random_bytes(12)); $body = '';
+      foreach ($params as [$name, $val]) {
+        $body .= "--$b\r\n";
+        if ($val instanceof CURLFile) {
+          $body .= 'Content-Disposition: form-data; name="' . $name . '"; filename="' . $val->getPostFilename() . "\"\r\nContent-Type: " . $val->getMimeType() . "\r\n\r\n" . file_get_contents($val->getFilename()) . "\r\n";
+        } else {
+          $body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n" . $val . "\r\n";
+        }
+      }
+      $body .= "--$b--\r\n";
+      $o[CURLOPT_POSTFIELDS] = $body; $h[] = 'Content-Type: multipart/form-data; boundary=' . $b;
+    }
+    else { $o[CURLOPT_POSTFIELDS] = json_encode($params); $h[] = 'Content-Type: application/json'; }
+  }
+  $o[CURLOPT_HTTPHEADER] = $h;
+  curl_setopt_array($ch, $o);
+  $body = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
+  if ($body === false) throw new RuntimeException("Couldn't reach the posting service: $err");
+  $j = json_decode($body, true);
+  if ($code >= 400 || !is_array($j)) {
+    $msg = is_array($j) ? ($j['message'] ?? $j['error'] ?? $j['detail'] ?? "HTTP $code") : "HTTP $code";
+    $e = new RuntimeException('Posting service: ' . (is_string($msg) ? $msg : json_encode($msg)), $code);
+    throw $e;
+  }
+  return $j;
+}
+
+function cn_up_username(array $member): string {
+  return 'cn_' . preg_replace('/[^a-z0-9_]/', '', strtolower((string)$member['customer_id']));
+}
+
+/** How many platforms a plan may post to at once (0 = auto-posting not included). */
+function cn_post_limit(array $member): int {
+  if (empty($member['active'])) return 0;
+  return ($member['plan_key'] ?? '') === 'starter' ? 3 : count(CN_POST_PLATFORMS);
+}
+
+/** The member's Upload-Post profile and connected accounts, or null if they have none yet. */
+function cn_up_profile(string $username): ?array {
+  foreach ((cn_up('GET', '/uploadposts/users')['profiles'] ?? []) as $p) {
+    if (($p['username'] ?? '') === $username) return $p;
+  }
+  return null;
+}
+
+/** [platform => ['connected' => bool, 'name' => string]] for the platforms ClipNow supports. */
+function cn_up_accounts(?array $profile): array {
+  $out = [];
+  foreach (CN_POST_PLATFORMS as $id => $label) {
+    $a = $profile['social_accounts'][$id] ?? '';
+    $name = '';
+    if (is_array($a)) $name = (string)($a['display_name'] ?? $a['username'] ?? $a['handle'] ?? $a['name'] ?? '');
+    elseif (is_string($a)) $name = $a;
+    $out[$id] = ['label' => $label, 'connected' => !empty($a), 'name' => $name];
+  }
+  return $out;
+}
+
+/** A link to Upload-Post's connect page for this member (creates their profile first). */
+function cn_up_connect_url(array $member): string {
+  $u = cn_up_username($member);
+  if (!cn_up_profile($u)) {
+    try { cn_up('POST', '/uploadposts/users', ['username' => $u]); }
+    catch (RuntimeException $e) {
+      cn_log(['sub' => '', 'email' => $member['email'], 'how' => 'autopost', 'ok' => false, 'error' => 'Could not create posting profile: ' . $e->getMessage()]);
+      throw new RuntimeException('Auto-posting is at capacity right now. We\'ve been notified. Please try again later.');
+    }
+  }
+  $j = cn_up('POST', '/uploadposts/users/generate-jwt', [
+    'username' => $u,
+    'redirect_url' => CN_SITE . '/?connected=1#studio',
+    'redirect_button_text' => 'Back to ClipNow',
+    'logo_image' => CN_SITE . '/brand/clipnow-mark-512.png',
+    'platforms' => array_keys(CN_POST_PLATFORMS),
+    'connect_title' => 'Connect your accounts to ClipNow',
+    'connect_description' => 'Connect the accounts you want ClipNow to post your clips to. You can disconnect any time.',
+  ]);
+  $url = $j['access_url'] ?? '';
+  if ($url === '') throw new RuntimeException('The posting service didn\'t return a connect link. Please try again.');
+  return $url;
+}
+
+/** The member's Facebook Page to post Reels to (Upload-Post needs a Page id). */
+function cn_up_facebook_page(string $username): string {
+  $j = cn_up('GET', '/uploadposts/facebook/pages', ['profile' => $username]);
+  $pages = $j['pages'] ?? $j['data'] ?? [];
+  foreach ($pages as $p) { $id = (string)($p['page_id'] ?? $p['id'] ?? ''); if ($id !== '') return $id; }
+  return '';
+}
+
+function cn_post_log(array $member, array $entry): void {
+  $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.jsonl';
+  file_put_contents($f, json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+}
+function cn_post_history(array $member, int $n = 20): array {
+  $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.jsonl';
+  if (!is_file($f)) return [];
+  $lines = array_slice(file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), -$n);
+  return array_reverse(array_values(array_filter(array_map(fn($l) => json_decode($l, true), $lines))));
+}
+
 /* ---------- Update-payment link ---------- */
 
 function cn_billing_link(array $sub, int $days = 30): string {
