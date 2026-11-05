@@ -136,6 +136,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!preg_match('/^(sk|rk)_(live|test)_[A-Za-z0-9]+$/', $key)) { flash('That doesn\'t look like a Stripe secret or restricted key (it starts with sk_ or rk_).', false); back('settings'); }
       $cfg['stripe_key'] = $key;
     }
+    $up = trim((string)($_POST['uploadpost_key'] ?? ''));
+    if ($up !== '') {
+      if (strlen($up) < 20 || strlen($up) > 4096 || preg_match('/\s/', $up)) { flash('That doesn\'t look like an Upload-Post API key. Copy it again from Upload-Post → API Keys.', false); back('settings'); }
+      $cfg['uploadpost_key'] = $up;
+    }
     foreach (['from_email', 'reply_to'] as $f) {
       $v = trim((string)($_POST[$f] ?? ''));
       if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) { flash("“$v” isn't a valid email address.", false); back('settings'); }
@@ -466,6 +471,13 @@ $view = $_GET['view'] ?? 'subs';
       <p>Paste a secret key (starts with <code>sk_live_</code>) or a restricted key (<code>rk_live_</code>) with read access to Customers, Subscriptions, Invoices, Products and Payment Links, and write access to Customer portal, Coupons and Promotion codes. In Stripe: Developers → API keys. Current key: <b><?= e($masked) ?></b></p>
       <label for="sk">New key (leave blank to keep the current one)</label>
       <input id="sk" name="stripe_key" autocomplete="off" spellcheck="false" placeholder="sk_live_…">
+    </div>
+    <div class="panel">
+      <h2>Upload-Post (auto-posting)</h2>
+      <?php $u = (string)($cfg['uploadpost_key'] ?? ''); ?>
+      <p>Lets members connect TikTok, YouTube, Instagram, Facebook and X and post clips straight from ClipNow. Paste your API key from Upload-Post → API Keys. Current key: <b><?= e($u === '' ? 'Not set' : substr($u, 0, 6) . '…' . substr($u, -4)) ?></b></p>
+      <label for="upk">New key (leave blank to keep the current one)</label>
+      <input id="upk" name="uploadpost_key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Upload-Post API key">
     </div>
     <div class="panel">
       <h2>Late-payment notices</h2>

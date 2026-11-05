@@ -55,6 +55,25 @@
   .btn-green{background:var(--green);color:#06230F}
   .btn-green:hover{background:#3BD97F}
   .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  /* Account / sign-in */
+  .nav-links #acctBtn{color:var(--text)}
+  .nav-links #acctBtn.in{border-color:var(--green-dim)}
+  #acct{width:min(440px,calc(100vw - 32px));background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  #acct::backdrop{background:rgba(0,0,0,.6)}
+  #acct h3{font-family:var(--serif);font-weight:400;font-size:26px;margin:0 0 8px}
+  #acct label{display:block;font-size:14px;color:var(--muted);margin:16px 0 6px}
+  #acct input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:16px;box-sizing:border-box}
+  #acct input:focus{outline:2px solid var(--green-dim);border-color:var(--green-dim)}
+  #acct form .btn{width:100%;margin-top:16px}
+  .acct-x{position:absolute;top:10px;right:12px;margin:0}
+  .acct-x button{background:none;border:0;color:var(--muted);font-size:28px;line-height:1;cursor:pointer;padding:4px 8px}
+  .acct-sub{color:var(--muted);font-size:15px;margin:0}
+  .acct-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+  .acct-err{color:#F0706A;font-size:14.5px;margin:10px 0 0}
+  .acct-ok{background:var(--green-deep);border:1px solid var(--green-dim);border-radius:10px;padding:14px;margin:16px 0 12px;font-size:15.5px}
+  .acct-dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:16px 0 20px;font-size:15.5px}
+  .acct-dl dt{color:var(--muted)} .acct-dl dd{margin:0;overflow-wrap:anywhere}
+  .acct-actions{display:flex;gap:10px;flex-wrap:wrap} .acct-actions .btn{flex:1}
   .btn-ghost:hover{border-color:var(--muted)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
 
@@ -305,6 +324,7 @@
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
       <a href="privacy.html">Policies</a>
+      <button class="btn btn-ghost btn-sm" id="acctBtn" type="button">Sign in</button>
       <a class="btn btn-green btn-sm" href="#top">Find videos</a>
     </nav>
   </div>
@@ -600,6 +620,38 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<dialog id="acct" aria-labelledby="acctTitle">
+  <form method="dialog" class="acct-x"><button aria-label="Close">×</button></form>
+  <div id="acctOut">
+    <h3 id="acctTitle">Sign in to ClipNow</h3>
+    <p class="acct-sub" id="acctMsg">Enter the email you used at checkout. We'll email you a link to sign in, no password needed.</p>
+    <form id="acctForm" novalidate>
+      <label for="acctEmail">Email</label>
+      <input id="acctEmail" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
+      <p class="acct-err" id="acctErr" hidden></p>
+      <button class="btn btn-green" id="acctSend" type="submit">Email me a sign-in link</button>
+    </form>
+    <div id="acctSent" hidden>
+      <p class="acct-ok"><b>Check your email.</b> If <span id="acctSentTo"></span> has a ClipNow membership, a sign-in link is on its way from helpdesk@clipnow.vip. It works once and expires in 20 minutes.</p>
+      <p class="acct-sub">Nothing arrived? Check spam, or <a href="#" id="acctRetry">try another email</a>.</p>
+    </div>
+    <p class="acct-sub acct-foot">Not a member yet? <a href="#pricing" id="acctPlans">Start a free trial</a>.</p>
+  </div>
+  <div id="acctIn" hidden>
+    <h3>Your account</h3>
+    <dl class="acct-dl">
+      <dt>Email</dt><dd id="acctEmailOut"></dd>
+      <dt>Plan</dt><dd id="acctPlan"></dd>
+      <dt>Status</dt><dd id="acctStatus"></dd>
+    </dl>
+    <p class="acct-err" id="acctInErr" hidden></p>
+    <div class="acct-actions">
+      <button class="btn btn-green" id="acctBilling" type="button">Manage billing</button>
+      <button class="btn btn-ghost" id="acctOutBtn" type="button">Sign out</button>
+    </div>
+  </div>
+</dialog>
 
 <nav class="tabbar" aria-label="App sections">
   <a href="#top" data-sec="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</a>
@@ -1336,17 +1388,15 @@ function calc(){
 }
 $$('.calc input').forEach(function(i){ i.addEventListener('input', calc); }); calc();
 
-/* ---------- Free trial ---------- */
-// 7 days from the first export. Members are recognised on this device when Stripe's
-// "after payment" redirect sends them to ...clipper/?welcome=<plan>.
-// This is a client-side check only. Real enforcement needs sign-in (see docs/clipnow-plan.md).
+/* ---------- Free trial + member sign-in ---------- */
+// The free trial is 7 days from the first export. Members are signed in by the server
+// (api/me.php checks their plan with Stripe), either straight after checkout or with an
+// emailed sign-in link.
 var TRIAL_DAYS = 7;
-(function(){
-  var m = /[?&]welcome=(starter|pro|agency)\b/.exec(location.search);
-  if (m){ store('cp_member', { plan:m[1], since:Date.now() }); try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} setTimeout(function(){ toast('Welcome to ' + CONFIG.brand + ' ' + { starter:'Silver', pro:'Gold', agency:'Platinum' }[m[1]] + '!'); }, 600); }
-})();
+var MEMBER = null; // { signedIn, email, active, status, plan, planKey, ... } from api/me.php
+try { localStorage.removeItem('cp_member'); } catch(e){} // old device-only membership flag
 function trial(){
-  var mem = store('cp_member'); if (mem && mem.plan) return { member:mem.plan };
+  if (MEMBER && MEMBER.active) return { member: MEMBER.plan || 'Member' };
   var t = store('cp_trial');
   if (!t || !t.start) return { started:false };
   var left = TRIAL_DAYS - (Date.now() - t.start) / 864e5;
@@ -1355,13 +1405,87 @@ function trial(){
 function renderTrial(){
   var tr = trial(), bar = $('#trialBar');
   bar.classList.toggle('ended', !!tr.ended);
-  if (tr.member){ bar.hidden = false; bar.innerHTML = '<span><b>' + esc(tr.member.charAt(0).toUpperCase() + tr.member.slice(1)) + ' plan</b> is active on this device.</span>'; }
+  if (tr.member){ bar.hidden = false; bar.innerHTML = '<span><b>' + esc(tr.member) + ' plan</b> is active' + (MEMBER && MEMBER.status === 'trialing' ? ' (free trial)' : '') + '. Signed in as ' + esc(MEMBER.email) + '.</span>'
+    + (MEMBER.status === 'past_due' ? '<a class="btn btn-green btn-sm" href="#" data-billing>Update payment</a>' : ''); }
   else if (!tr.started){ bar.hidden = true; }
   else if (tr.ended){ bar.hidden = false; bar.innerHTML = '<span><b>Your free trial has ended.</b> Pick a plan to keep exporting clips.</span><a class="btn btn-green btn-sm" href="#pricing">See plans</a>'; }
   else { bar.hidden = false; bar.innerHTML = '<span><b>Free trial:</b> ' + tr.left + ' day' + (tr.left===1?'':'s') + ' left. Pick a plan any time to keep going after.</span><a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>'; }
   var eb = $('#exportBtn'); if (tr.ended) eb.dataset.locked = '1'; else delete eb.dataset.locked;
 }
 renderTrial();
+
+(function(){
+  var dlg = $('#acct'), btn = $('#acctBtn');
+  var STATUS = { active:'Active', trialing:'Free trial', past_due:'Payment failed. Please update your card.', unpaid:'Unpaid', canceled:'Canceled', incomplete:'Payment not finished', none:'No membership found' };
+  function api(path, body){
+    return fetch('api/' + path, body === undefined ? { credentials:'same-origin' }
+      : { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ j._status = r.status; return j; }); });
+  }
+  function render(){
+    var inn = MEMBER && MEMBER.signedIn;
+    btn.textContent = inn ? 'Account' : 'Sign in'; btn.classList.toggle('in', !!inn);
+    $('#acctOut').hidden = !!inn; $('#acctIn').hidden = !inn;
+    if (inn){
+      $('#acctEmailOut').textContent = MEMBER.email;
+      $('#acctPlan').textContent = MEMBER.plan ? MEMBER.plan + (MEMBER.free ? ' (free)' : '') : 'None';
+      var st = STATUS[MEMBER.status] || MEMBER.status;
+      if (MEMBER.status === 'trialing' && MEMBER.trialEnd) st += ' until ' + new Date(MEMBER.trialEnd * 1000).toLocaleDateString();
+      if (MEMBER.cancelAtEnd && MEMBER.periodEnd) st += '. Ends ' + new Date(MEMBER.periodEnd * 1000).toLocaleDateString();
+      $('#acctStatus').textContent = st;
+      $('#acctBilling').hidden = MEMBER.status === 'none';
+    }
+    renderTrial();
+  }
+  function refresh(fresh){ return api('me.php' + (fresh ? '?fresh=1' : '')).then(function(j){ if (j && j._status === 200) MEMBER = j.signedIn ? j : null; render(); return MEMBER; }, function(){}); }
+  function open(msg){
+    $('#acctSent').hidden = true; $('#acctForm').hidden = false; $('#acctErr').hidden = true; $('#acctInErr').hidden = true;
+    if (msg) $('#acctMsg').textContent = msg;
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    if (!(MEMBER && MEMBER.signedIn)) setTimeout(function(){ $('#acctEmail').focus(); }, 50);
+  }
+  btn.addEventListener('click', function(){ open(); });
+  $('#acctPlans').addEventListener('click', function(){ dlg.close(); });
+  $('#acctRetry').addEventListener('click', function(e){ e.preventDefault(); $('#acctSent').hidden = true; $('#acctForm').hidden = false; $('#acctEmail').select(); });
+  $('#acctForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = $('#acctEmail').value.trim(), err = $('#acctErr'), send = $('#acctSend');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = 'Enter a valid email address.'; err.hidden = false; return; }
+    err.hidden = true; send.disabled = true; send.textContent = 'Sending…';
+    api('login.php', { email:email }).then(function(j){
+      send.disabled = false; send.textContent = 'Email me a sign-in link';
+      if (j.ok){ $('#acctSentTo').textContent = email; $('#acctForm').hidden = true; $('#acctSent').hidden = false; }
+      else { err.textContent = j.error || 'Something went wrong. Please try again.'; err.hidden = false; }
+    }, function(){ send.disabled = false; send.textContent = 'Email me a sign-in link'; err.textContent = 'You seem to be offline. Please try again.'; err.hidden = false; });
+  });
+  function billing(){
+    var b = $('#acctBilling'), e2 = $('#acctInErr'); b.disabled = true; b.textContent = 'Opening…';
+    api('portal.php', {}).then(function(j){
+      if (j.ok && j.url){ location.href = j.url; return; }
+      b.disabled = false; b.textContent = 'Manage billing'; e2.textContent = j.error || 'Billing is unavailable right now.'; e2.hidden = false;
+      if (!dlg.open) open();
+    });
+  }
+  $('#acctBilling').addEventListener('click', billing);
+  document.addEventListener('click', function(e){ if (e.target.closest('[data-billing]')){ e.preventDefault(); billing(); } });
+  $('#acctOutBtn').addEventListener('click', function(){
+    api('logout.php', {}).then(function(){ MEMBER = null; render(); dlg.close(); toast('Signed out'); });
+  });
+
+  // Results of sign-in links and Stripe checkout, e.g. ?signin=welcome
+  var m = /[?&]signin=(\w+)/.exec(location.search), legacy = /[?&]welcome=\w+/.test(location.search);
+  if (m || legacy){ try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} }
+  refresh(m && (m[1] === 'welcome' || m[1] === 'ok')).then(function(mem){
+    var k = m ? m[1] : (legacy ? 'needed' : '');
+    if (k === 'welcome' || k === 'ok'){
+      if (mem && mem.active) toast(k === 'welcome' ? 'Welcome to ' + CONFIG.brand + ' ' + mem.plan + '! You’re signed in.' : 'Signed in. Welcome back!');
+      else if (mem) toast('Signed in, but there’s no active plan on this email.');
+    }
+    else if (k === 'expired') open('That sign-in link has expired or was already used. Enter your email for a new one.');
+    else if (k === 'needed' && !(mem && mem.signedIn)) open('Thanks for joining! Enter the email you used at checkout and we’ll send you a link to sign in.');
+    else if (k === 'again') open();
+  });
+})();
 
 /* ---------- Pricing ---------- */
 var bill = 'm';

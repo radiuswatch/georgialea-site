@@ -13,7 +13,7 @@ if (count(get_included_files()) === 1) { http_response_code(404); exit; }
 
 define('CN_HOME', getenv('CLIPNOW_HOME') ?: dirname(__DIR__, 3));
 define('CN_DATA', CN_HOME . '/clipnow-data');
-define('CN_SITE', 'https://clipnow.vip');
+define('CN_SITE', getenv('CLIPNOW_SITE') ?: 'https://clipnow.vip');
 define('CN_BRAND', 'ClipNow');
 
 // Plan names by price in cents (monthly and yearly). Keys match the site's data-plan values.
@@ -138,6 +138,7 @@ function cn_shape(array $s): array {
     'email'       => $cust['email'] ?? '',
     'name'        => $cust['name'] ?? '',
     'plan'        => $plan,
+    'plan_key'    => cn_plan_key($s['metadata']['plan'] ?? '', (int)($price['unit_amount'] ?? 0)),
     'interval'    => $interval,
     'cents'       => $cents,
     'list_cents'  => $listCents,
@@ -153,6 +154,13 @@ function cn_shape(array $s): array {
     'late_since'  => (int)($inv['status_transitions']['finalized_at'] ?? $inv['created'] ?? 0),
     'livemode'    => !empty($s['livemode']),
   ];
+}
+
+/** 'starter' | 'pro' | 'agency' | '' for a subscription's price. */
+function cn_plan_key(string $key, int $unitCents): string {
+  if (isset(CN_PLANS[$key])) return $key;
+  foreach (CN_PLANS as $k => $p) if (in_array($unitCents, $p['cents'], true)) return $k;
+  return '';
 }
 
 function cn_plan_name(string $key, int $unitCents, string $nickname): string {
@@ -227,6 +235,143 @@ function cn_family_codes(array $subs): array {
   } while (!empty($page['has_more']));
   usort($out, fn($a, $b) => $b['created'] <=> $a['created']);
   return $out;
+}
+
+/* ---------- Member sign-in ---------- */
+// Members sign in with an emailed one-time link (or automatically after Stripe checkout).
+// Sessions and links are stored server-side in ~/clipnow-data/{sessions,logins}/ by the
+// SHA-256 of their secret, so the files never contain a usable token.
+
+const CN_MEMBER_COOKIE = 'cn_member';
+const CN_SESSION_DAYS = 30;
+const CN_LINK_MINUTES = 20;
+const CN_ACTIVE = ['active', 'trialing', 'past_due'];
+
+function cn_dir(string $name): string {
+  $d = CN_DATA . '/' . $name;
+  if (!is_dir($d)) mkdir($d, 0700, true);
+  return $d;
+}
+function cn_token(): string { return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '='); }
+function cn_token_file(string $dir, string $token): string { return cn_dir($dir) . '/' . hash('sha256', $token) . '.json'; }
+
+/** The member's best subscription across every Stripe customer with this email, or null. */
+function cn_member_lookup(string $email): ?array {
+  $raw = trim($email); $email = strtolower($raw);
+  $customers = [];
+  // Stripe's email filter is case-sensitive, but its search isn't. Search can lag up to a
+  // minute for brand-new customers, so also try the exact spellings.
+  try {
+    $q = "email:'" . str_replace(["\\", "'"], ["\\\\", "\\'"], $email) . "'";
+    foreach (cn_stripe('GET', '/v1/customers/search', ['query' => $q, 'limit' => 20])['data'] as $c) $customers[$c['id']] = $c;
+  } catch (RuntimeException $e) { /* search not available: fall back to exact lookups */ }
+  foreach (array_unique([$raw, $email]) as $e) {
+    foreach (cn_stripe('GET', '/v1/customers', ['email' => $e, 'limit' => 20])['data'] as $c) $customers[$c['id']] = $c;
+  }
+  if (!$customers) return null;
+  $rank = ['active' => 0, 'trialing' => 1, 'past_due' => 2, 'unpaid' => 3, 'incomplete' => 4, 'paused' => 5, 'canceled' => 6, 'incomplete_expired' => 7];
+  $best = null;
+  foreach ($customers as $cid => $c) {
+    foreach (cn_stripe('GET', '/v1/subscriptions', ['customer' => $cid, 'status' => 'all', 'limit' => 20])['data'] as $s) {
+      $s['customer'] = $c; $sh = cn_shape($s);
+      if (!$best || ($rank[$sh['status']] ?? 9) < ($rank[$best['status']] ?? 9)) $best = $sh;
+    }
+  }
+  $first = reset($customers);
+  return [
+    'email' => $email,
+    'customer_id' => $best['customer_id'] ?? $first['id'],
+    'name' => $best['name'] ?? ($first['name'] ?? ''),
+    'plan' => $best['plan'] ?? '',
+    'plan_key' => $best['plan_key'] ?? '',
+    'status' => $best['status'] ?? 'none',
+    'active' => $best ? in_array($best['status'], CN_ACTIVE, true) : false,
+    'free' => $best ? ($best['cents'] === 0 && $best['coupon'] !== '') : false,
+    'trial_end' => $best['trial_end'] ?? 0,
+    'period_end' => $best['period_end'] ?? 0,
+    'cancel_at_end' => $best['cancel_at_end'] ?? false,
+  ];
+}
+
+/** Rate limit sign-in requests: $max per 15 minutes per key. */
+function cn_rate_ok(string $key, int $max): bool {
+  $f = cn_dir('rate') . '/' . hash('sha256', $key) . '.json';
+  $hits = array_values(array_filter(cn_json_file($f, []), fn($t) => $t > time() - 900));
+  if (count($hits) >= $max) return false;
+  $hits[] = time();
+  file_put_contents($f, json_encode($hits), LOCK_EX);
+  return true;
+}
+function cn_json_file(string $f, $default) {
+  if (!is_file($f)) return $default;
+  $j = json_decode((string)file_get_contents($f), true);
+  return is_array($j) ? $j : $default;
+}
+
+/** Email a one-time sign-in link if this email belongs to a Stripe customer. Returns true if sent. */
+function cn_send_login_link(string $email): bool {
+  $m = cn_member_lookup($email);
+  if (!$m) return false;
+  $token = cn_token();
+  file_put_contents(cn_token_file('logins', $token), json_encode(['email' => $m['email'], 'exp' => time() + CN_LINK_MINUTES * 60]), LOCK_EX);
+  $link = CN_SITE . '/api/verify.php?t=' . $token;
+  $name = trim(explode(' ', $m['name'])[0] ?? '') ?: 'there';
+  $body = "Hi $name,\n\nTap the link below to sign in to " . CN_BRAND . ":\n$link\n\n"
+    . "The link works once and expires in " . CN_LINK_MINUTES . " minutes. If you didn't ask to sign in, you can ignore this email.\n\n"
+    . "Thanks,\nThe " . CN_BRAND . " team\n" . CN_SITE . "\n";
+  return cn_send_mail($m['email'], 'Your ' . CN_BRAND . ' sign-in link', $body);
+}
+
+/** Use a sign-in link once. Returns the email, or null if invalid/expired. */
+function cn_use_login_link(string $token): ?string {
+  if (!preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) return null;
+  $f = cn_token_file('logins', $token);
+  $j = cn_json_file($f, null);
+  if (is_file($f)) unlink($f);
+  if (!$j || ($j['exp'] ?? 0) < time()) return null;
+  return $j['email'];
+}
+
+function cn_start_session(string $email): void {
+  $token = cn_token();
+  $exp = time() + CN_SESSION_DAYS * 86400;
+  file_put_contents(cn_token_file('sessions', $token), json_encode(['email' => strtolower($email), 'created' => time(), 'exp' => $exp]), LOCK_EX);
+  setcookie(CN_MEMBER_COOKIE, $token, ['expires' => $exp, 'path' => '/', 'secure' => str_starts_with(CN_SITE, 'https://'), 'httponly' => true, 'samesite' => 'Lax']);
+}
+
+/** The signed-in member (with a 5-minute cached Stripe lookup), or null. */
+function cn_current_member(bool $fresh = false): ?array {
+  $token = (string)($_COOKIE[CN_MEMBER_COOKIE] ?? '');
+  if (!preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) return null;
+  $f = cn_token_file('sessions', $token);
+  $s = cn_json_file($f, null);
+  if (!$s || ($s['exp'] ?? 0) < time()) { if (is_file($f)) unlink($f); return null; }
+  if ($fresh || empty($s['member']) || ($s['member_at'] ?? 0) < time() - 300) {
+    $s['member'] = cn_member_lookup($s['email']) ?? ['email' => $s['email'], 'active' => false, 'status' => 'none', 'plan' => '', 'plan_key' => '', 'customer_id' => ''];
+    $s['member_at'] = time();
+    file_put_contents($f, json_encode($s), LOCK_EX);
+  }
+  return $s['member'];
+}
+
+function cn_end_session(): void {
+  $token = (string)($_COOKIE[CN_MEMBER_COOKIE] ?? '');
+  if (preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) { $f = cn_token_file('sessions', $token); if (is_file($f)) unlink($f); }
+  setcookie(CN_MEMBER_COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'secure' => str_starts_with(CN_SITE, 'https://'), 'httponly' => true, 'samesite' => 'Lax']);
+}
+
+/** Reject cross-site POSTs to the member API. */
+function cn_same_origin(): bool {
+  $o = $_SERVER['HTTP_ORIGIN'] ?? '';
+  return $o === CN_SITE;
+}
+
+function cn_json_out(array $data, int $code = 200): never {
+  http_response_code($code);
+  header('Content-Type: application/json');
+  header('Cache-Control: no-store');
+  echo json_encode($data);
+  exit;
 }
 
 /* ---------- Update-payment link ---------- */

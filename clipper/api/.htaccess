@@ -1,0 +1,7 @@
+# ClipNow member API: never cache, never index, no directory listing.
+Options -Indexes
+<IfModule mod_headers.c>
+  Header set Cache-Control "no-store"
+  Header set X-Robots-Tag "noindex, nofollow"
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>
