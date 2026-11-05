@@ -206,6 +206,8 @@
 
   footer{padding:40px 0 56px;color:var(--faint);font-size:13.5px}
   .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .foot-legal{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:15px}
+  .foot-legal b{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400}
 
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--green);color:#06230F;font-weight:600;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:60}
   .toast.on{opacity:1;transform:translateX(-50%)}
@@ -299,6 +301,7 @@
       <a href="#daily">Daily plan</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
+      <a href="privacy.html">Policies</a>
       <a class="btn btn-green btn-sm" href="#top">Find videos</a>
     </nav>
   </div>
@@ -567,7 +570,8 @@
       <details><summary>Will I make money every day?</summary><p>Nobody can honestly promise that. Earnings depend on views, and views take time to build. What we can promise is that you'll spend minutes, not hours, on each batch of clips, so you can keep showing up long enough to find what works.</p></details>
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
       <details><summary>Does my video get uploaded to your servers?</summary><p>No. Clipping runs entirely in your browser, so your video stays on your device. When one-click posting arrives, clips will be uploaded only to post them to the accounts you connect, and deleted after 30 days.</p></details>
-      <details><summary>How do I cancel?</summary><p>From your account page, any time, in two clicks. No calls, no emails, no "are you sure" mazes.</p></details>
+      <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just email us at <a href="mailto:info@georgialea.com">info@georgialea.com</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
+      <details><summary>Where are your privacy policy and terms?</summary><p>Read our <a href="privacy.html">Privacy Policy</a>, <a href="terms.html">Terms of Service</a> and <a href="refunds.html">Refunds &amp; Cancellation Policy</a>. The short version: your videos never leave your device, payments are handled by Stripe, and we don't sell your information.</p></details>
     </div>
   </div>
 </section>
@@ -576,7 +580,7 @@
 <footer>
   <div class="wrap foot">
     <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/">App Planet</a></span>
-    <span><a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="refunds.html">Refunds</a></span>
+    <nav class="foot-legal" aria-label="Policies"><b>Policies</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
     <span><a href="mailto:info@georgialea.com?subject=ClipNow">info@georgialea.com</a></span>
   </div>
 </footer>
