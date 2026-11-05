@@ -47,9 +47,9 @@ function cn_config(): array {
   $c += [
     'admin_hash'   => '',
     'stripe_key'   => '',
-    'from_email'   => 'info@georgialea.com',
+    'from_email'   => 'helpdesk@clipnow.vip',
     'from_name'    => CN_BRAND,
-    'reply_to'     => 'info@georgialea.com',
+    'reply_to'     => 'helpdesk@clipnow.vip',
     'auto_notices' => true,
     'schedule'     => [0, 3, 7],   // days after a membership goes late
     'secret'       => '',

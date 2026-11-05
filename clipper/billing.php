@@ -15,7 +15,7 @@ $c = (string)($_GET['c'] ?? ''); $s = (string)($_GET['s'] ?? '');
 $e = (string)($_GET['e'] ?? ''); $t = (string)($_GET['t'] ?? '');
 
 function page(string $title, string $msg): never {
-  $contact = htmlspecialchars(cn_config()['reply_to'] ?: 'info@georgialea.com');
+  $contact = htmlspecialchars(cn_config()['reply_to'] ?: 'helpdesk@clipnow.vip');
   echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . htmlspecialchars($title) . ' · ClipNow</title>'
     . '<style>body{margin:0;background:#0B0D0B;color:#E9EDE9;font:17px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}'
     . 'main{max-width:440px;background:#141714;border:1px solid #242923;border-radius:16px;padding:28px}h1{font:400 24px Georgia,serif;margin:0 0 10px}p{color:#96A096;margin:0 0 12px}a{color:#31C971}</style></head>'
