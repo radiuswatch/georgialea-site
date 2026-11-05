@@ -193,6 +193,9 @@
   .price-for{color:var(--muted);font-size:14.5px}
   .price-list{list-style:none;padding:0;margin:20px 0 26px;display:flex;flex-direction:column;gap:9px;font-size:15px;flex:1}
   .price-list li{padding-left:24px;position:relative}
+  .price-list li.soon{color:var(--muted)}
+  .price-list li.soon::before{border-color:var(--faint)}
+  .soon-tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--warn);border:1px solid #5A4418;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:1px;white-space:nowrap}
   .price-list li::before{content:"";position:absolute;left:2px;top:9px;width:10px;height:6px;border-left:2px solid var(--green);border-bottom:2px solid var(--green);transform:rotate(-45deg)}
   .bill-toggle{display:inline-flex;margin-bottom:26px}
   .terms{color:var(--faint);font-size:14px;margin-top:24px;max-width:80ch}
@@ -521,8 +524,8 @@
         <div class="price-for">For your first 30 days of clipping</div>
         <ul class="price-list">
           <li>60 clips a month</li>
-          <li>Connect 3 platforms</li>
-          <li>Auto captions (spoken words on screen)</li>
+          <li class="soon">Connect 3 platforms <span class="soon-tag">Coming soon</span></li>
+          <li class="soon">Auto captions (spoken words on screen) <span class="soon-tag">Coming soon</span></li>
           <li>1080p HD exports</li>
         </ul>
         <a class="btn btn-ghost" data-plan="starter" href="#">Start free trial</a>
@@ -534,10 +537,10 @@
         <div class="price-for">For daily clippers chasing payouts</div>
         <ul class="price-list">
           <li>Unlimited clips</li>
-          <li>All 6 platforms, one-click posting</li>
-          <li>Scheduling at each platform's best hours</li>
-          <li>Paid-campaign finder &amp; view tracking</li>
-          <li>AI hooks, titles &amp; hashtags</li>
+          <li class="soon">All 6 platforms, one-click posting <span class="soon-tag">Coming soon</span></li>
+          <li class="soon">Scheduling at each platform's best hours <span class="soon-tag">Coming soon</span></li>
+          <li class="soon">Paid-campaign finder &amp; view tracking <span class="soon-tag">Coming soon</span></li>
+          <li class="soon">AI hooks, titles &amp; hashtags <span class="soon-tag">Coming soon</span></li>
         </ul>
         <a class="btn btn-green" data-plan="pro" href="#">Start free trial</a>
       </div>
@@ -547,14 +550,14 @@
         <div class="price-for">For teams running many accounts</div>
         <ul class="price-list">
           <li>Everything in Gold</li>
-          <li>Up to 10 accounts per platform</li>
-          <li>3 team seats</li>
-          <li>Payout reports per account</li>
+          <li class="soon">Up to 10 accounts per platform <span class="soon-tag">Coming soon</span></li>
+          <li class="soon">3 team seats <span class="soon-tag">Coming soon</span></li>
+          <li class="soon">Payout reports per account <span class="soon-tag">Coming soon</span></li>
         </ul>
         <a class="btn btn-ghost" data-plan="agency" href="#">Start free trial</a>
       </div>
     </div>
-    <p class="terms reveal">Billed through Stripe. Cancel anytime from the billing portal; you keep access until the end of the period you paid for. ClipNow doesn't take a cut of what you earn. Your payouts go straight from the campaign or platform to you. By starting a trial you agree to our <a href="terms.html">Terms</a>, <a href="privacy.html">Privacy Policy</a> and <a href="refunds.html">Refund Policy</a>.</p>
+    <p class="terms reveal">Features marked <b>Coming soon</b> are in development and are included in your plan at no extra cost when they launch. Billed through Stripe. Cancel anytime from the billing portal; you keep access until the end of the period you paid for. ClipNow doesn't take a cut of what you earn. Your payouts go straight from the campaign or platform to you. By starting a trial you agree to our <a href="terms.html">Terms</a>, <a href="privacy.html">Privacy Policy</a> and <a href="refunds.html">Refund Policy</a>.</p>
   </div>
 </section>
 
