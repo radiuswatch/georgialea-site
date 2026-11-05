@@ -12,10 +12,7 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:17px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
   a{color:var(--green)}
-  header,main,footer{max-width:820px;margin:0 auto;padding:0 20px}
-  header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:22px;padding-bottom:22px;border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-weight:600;font-size:19px}
-  .mark{width:30px;height:30px;border-radius:8px;background:var(--green);color:#06230F;display:grid;place-items:center;font:700 13px var(--mono)}
+  main,footer{max-width:820px;margin:0 auto;padding:0 20px}
   nav.legal{display:flex;flex-wrap:wrap;gap:6px 18px;margin:28px 0 8px;font-size:14.5px}
   nav.legal a{color:var(--muted);text-decoration:none} nav.legal a[aria-current]{color:var(--green)}
   h1{font:400 40px/1.2 var(--serif);margin:18px 0 6px}
@@ -26,10 +23,43 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:18px 0}
   footer{border-top:1px solid var(--line);margin-top:56px;padding-top:22px;padding-bottom:40px;color:var(--muted);font-size:14.5px;display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
   @media (max-width:600px){h1{font-size:32px}}
+  a{text-decoration:none}
+  main a,footer a{text-decoration:underline;text-underline-offset:3px}
+  header.site{position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top);background:rgba(11,13,11,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);max-width:none;margin:0}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1080px;margin:0 auto;gap:16px}
+  .brand{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:600;font-size:17px}
+  .brand-mark{width:30px;height:30px;border-radius:8px;background:var(--green);color:#06230F;display:grid;place-items:center;font:700 13px var(--mono)}
+  .nav-links{display:flex;gap:24px;font-size:14px;align-items:center}
+  .nav-links a{color:var(--muted)} .nav-links a:hover,.nav-links a.on{color:var(--text)}
+  .nav-links a.on{color:var(--green)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;font-weight:600;border-radius:8px;padding:8px 14px;font-size:14px}
+  .nav-links a.btn-green{background:var(--green);color:#06230F}
+  .tabbar{display:none}
+  @media (max-width:700px){
+    .nav-links a:not(.btn){display:none}
+    .nav{padding:10px 16px}
+    .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+    .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:#6B756B;font-size:11.5px;padding:6px 0;min-height:48px;justify-content:center}
+    .tabbar svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  }
 </style>
 </head>
 <body>
-<header><a class="brand" href="/"><span class="mark">CN</span>ClipNow</a><a href="/#pricing">Plans</a></header>
+<header class="site">
+  <div class="nav">
+    <a class="brand" href="/"><span class="brand-mark">CN</span>ClipNow</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/#how">How it works</a>
+      <a href="/#studio">Studio</a>
+      <a href="/#daily">Daily plan</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/#faq">FAQ</a>
+      <a href="privacy.html" class="on" aria-current="true">Policies</a>
+      <a class="btn btn-green btn-sm" href="/#top">Find videos</a>
+    </nav>
+  </div>
+</header>
 <main>
   <nav class="legal" aria-label="Policies"><a href="terms.html" aria-current="page">Terms of Service</a><a href="privacy.html">Privacy Policy</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
   <h1>Terms of Service</h1>
@@ -87,5 +117,11 @@
   <p>Questions about this policy? Email <a href="mailto:helpdesk@clipnow.vip">helpdesk@clipnow.vip</a>. We usually reply within two business days.</p>
 </main>
 <footer><span>ClipNow · clipnow.vip · by <a href="https://georgialea.com/apps/">App Planet</a></span><span><a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="refunds.html">Refunds</a></span></footer>
+<nav class="tabbar" aria-label="App sections">
+  <a href="/#top"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</a>
+  <a href="/#studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
+  <a href="/#daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
+  <a href="/#pricing"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3S9.5 10 12 10.5s4.5 1.3 4.5 3-2 3.5-4.5 3.5-4.5-1.3-4.5-3"/></svg>Plans</a>
+</nav>
 </body>
 </html>
