@@ -75,6 +75,14 @@
   .xp{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);width:100%}
   .xp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .xp-row input[type=datetime-local]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;color:var(--text);color-scheme:dark}
+  /* How-to video for scheduling */
+  .ap-howto{margin:4px 0 14px}
+  .ap-howto summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:8px 14px 8px 8px;border:1px solid var(--green-dim);border-radius:999px;background:var(--green-deep);color:var(--text);font-size:14.5px;font-weight:600}
+  .ap-howto summary::-webkit-details-marker{display:none}
+  .ap-howto summary .play{width:28px;height:28px;border-radius:50%;background:var(--green);color:#06230F;display:grid;place-items:center;font-size:12px;padding-left:2px}
+  .ap-howto summary small{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap}
+  .ap-howto[open] summary .play{background:var(--card)}
+  .ap-howto video{display:block;width:100%;max-width:300px;aspect-ratio:9/16;margin:12px 0 0;border-radius:16px;border:1px solid var(--line);background:#000}
   /* Tap-to-pick scheduler */
   .sch{display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
   .sch[hidden]{display:none}
@@ -596,6 +604,13 @@
 
         <div class="autopost" id="autopost">
           <div class="ap-head"><h4>Auto-post</h4><span class="ap-sub" id="apSub">Connect your accounts once, then post or schedule each clip in one tap.</span></div>
+          <details class="ap-howto" id="schHowto">
+            <summary><span class="play" aria-hidden="true">▶</span> Watch: how to schedule a post <small>37 sec</small></summary>
+            <video controls playsinline muted preload="none" poster="schedule-explainer-poster.jpg" aria-label="Video: how to schedule a clip in ClipNow. Tap Schedule, pick a day, pick a time, check the summary and tap Schedule post.">
+              <source src="schedule-explainer.mp4" type="video/mp4">
+              <a href="schedule-explainer.mp4">Watch how to schedule a post</a>
+            </video>
+          </details>
           <div class="ap-accts" id="apAccts"></div>
           <div class="ap-actions" id="apActions"></div>
           <p class="ap-note" id="apNote"></p>
@@ -2188,6 +2203,16 @@ $$('[data-plan]').forEach(function(a){
     }
   });
 });
+
+/* ---------- Scheduling how-to video: plays when opened, stops when closed ---------- */
+(function(){
+  var d = $('#schHowto'); if (!d) return;
+  var v = $('video', d);
+  d.addEventListener('toggle', function(){
+    if (d.open){ var pr = v.play(); if (pr && pr.catch) pr.catch(function(){}); }
+    else v.pause();
+  });
+})();
 
 /* ---------- Install the app ---------- */
 (function(){
