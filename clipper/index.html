@@ -1640,11 +1640,19 @@ $('#contactForm').addEventListener('submit', function(e){
   if (bad){ $('#ctErr').textContent = bad[2]; $(bad[0]).focus(); return; }
   var btn = $('#ctSend'); btn.disabled = true; btn.textContent = 'Sending…'; $('#ctErr').textContent = '';
   var body = { name:f.name, email:f.email, reason:f.reason, message:f.message, plan:ct.plan, website:$('#ctWebsite').value, elapsed:Date.now()-ct.opened };
-  // Sent as a normal form post. Bluehost's firewall (ModSecurity) sometimes blocks a
-  // request with an HTML "Not Acceptable" page, so a reply that isn't JSON is retried.
+  // Sent as a normal form post. Bluehost answers .php requests from browsers without its
+  // "humans_NNNN" cookie with a tiny page that sets the cookie and reloads, and its
+  // firewall (ModSecurity) sometimes blocks a request with an HTML "Not Acceptable" page.
+  // So a reply that isn't JSON is retried, after setting any cookie the reply asks for.
   function sendOnce(){
     return fetch('contact.php', { method:'POST', body:new URLSearchParams(body), credentials:'same-origin' })
-      .then(function(r){ return r.json().catch(function(){ throw new Error('bad'); }); });
+      .then(function(r){ return r.text(); })
+      .then(function(t){
+        try { return JSON.parse(t); } catch(e){}
+        var m = /document\.cookie\s*=\s*["']([A-Za-z0-9_]+=[^"';]*)/.exec(t);
+        if (m) document.cookie = m[1] + '; path=/; SameSite=Lax; Secure';
+        throw new Error('bad');
+      });
   }
   function sendWithRetry(left){
     return sendOnce().catch(function(err){
