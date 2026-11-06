@@ -179,7 +179,8 @@ Every ClipNow explainer video uses the same narrator so they sound like one bran
 - **Look:** dark ClipNow theme, caption bar at the top with a green step number, green tap markers,
   end card with the CN mark.
 - **Current videos:** `clipper/explainer.mp4` (how ClipNow works, 16:9, 52 s) and
-  `clipper/schedule-explainer.mp4` (how to schedule a post, 9:16, 48 s).
+  `clipper/schedule-explainer.mp4` (how to schedule a post, 9:16, 48 s) and
+  `clipper/campaign-explainer.mp4` (how to create a campaign, 9:16, 60 s).
 
 ## 10. Campaigns (Platinum only, live)
 

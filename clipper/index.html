@@ -86,6 +86,19 @@
   .ap-howto[open] summary .play{background:var(--card)}
   .ap-howto video{display:block;width:100%;max-width:300px;aspect-ratio:9/16;margin:12px 0 0;border-radius:16px;border:1px solid var(--line);background:#000}
   /* Campaigns (Platinum) */
+  .cp-help{margin:-8px 0 24px}
+  .cp-help .ap-howto{margin:0 0 14px}
+  .cp-guides{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;align-items:start}
+  .cp-guide{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .cp-guide summary{cursor:pointer;font-weight:600;font-size:16px;list-style:none;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-height:28px}
+  .cp-guide summary::-webkit-details-marker{display:none}
+  .cp-guide summary::before{content:'+';color:var(--green);font-family:var(--mono);font-size:18px;width:14px}
+  .cp-guide[open] summary::before{content:'−'}
+  .cp-guide summary small{font-weight:400;font-size:13px;color:var(--muted)}
+  .cp-steps{margin:12px 0 0;padding:0;list-style:none;counter-reset:cps;display:grid;gap:10px}
+  .cp-steps li{position:relative;padding-left:38px;min-height:26px;font-size:15px;line-height:1.55;color:var(--muted)}
+  .cp-steps li b{color:var(--text);font-weight:600}
+  .cp-steps li::before{counter-increment:cps;content:counter(cps);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--green-deep);color:var(--green);display:grid;place-items:center;font-weight:700;font-size:13px}
   .cp-gate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
   .cp-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
   .cp-card h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:0 0 6px}
@@ -710,6 +723,44 @@
       <p class="eyebrow">Campaigns · Platinum</p>
       <h2>Paid clipping campaigns</h2>
       <p class="sub">Streamers and podcasters post a campaign and pay clippers for the views their clips get. Clippers join, post, and report their views. Creators approve the views and pay clippers directly. ClipNow keeps track of it all and never takes a cut.</p>
+    </div>
+
+    <div class="cp-help">
+      <details class="ap-howto" id="cpHowto">
+        <summary><span class="play" aria-hidden="true">▶</span> Watch: how to create a campaign <small id="cpHowtoLen">60 sec</small></summary>
+        <video controls playsinline preload="none" poster="campaign-explainer-poster.jpg" aria-label="Video: how to create a paid clipping campaign in ClipNow, step by step.">
+          <source src="campaign-explainer.mp4" type="video/mp4">
+          <a href="campaign-explainer.mp4">Watch how to create a campaign</a>
+        </video>
+      </details>
+      <div class="cp-guides">
+        <details class="cp-guide" id="cpGuideCreate">
+          <summary>How to create a campaign <small>for streamers &amp; podcasters</small></summary>
+          <ol class="cp-steps">
+            <li><b>Sign in with your Platinum account</b> and open <b>Campaigns</b>.</li>
+            <li>Tap <b>Create a campaign</b>.</li>
+            <li><b>Name it</b> and add your <b>creator name</b> (your channel or show), so clippers know whose content it is.</li>
+            <li>Say <b>what clippers should make</b> (which videos, what kind of moments) and list your <b>rules</b>, like clip length or crediting you in the caption.</li>
+            <li>Add a <b>link to your videos</b>: a Google Drive or Dropbox folder, or your YouTube channel. Only clippers who join can see it.</li>
+            <li>Set what you <b>pay per 1,000 views</b>. Add a <b>total budget</b> if you want a limit; ClipNow won't let you approve views past it. Add an <b>end date</b> if the campaign should stop.</li>
+            <li>Pick the <b>platforms</b> clippers can post on, add any <b>required tags</b> (like @you or #ad), and say <b>how and when you pay</b> (for example "PayPal, every Friday").</li>
+            <li>Tap <b>Publish campaign</b>. It's live right away for Platinum clippers. Share <b>clipnow.vip/campaigns</b> with clippers you know.</li>
+            <li>When clippers post, open your campaign. Under <b>Waiting for review</b>, open each post and its <b>screenshot</b>, then tap <b>Approve views</b> (or Don't approve).</li>
+            <li>Pay each clipper what they're owed using their payout details, then tap <b>Record payment</b> so you both see it's paid.</li>
+          </ol>
+          <p class="cp-fine">You can edit your campaign, or close it to new posts, any time. ClipNow doesn't hold or send money; you pay clippers directly.</p>
+        </details>
+        <details class="cp-guide" id="cpGuideJoin">
+          <summary>How to join and get paid <small>for clippers</small></summary>
+          <ol class="cp-steps">
+            <li>Open a campaign under <b>Browse</b> and read its rate, rules and payment terms.</li>
+            <li>Tap <b>Join campaign</b> with your name and <b>where to pay you</b> (PayPal, Cash App…). Only the creator sees it.</li>
+            <li>Tap <b>Get the videos</b>, then <b>Clip it in the Studio</b>. The campaign's required tags are added for you.</li>
+            <li>Post your clip, then come back and <b>Submit a post</b>: its link, its views right now, and a screenshot showing the views.</li>
+            <li>As views grow, tap <b>Update views</b> with a new screenshot. The creator approves the views and pays you directly.</li>
+          </ol>
+        </details>
+      </div>
     </div>
 
     <p class="note" id="cpLoading">Loading campaigns…</p>
@@ -2866,6 +2917,10 @@ if ('IntersectionObserver' in window){
     });
   });
 
+  (function(){
+    var d = $('#cpHowto'), v = $('video', d);
+    d.addEventListener('toggle', function(){ if (d.open){ var pr = v.play(); if (pr && pr.catch) pr.catch(function(){}); } else v.pause(); });
+  })();
   window.Campaigns = { refresh:function(){ busy = false; load(); } };
   if (IS_CAMPAIGNS && MEMBER) load();
 })();
