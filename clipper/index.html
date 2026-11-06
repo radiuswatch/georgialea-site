@@ -130,12 +130,16 @@
   .btn-ghost:hover{border-color:var(--muted)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
 
-  .hero{padding:88px 0 64px;border-bottom:1px solid var(--line)}
+  .hero{padding:88px 0 40px;border-bottom:0}
+  .hero + #studio{padding-top:8px}
+  .hero + #studio .sect-head{margin-bottom:16px;gap:6px}
+  .hero + #studio .sect-head h2{font-family:var(--sans);font-weight:600;font-size:22px;line-height:1.3}
+  .hero + #studio .sect-head .sub{font-size:14.5px}
   .hero h1{font-size:clamp(38px,6vw,62px);line-height:1.1;max-width:16ch}
   .hero h1 em{font-style:italic;color:var(--green)}
   .hero .sub{font-size:19px;margin:24px 0 34px}
   .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-  .plat-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:40px}
+  .plat-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px;align-items:center}
   .chip{font-family:var(--mono);font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
 
   section{padding:80px 0;border-bottom:1px solid var(--line)}
@@ -443,7 +447,7 @@
   .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
   .reveal.in{opacity:1;transform:none}
   @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}.skeleton .vid-thumb,.skeleton .sk{animation:none}}
-  @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:40px 0 40px}section{padding:56px 0}.stage{padding:16px}.wrap{padding:0 max(16px,env(safe-area-inset-left))}.nav{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}.plat-grid{grid-template-columns:1fr}}
+  @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:40px 0 24px}section{padding:56px 0}.stage{padding:16px}.wrap{padding:0 max(16px,env(safe-area-inset-left))}.nav{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}.plat-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -452,8 +456,8 @@
   <div class="nav">
     <a class="brand" href="#top"><span class="brand-mark">CN</span><span data-brand>ClipNow</span></a>
     <nav class="nav-links">
-      <a href="#how">How it works</a>
       <a href="#studio">Studio</a>
+      <a href="#how">How it works</a>
       <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
       <a href="#pricing">Pricing</a>
@@ -483,7 +487,6 @@
       <button class="pill" type="button" data-cat="23">Comedy</button>
       <button class="pill" type="button" data-cat="10">Music</button>
     </div>
-    <div class="pills" id="recent" hidden></div>
 
     <div class="results" id="results" hidden aria-live="polite">
       <div class="res-head">
@@ -495,36 +498,6 @@
       <div id="resBody"></div>
     </div>
 
-    <div class="cta-row reveal" style="margin-top:30px">
-      <a class="btn btn-ghost" href="#studio">Already have the video? Upload it</a>
-      <a class="btn btn-ghost" href="#pricing">Plans from $9.99/mo</a>
-    </div>
-    <div class="plat-row reveal" aria-label="Supported platforms">
-      <span class="chip">TikTok</span><span class="chip">YouTube Shorts</span><span class="chip">Instagram Reels</span><span class="chip">Facebook Reels</span><span class="chip">Snapchat Spotlight</span><span class="chip">X</span>
-    </div>
-  </div>
-</section>
-
-<section id="how">
-  <div class="wrap">
-    <div class="sect-head reveal">
-      <p class="eyebrow">How it works</p>
-      <h2>Three steps, then repeat tomorrow.</h2>
-      <p class="sub">Clippers get paid when their clips get views: through paid clipping campaigns (creators and brands pay per 1,000 views), platform creator programs, and affiliate links. ClipNow handles the busywork so you can post more, more often.</p>
-    </div>
-    <figure class="explainer reveal">
-      <video controls playsinline preload="none" poster="explainer-poster.jpg" aria-label="ClipNow explainer video: how to turn one long video into short clips">
-        <source src="explainer.mp4" type="video/mp4">
-        <a href="explainer.mp4">Watch the ClipNow explainer video</a>
-      </video>
-      <figcaption>Watch how it works in under a minute. Sound on.</figcaption>
-    </figure>
-    <div class="steps">
-      <div class="step reveal"><span class="step-num">Step 1</span><h3>Drop in a video</h3><p>Use your own content, or footage from a campaign that pays clippers to repost it. Any MP4, MOV or WebM.</p></div>
-      <div class="step reveal"><span class="step-num">Step 2</span><h3>Get the best moments</h3><p>We score every second for energy and pick the strongest stretches, already cropped to 9:16 with a hook caption burned in.</p></div>
-      <div class="step reveal"><span class="step-num">Step 3</span><h3>Post everywhere</h3><p>A caption sized for each platform's rules, with your campaign's required tags. Export once, post to six platforms.</p></div>
-      <div class="step reveal"><span class="step-num">Step 4</span><h3>Repeat daily</h3><p>Follow the daily plan below. Clippers who post every day are the ones who earn. Consistency beats luck.</p></div>
-    </div>
   </div>
 </section>
 
@@ -657,6 +630,33 @@
         </div>
         <div class="callout" id="manualNote"><b>Prefer to post yourself?</b> Save each clip, copy its caption, and the Open button takes you to that platform's upload page. Snapchat is manual only.</div>
       </div>
+    </div>
+    <div class="plat-row reveal" aria-label="Supported platforms">
+      <span class="chip">TikTok</span><span class="chip">YouTube Shorts</span><span class="chip">Instagram Reels</span><span class="chip">Facebook Reels</span><span class="chip">Snapchat Spotlight</span><span class="chip">X</span>
+      <a class="btn btn-ghost btn-sm" href="#pricing">Plans from $9.99/mo</a>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sect-head reveal">
+      <p class="eyebrow">How it works</p>
+      <h2>Three steps, then repeat tomorrow.</h2>
+      <p class="sub">Clippers get paid when their clips get views: through paid clipping campaigns (creators and brands pay per 1,000 views), platform creator programs, and affiliate links. ClipNow handles the busywork so you can post more, more often.</p>
+    </div>
+    <figure class="explainer reveal">
+      <video controls playsinline preload="none" poster="explainer-poster.jpg" aria-label="ClipNow explainer video: how to turn one long video into short clips">
+        <source src="explainer.mp4" type="video/mp4">
+        <a href="explainer.mp4">Watch the ClipNow explainer video</a>
+      </video>
+      <figcaption>Watch how it works in under a minute. Sound on.</figcaption>
+    </figure>
+    <div class="steps">
+      <div class="step reveal"><span class="step-num">Step 1</span><h3>Drop in a video</h3><p>Use your own content, or footage from a campaign that pays clippers to repost it. Any MP4, MOV or WebM.</p></div>
+      <div class="step reveal"><span class="step-num">Step 2</span><h3>Get the best moments</h3><p>We score every second for energy and pick the strongest stretches, already cropped to 9:16 with a hook caption burned in.</p></div>
+      <div class="step reveal"><span class="step-num">Step 3</span><h3>Post everywhere</h3><p>A caption sized for each platform's rules, with your campaign's required tags. Export once, post to six platforms.</p></div>
+      <div class="step reveal"><span class="step-num">Step 4</span><h3>Repeat daily</h3><p>Follow the daily plan below. Clippers who post every day are the ones who earn. Consistency beats luck.</p></div>
     </div>
   </div>
 </section>
@@ -1482,23 +1482,12 @@ function renderVids(list, extraHtml){
 function fail(err, name){
   $('#resBody').innerHTML = '<p class="note"><b>' + esc(err && err.message || 'Search failed.') + '</b></p>' + (name ? linksHtml(outLinks(name)) : '');
 }
-function remember(q){
-  var list = (store('cp_recent') || []).filter(function(x){ return x.toLowerCase() !== q.toLowerCase(); });
-  list.unshift(q); store('cp_recent', list.slice(0,6)); renderRecent();
-}
-function renderRecent(){
-  var list = store('cp_recent') || [], box = $('#recent');
-  box.hidden = !list.length;
-  box.innerHTML = '<span class="lbl">Recent:</span>' + list.map(function(q){ return '<button class="pill" type="button">' + esc(q) + '</button>'; }).join('');
-}
-$('#recent').addEventListener('click', function(e){ var b = e.target.closest('.pill'); if (!b) return; $('#q').value = b.textContent; search(b.textContent); });
-renderRecent();
+try { localStorage.removeItem('cp_recent'); } catch(e){} // the Recent searches row was removed
 
 function search(q){
   q = (q||'').trim(); if (!q) { $('#q').focus(); return; }
   $$('#pills .pill').forEach(function(p){ p.classList.remove('on'); });
   if (document.activeElement) document.activeElement.blur();   // closes the phone keyboard
-  remember(q);
   var p = parseQuery(q);
   R.name = p.name || ''; R.cache = {}; R.tab = 'channel';
   $('#resTabs').hidden = true;
