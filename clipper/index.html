@@ -300,10 +300,57 @@
   .src-banner b{display:block;color:var(--text);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .src-banner button{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px;align-self:flex-start}
 
+  /* Platforms guide */
+  .pg-progress{font-family:var(--mono);font-size:13px;color:var(--green);margin-bottom:14px}
+  .pg-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:18px;scrollbar-width:none}
+  .pg-tabs::-webkit-scrollbar{display:none}
+  .pg-tab{flex-shrink:0;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:14.5px;color:var(--muted);cursor:pointer;min-height:42px}
+  .pg-tab.on{color:var(--text);border-color:var(--green);background:var(--green-deep)}
+  .pg-tab .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+  .pg-tab.done .dot{background:var(--green)}
+  .pg-panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  @media (max-width:820px){.pg-panel{grid-template-columns:1fr;padding:20px}}
+  .pg-panel h3{font-family:var(--sans);font-weight:600;font-size:18px;margin:0 0 4px}
+  .pg-panel .pg-time{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .pg-steps{list-style:none;counter-reset:s;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:12px}
+  .pg-steps li{counter-increment:s;position:relative;padding-left:38px;font-size:15px;color:var(--muted)}
+  .pg-steps li b{color:var(--text);font-weight:600}
+  .pg-steps li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--green-deep);color:var(--green);font-family:var(--mono);font-size:13px;display:grid;place-items:center}
+  .pg-tip{grid-column:1/-1;background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:14.5px;color:var(--muted)}
+  .pg-tip b{color:var(--text)}
+  .pg-manual{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px}
+  .pg-manual summary{cursor:pointer;font-size:15px;color:var(--green)}
+  .pg-manual .pg-steps{margin-top:12px}
+  .pg-foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px}
+  .pg-foot .soon{font-size:14px;color:var(--faint);max-width:52ch}
+  .pg-foot .row{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* Contact form */
+  .contact-box{max-width:480px;gap:14px;max-height:92vh;overflow-y:auto}
+  .ct-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .ct-head h3{font-family:var(--sans);font-weight:600;font-size:20px}
+  .ct-head p{margin:2px 0 0;font-size:14px;color:var(--muted)}
+  .ct-x{background:none;border:0;color:var(--muted);font-size:28px;line-height:1;cursor:pointer;padding:0 4px;min-width:44px;min-height:44px}
+  #contactForm{display:grid;gap:14px}
+  #contactForm input[type=email]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:16px}
+  #contactForm .field input,#contactForm .field select,#contactForm .field textarea{font-size:16px}
+  #contactForm .field textarea{min-height:120px}
+  #contactForm [aria-invalid=true]{border-color:var(--warn)}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .ct-err{margin:0;color:var(--warn);font-size:14px;min-height:0}
+  .ct-err:empty{display:none}
+  .ct-done{display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+  .ct-done p{margin:0;font-size:16px;color:var(--text)}
+  .ct-done[hidden]{display:none}
+  @media (max-width:700px){.contact-box{max-height:none;justify-content:flex-start}}
+  .nav-links{gap:20px}
+  @media (max-width:1240px){.nav-links a[href="#how"],.nav-links a[href="#faq"]{display:none}}
+  @media (max-width:1040px){.nav-links a[href="privacy.html"],.nav-links a[href="#daily"]{display:none}}
+
   /* Mobile app bar */
   .tabbar{display:none}
   @media (max-width:700px){
-    .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+    .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
     .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--faint);font-size:11.5px;padding:6px 0;min-height:48px;justify-content:center}
     .tabbar a.on{color:var(--green)}
     .tabbar svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -342,10 +389,12 @@
     <nav class="nav-links">
       <a href="#how">How it works</a>
       <a href="#studio">Studio</a>
+      <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
       <a href="privacy.html">Policies</a>
+      <a href="#contact" data-contact>Contact</a>
       <button class="btn btn-ghost btn-sm" id="acctBtn" type="button">Sign in</button>
       <a class="btn btn-green btn-sm" href="#top">Find videos</a>
     </nav>
@@ -522,6 +571,20 @@
   </div>
 </section>
 
+<section id="platforms">
+  <div class="wrap">
+    <div class="sect-head reveal">
+      <p class="eyebrow">Platforms</p>
+      <h2>Get every account ready in one sitting.</h2>
+      <p class="sub">Pick a platform: set up the account, then connect it so ClipNow can post for you. About 5 minutes each. Tick it off when you're done, and your progress is saved on this device.</p>
+    </div>
+    <div class="pg-progress reveal" id="pgProgress"></div>
+    <div class="pg-tabs reveal" id="pgTabs" role="tablist" aria-label="Platforms"></div>
+    <div class="pg-panel reveal" id="pgPanel" role="tabpanel"></div>
+    <p class="note reveal">Apps move their menus around. If a button isn't where we say, search the app's settings for the words in <b>bold</b>. Still stuck? <a href="#contact" data-contact data-reason="Help connecting a platform">Ask us</a>.</p>
+  </div>
+</section>
+
 <section id="daily">
   <div class="wrap">
     <div class="sect-head reveal">
@@ -622,8 +685,13 @@
       <details><summary>Will I make money every day?</summary><p>Nobody can honestly promise that. Earnings depend on views, and views take time to build. What we can promise is that you'll spend minutes, not hours, on each batch of clips, so you can keep showing up long enough to find what works.</p></details>
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
       <details><summary>Does my video get uploaded to your servers?</summary><p>No. Finding and cutting clips runs entirely in your browser, so your full video stays on your device. The only time anything is uploaded is when you tap <b>Post now</b> or <b>Schedule</b> on a clip: that one clip is sent through our posting partner, Upload-Post, to the accounts you connected, and nothing else.</p></details>
+      <details><summary>How do I connect my social media accounts?</summary><p>Sign in, then in Studio step 3 tap <b>Connect accounts</b> under Auto-post and sign in to each platform. Set each account up first with the 5-minute guides in <a href="#platforms">Platforms</a>. Snapchat doesn’t allow auto-posting yet, so you post those clips from your phone.</p></details>
       <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just email us at <a href="mailto:helpdesk@clipnow.vip">helpdesk@clipnow.vip</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
       <details><summary>Where are your privacy policy and terms?</summary><p>Read our <a href="privacy.html">Privacy Policy</a>, <a href="terms.html">Terms of Service</a> and <a href="refunds.html">Refunds &amp; Cancellation Policy</a>. The short version: your videos never leave your device, payments are handled by Stripe, and we don't sell your information.</p></details>
+    </div>
+    <div class="cta-row reveal" style="margin-top:28px">
+      <p class="sub" style="font-size:15.5px">Didn't find your answer?</p>
+      <a class="btn btn-green btn-sm" href="#contact" data-contact>Contact us</a>
     </div>
   </div>
 </section>
@@ -633,7 +701,7 @@
   <div class="wrap foot">
     <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/">App Planet</a></span>
     <nav class="foot-legal" aria-label="Policies"><b>Policies</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
-    <span><a href="mailto:helpdesk@clipnow.vip?subject=ClipNow">helpdesk@clipnow.vip</a></span>
+    <span><a href="#contact" data-contact>Contact us</a> · helpdesk@clipnow.vip</span>
   </div>
 </footer>
 
@@ -645,6 +713,42 @@
       <button class="btn btn-ghost btn-sm" id="pvPlay">Pause</button>
       <span class="status" id="pvTime" style="margin:0;flex:1"></span>
       <button class="btn btn-green btn-sm" id="pvClose">Done</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="contactModal" role="dialog" aria-modal="true" aria-labelledby="ctTitle">
+  <div class="modal-box contact-box">
+    <div class="ct-head">
+      <div>
+        <h3 id="ctTitle">Contact us</h3>
+        <p>We reply within one business day.</p>
+      </div>
+      <button type="button" class="ct-x" id="ctClose" aria-label="Close">×</button>
+    </div>
+    <form id="contactForm" novalidate>
+      <div class="field"><label for="ctName">Your name</label><input type="text" id="ctName" name="name" autocomplete="name" maxlength="80" required></div>
+      <div class="field"><label for="ctEmail">Email (so we can reply)</label><input type="email" id="ctEmail" name="email" autocomplete="email" inputmode="email" maxlength="120" required></div>
+      <div class="field"><label for="ctReason">Reason</label>
+        <select id="ctReason" name="reason" required>
+          <option value="">Choose a reason</option>
+          <option>Question about plans</option>
+          <option>Start a free trial</option>
+          <option>Billing or cancelling</option>
+          <option>Technical problem</option>
+          <option>Help connecting a platform</option>
+          <option>Clipping tips</option>
+          <option>Partnership or campaign</option>
+          <option>Something else</option>
+        </select>
+      </div>
+      <div class="field"><label for="ctMsg">Tell us what's going on</label><textarea id="ctMsg" name="message" rows="5" maxlength="4000" required placeholder="What happened, what you expected, and which phone or browser you're using."></textarea></div>
+      <div class="hp" aria-hidden="true"><label for="ctWebsite">Leave this empty</label><input type="text" id="ctWebsite" name="website" tabindex="-1" autocomplete="off"></div>
+      <p class="ct-err" id="ctErr" role="alert"></p>
+      <button class="btn btn-green" type="submit" id="ctSend">Send message</button>
+    </form>
+    <div class="ct-done" id="ctDone" hidden>
+      <p id="ctDoneMsg"></p>
+      <button class="btn btn-ghost" type="button" id="ctDoneClose">Close</button>
     </div>
   </div>
 </div>
@@ -685,6 +789,7 @@
 <nav class="tabbar" aria-label="App sections">
   <a href="#top" data-sec="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</a>
   <a href="#studio" data-sec="studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
+  <a href="#platforms" data-sec="platforms"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/></svg>Platforms</a>
   <a href="#daily" data-sec="daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
   <a href="#pricing" data-sec="pricing"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3S9.5 10 12 10.5s4.5 1.3 4.5 3-2 3.5-4.5 3.5-4.5-1.3-4.5-3"/></svg>Plans</a>
 </nav>
@@ -1371,8 +1476,184 @@ if ('IntersectionObserver' in window){
   var secIO = new IntersectionObserver(function(entries){
     entries.forEach(function(en){ if (en.isIntersecting){ var id = en.target.id; tabLinks.forEach(function(a){ a.classList.toggle('on', a.dataset.sec === id); }); } });
   }, { rootMargin:'-45% 0px -50% 0px' });
-  ['search','studio','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
+  ['search','studio','platforms','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
 }
+
+/* ---------- Platforms guide ---------- */
+var GUIDES = [
+  { id:'tiktok', name:'TikTok', time:'About 5 minutes', open:'https://www.tiktok.com/upload',
+    setup:[
+      'Download <b>TikTok</b> and sign up with an email you check often. Campaigns and payouts will contact you there.',
+      'Pick a username that says what you post, like <b>kai.highlights</b>. Add a profile photo and a one-line bio.',
+      'Keep it a <b>personal account</b>. Business accounts lose most of the popular sounds.',
+      'Turn on <b>2-step verification</b>: Profile → ☰ → <b>Settings and privacy</b> → <b>Security</b>.'
+    ],
+    post:[
+      'In the ClipNow Studio, export your clip and tap <b>Save or share</b> → <b>Save Video</b>.',
+      'Tap <b>Copy caption</b> on the TikTok card in Studio step 3.',
+      'Open TikTok, tap <b>+</b> → <b>Upload</b>, and pick the clip.',
+      'Tap <b>Next</b>, paste the caption, and tap <b>Post</b>.'
+    ],
+    tip:'Post at about the same time every day. Your audience learns when to expect you.' },
+  { id:'youtube', name:'YouTube Shorts', time:'About 5 minutes', open:'https://studio.youtube.com',
+    setup:[
+      'Open the <b>YouTube</b> app, sign in with a Google account, tap your picture → <b>Create a channel</b>.',
+      'Name the channel after your niche and add a picture.',
+      'Verify your phone at <b>youtube.com/verify</b>. This unlocks custom thumbnails and longer uploads.',
+      'Turn on <b>2-Step Verification</b> for your Google account under <b>Security</b> at myaccount.google.com.'
+    ],
+    post:[
+      'Save your ClipNow clip to your phone.',
+      'In YouTube, tap <b>+</b> → <b>Create a Short</b>, then the gallery icon at the bottom left, and pick the clip.',
+      'Tap <b>Next</b>, paste the title from Studio (it already has <b>#shorts</b>), and tap <b>Upload Short</b>.'
+    ],
+    tip:'Shorts must be <b>3 minutes or less</b> and vertical or square. ClipNow clips already are.' },
+  { id:'instagram', name:'Instagram Reels', time:'About 5 minutes', open:'https://www.instagram.com/',
+    setup:[
+      'Sign up for <b>Instagram</b>, or make a new account just for clips: Profile → your username at the top → <b>Add account</b>.',
+      'Switch to a free professional account: Profile → ☰ → <b>Account type and tools</b> → <b>Switch to professional account</b> → <b>Creator</b>. You get view stats, and one-click posting will need it.',
+      'Pick a category like <b>Video creator</b> and keep the profile <b>public</b>.',
+      'Turn on <b>two-factor authentication</b>: ☰ → <b>Accounts Center</b> → <b>Password and security</b>.'
+    ],
+    post:[
+      'Save your ClipNow clip to your phone.',
+      'In Instagram, tap <b>+</b> → <b>Reel</b>, pick the clip, and tap <b>Next</b>.',
+      'Paste the caption from Studio and tap <b>Share</b>.'
+    ],
+    connectNote:'It must be the <b>professional account</b> from the setup steps.',
+    tip:'If you also post to Facebook yourself, turn off <b>Share to Facebook</b> on the Reel so it doesn’t go up twice.' },
+  { id:'facebook', name:'Facebook Reels', time:'About 5 minutes', open:'https://www.facebook.com/reels/create',
+    setup:[
+      'Log in to <b>Facebook</b> with your personal profile.',
+      'Create a <b>Page</b> for your clips: ☰ <b>Menu</b> → <b>Pages</b> → <b>Create</b>. Name it like <b>Kai Highlights</b>. One-click posting will post to Pages, not personal profiles.',
+      'Add a profile picture and cover photo to the Page.',
+      'Turn on <b>two-factor authentication</b>: ☰ → <b>Settings & privacy</b> → <b>Accounts Center</b> → <b>Password and security</b>.'
+    ],
+    post:[
+      'Save your ClipNow clip to your phone.',
+      'In Facebook, tap your profile picture and <b>switch to your Page</b>.',
+      'Tap <b>+</b> → <b>Reel</b>, pick the clip, tap <b>Next</b>, paste the caption, and tap <b>Share now</b>.'
+    ],
+    connectNote:'When it asks which Page, pick the <b>Page</b> you made for your clips.',
+    tip:'Keep Facebook Reels <b>under 90 seconds</b>. Studio warns you if a clip is too long.' },
+  { id:'snapchat', name:'Snapchat Spotlight', time:'About 5 minutes', open:'https://my.snapchat.com/',
+    setup:[
+      'Sign up for <b>Snapchat</b>.',
+      'Tap your profile icon → <b>Create Public Profile</b>, so people who don’t know you can find and subscribe to you.',
+      'Add a bio and profile photo to the public profile.',
+      'Turn on <b>two-factor authentication</b>: Profile → ⚙ <b>Settings</b> → <b>Two-Factor Authentication</b>.'
+    ],
+    post:[
+      'Save your ClipNow clip to your phone.',
+      'Open Snapchat, swipe up from the camera (or tap <b>Memories</b>) → <b>Camera Roll</b>, and pick the clip.',
+      'Tap <b>Send</b> → <b>Spotlight</b>, paste a short caption, and tap <b>Send</b>.'
+    ],
+    tip:'Spotlight clips can be <b>60 seconds at most</b>. Pick 15s or 30s clips in Studio.' },
+  { id:'x', name:'X', time:'About 3 minutes', open:'https://x.com/compose/post',
+    setup:[
+      'Sign up at <b>x.com</b> or in the X app, with a username that matches your other accounts.',
+      'Add a bio and a profile photo. Pin your best clip later so new visitors see it first.',
+      'Turn on <b>two-factor authentication</b>: <b>Settings</b> → <b>Security and account access</b> → <b>Security</b>.'
+    ],
+    post:[
+      'Save your ClipNow clip to your phone.',
+      'In X, tap <b>+</b>, then the photo icon, and pick the clip.',
+      'Paste the X caption from Studio (it’s already under 280 characters) and tap <b>Post</b>.'
+    ],
+    tip:'Free X accounts can post videos up to <b>2 minutes 20 seconds</b>.' }
+];
+var pgDone = store('cp_pg_done') || {};
+var pgCur = GUIDES[0].id;
+function renderGuides(){
+  var n = GUIDES.filter(function(g){ return pgDone[g.id]; }).length;
+  $('#pgProgress').textContent = n + ' of ' + GUIDES.length + ' platforms set up' + (n === GUIDES.length ? '. You’re ready to post everywhere.' : '');
+  $('#pgTabs').innerHTML = GUIDES.map(function(g){
+    return '<button type="button" role="tab" class="pg-tab' + (g.id===pgCur?' on':'') + (pgDone[g.id]?' done':'') + '" aria-selected="' + (g.id===pgCur) + '" data-pg="' + g.id + '"><span class="dot"></span>' + g.name + '</button>';
+  }).join('');
+  var g = GUIDES.filter(function(x){ return x.id === pgCur; })[0];
+  var li = function(arr){ return '<ol class="pg-steps">' + arr.map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>'; };
+  var short = g.name.split(' ')[0];
+  var connect = g.id === 'snapchat'
+    ? '<div><h3>Post your clips</h3><span class="pg-time">Snapchat doesn’t allow auto-posting yet</span>' + li(g.post) + '</div>'
+    : '<div><h3>Connect ' + short + ' to ClipNow</h3><span class="pg-time">Once, about 2 minutes. Then every clip posts in one tap</span>' + li([
+        '<b>Sign in</b> to ClipNow (top of the page). Auto-posting comes with every plan and the free trial (Silver posts to 3 platforms at a time).',
+        'Go to the <b>Studio</b>, step 3 <b>Post everywhere</b>, and tap <b>Connect accounts</b> under Auto-post.',
+        'On the page that opens, choose <b>' + short + '</b>, sign in to ' + short + ', and tap <b>Allow</b>.' + (g.connectNote ? ' ' + g.connectNote : '') + ' ClipNow never sees your password.',
+        'Come back to ClipNow. ' + short + ' now shows as connected, so tap <b>Post now</b> or <b>Schedule</b> on any clip.'
+      ]) + '</div>';
+  $('#pgPanel').innerHTML =
+    '<div><h3>Set up ' + g.name + '</h3><span class="pg-time">' + g.time + '</span>' + li(g.setup) + '</div>' +
+    connect +
+    '<div class="pg-tip"><b>Tip:</b> ' + g.tip + '</div>' +
+    (g.id === 'snapchat' ? '' : '<details class="pg-manual"><summary>Rather post it yourself?</summary>' + li(g.post) + '</details>') +
+    '<div class="pg-foot"><span class="soon">' + (g.id === 'snapchat' ? 'Your caption is ready in Studio step 3. Tap <b>Copy caption</b> on the Snapchat card.' : 'Connected accounts can be changed or removed any time from the same <b>Connect accounts</b> button.') + '</span>' +
+      '<span class="row"><a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + g.open + '">Open ' + short + '</a>' +
+      (g.id === 'snapchat' ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-goconnect>Connect in Studio</button>') +
+      '<button type="button" class="btn ' + (pgDone[g.id]?'btn-ghost':'btn-green') + ' btn-sm" data-pgdone="' + g.id + '">' + (pgDone[g.id]?'Done ✓ (undo)':'Mark as set up') + '</button></span></div>';
+}
+$('#pgTabs').addEventListener('click', function(e){ var b = e.target.closest('[data-pg]'); if (!b) return; pgCur = b.dataset.pg; renderGuides(); });
+$('#pgPanel').addEventListener('click', function(e){
+  if (e.target.closest('[data-goconnect]')){
+    goStage(3);
+    var ap = document.getElementById('autopost') || document.getElementById('studio');
+    ap.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  var b = e.target.closest('[data-pgdone]'); if (!b) return;
+  var id = b.dataset.pgdone; pgDone[id] = !pgDone[id]; store('cp_pg_done', pgDone);
+  if (pgDone[id]){
+    toast(GUIDES.filter(function(g){ return g.id===id; })[0].name + ' is set up');
+    var next = GUIDES.filter(function(g){ return !pgDone[g.id]; })[0]; if (next) pgCur = next.id;
+  }
+  renderGuides();
+});
+renderGuides();
+
+/* ---------- Contact form (posts to contact.php on Bluehost) ---------- */
+var ct = { opened:0, plan:'' };
+function openContact(reason, plan, prefill){
+  ct.opened = Date.now(); ct.plan = plan || '';
+  $('#contactForm').hidden = false; $('#ctDone').hidden = true; $('#ctErr').textContent = '';
+  if (reason) $('#ctReason').value = reason;
+  if (prefill && !$('#ctMsg').value) $('#ctMsg').value = prefill;
+  var saved = store('cp_ct_me'); if (saved){ if (!$('#ctName').value) $('#ctName').value = saved.name || ''; if (!$('#ctEmail').value) $('#ctEmail').value = saved.email || ''; }
+  $('#contactModal').classList.add('on');
+  setTimeout(function(){ var first = ['#ctName','#ctEmail','#ctReason','#ctMsg'].map(function(s){ return $(s); }).filter(function(el){ return !el.value; })[0]; (first || $('#ctMsg')).focus(); }, 60);
+}
+function closeContact(){ $('#contactModal').classList.remove('on'); }
+document.addEventListener('click', function(e){
+  var a = e.target.closest('[data-contact]'); if (!a) return;
+  e.preventDefault(); openContact(a.dataset.reason || '');
+});
+$('#ctClose').addEventListener('click', closeContact);
+$('#ctDoneClose').addEventListener('click', closeContact);
+$('#contactModal').addEventListener('click', function(e){ if (e.target === this) closeContact(); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeContact(); });
+$('#contactForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  var f = { name:$('#ctName').value.trim(), email:$('#ctEmail').value.trim(), reason:$('#ctReason').value, message:$('#ctMsg').value.trim() };
+  var bad = null;
+  [['#ctName', !f.name, 'Please add your name.'],
+   ['#ctEmail', !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email), 'Please check your email address so we can reply.'],
+   ['#ctReason', !f.reason, 'Please pick a reason.'],
+   ['#ctMsg', f.message.length < 10, 'Please tell us a little more about your issue.']
+  ].forEach(function(c){ $(c[0]).setAttribute('aria-invalid', c[1] ? 'true' : 'false'); if (c[1] && !bad) bad = c; });
+  if (bad){ $('#ctErr').textContent = bad[2]; $(bad[0]).focus(); return; }
+  var btn = $('#ctSend'); btn.disabled = true; btn.textContent = 'Sending…'; $('#ctErr').textContent = '';
+  var body = { name:f.name, email:f.email, reason:f.reason, message:f.message, plan:ct.plan, website:$('#ctWebsite').value, elapsed:Date.now()-ct.opened };
+  fetch('contact.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
+    .then(function(r){ return r.json().catch(function(){ throw new Error('bad'); }); })
+    .then(function(j){
+      if (!j.ok) throw new Error(j.message || 'bad');
+      store('cp_ct_me', { name:f.name, email:f.email });
+      $('#ctMsg').value = ''; $('#ctDoneMsg').textContent = j.message;
+      $('#contactForm').hidden = true; $('#ctDone').hidden = false;
+    })
+    .catch(function(err){
+      $('#ctErr').textContent = (err && err.message && err.message !== 'bad' && err.message !== 'Failed to fetch') ? err.message : 'We couldn’t send that right now. Please email ' + CONFIG.contact + ' and paste your message.';
+    })
+    .then(function(){ btn.disabled = false; btn.textContent = 'Send message'; });
+});
 
 /* ---------- Daily plan ---------- */
 var TASKS = [
@@ -1668,7 +1949,10 @@ $$('[data-plan]').forEach(function(a){
     var link = CONFIG.stripe[a.dataset.plan][bill];
     e.preventDefault();
     if (link) location.href = link;
-    else location.href = 'mailto:' + CONFIG.contact + '?subject=' + encodeURIComponent(CONFIG.brand + ' ' + a.dataset.plan + ' plan (' + (bill==='m'?'monthly':'yearly') + ')') + '&body=' + encodeURIComponent('I’d like to start the free trial.');
+    else {
+      var label = a.dataset.plan.charAt(0).toUpperCase() + a.dataset.plan.slice(1) + ' (' + (bill==='m'?'monthly':'yearly') + ')';
+      openContact('Start a free trial', label, 'I’d like to start the 7-day free trial of the ' + label + ' plan.');
+    }
   });
 });
 
