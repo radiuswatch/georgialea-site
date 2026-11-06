@@ -1355,7 +1355,7 @@ $('#exportBtn').addEventListener('click', function(){
   var chain = Promise.resolve();
   todo.forEach(function(c, i){
     chain = chain.then(function(){
-      st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + '…';
+      st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + '…' + (i ? ' Finished clips are already in step 3.' : '');
       function attempt(n){
         return renderClip(c, H, function(p){ setProg('#exProg', (doneSec + p*(c.end-c.start))/total); }, R, function(state){
           if (state === 'away') st.textContent = 'Paused at clip ' + (i+1) + ' of ' + todo.length + ' while you were away. It carries on when you come back to this page.';
@@ -1368,6 +1368,7 @@ $('#exportBtn').addEventListener('click', function(){
         S.exports = S.exports.filter(function(x){ if (x.clip === c){ try { URL.revokeObjectURL(x.url); } catch(e){} return false; } return true; });
         S.exports.push({ clip:c, name:name, blob:out.blob, url:URL.createObjectURL(out.blob), size:out.blob.size, dur:c.end-c.start, hook:c.hook });
         c.made = H;
+        renderExports();   // each finished clip shows in step 3 straight away
       }, function(err){ err.clipNo = i + 1; throw err; });
     });
   });
