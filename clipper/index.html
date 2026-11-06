@@ -99,6 +99,20 @@
   .cp-steps li{position:relative;padding-left:38px;min-height:26px;font-size:15px;line-height:1.55;color:var(--muted)}
   .cp-steps li b{color:var(--text);font-weight:600}
   .cp-steps li::before{counter-increment:cps;content:counter(cps);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--green-deep);color:var(--green);display:grid;place-items:center;font-weight:700;font-size:13px}
+  .cp-trend{margin-top:34px}
+  .cp-trend-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .cp-trend-head h3{font-family:var(--sans);font-weight:600;font-size:22px;margin:0}
+  .tr-list{display:grid;gap:12px;margin:0;padding:0;list-style:none;counter-reset:tr}
+  .tr-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 16px 58px;position:relative;display:flex;flex-direction:column;gap:6px}
+  .tr-item::before{counter-increment:tr;content:counter(tr);position:absolute;left:14px;top:14px;width:32px;height:32px;border-radius:10px;background:var(--green-deep);color:var(--green);display:grid;place-items:center;font:700 15px var(--mono)}
+  .tr-item h4{margin:0;font-size:16.5px;font-weight:600;line-height:1.3}
+  .tr-item p{margin:0;font-size:14.5px;color:var(--muted)}
+  .tr-item .cp-rate{font-size:14.5px}
+  .tr-locked{position:relative}
+  .tr-locked .tr-list{filter:blur(5px);pointer-events:none;user-select:none;opacity:.6}
+  .tr-lock{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:16px}
+  .tr-lock div{background:var(--card-2);border:1px solid var(--green-dim);border-radius:14px;padding:18px;max-width:420px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .tr-lock p{margin:0 0 12px;font-size:15px}
   .cp-gate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
   .cp-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
   .cp-card h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:0 0 6px}
@@ -809,6 +823,15 @@
         <div class="cta-row"><button class="btn btn-green" type="submit" id="cfSave">Publish campaign</button><button class="btn btn-ghost" type="button" data-back>Cancel</button></div>
       </form>
     </div>
+
+    <div class="cp-trend" id="cpTrend">
+      <div class="cp-trend-head">
+        <h3>Top 10 trending campaigns</h3>
+        <span class="cp-st me">AI · Gold &amp; Platinum</span>
+      </div>
+      <p class="sub" style="margin:0 0 16px">Paid clipping campaigns from around the web, found and ranked by AI every day: best pay, most budget left, newest. Always check the details on the campaign’s own page before you clip.</p>
+      <div id="trBody"><p class="note">Loading…</p></div>
+    </div>
   </div>
 </section>
 
@@ -915,7 +938,8 @@
           <li>Unlimited clips</li>
           <li>One-click posting to TikTok, YouTube, Instagram, Facebook &amp; X</li>
           <li>Schedule posts up to 60 days ahead</li>
-          <li class="soon">Paid-campaign finder &amp; view tracking <span class="soon-tag">Coming soon</span></li>
+          <li><b>AI Top 10 trending campaigns</b>, updated daily</li>
+          <li class="soon">Campaign view tracking <span class="soon-tag">Coming soon</span></li>
           <li class="soon">AI hooks, titles &amp; hashtags <span class="soon-tag">Coming soon</span></li>
         </ul>
         <a class="btn btn-green" data-plan="pro" href="#">Start free trial</a>
@@ -2693,15 +2717,53 @@ if ('IntersectionObserver' in window){
       msg.innerHTML = 'Campaigns are part of the <b>Platinum</b> plan. Already a member? Sign in.';
       b.innerHTML = '<button class="btn btn-green" type="button" data-cp-signin>Sign in</button><a class="btn btn-ghost" href="/#pricing">See Platinum</a>';
     } else {
-      msg.innerHTML = 'Campaigns are part of the <b>Platinum</b> plan' + (MEMBER && MEMBER.plan ? '. You’re on ' + esc(MEMBER.plan) + '.' : '.') + ' Upgrade to create campaigns or join them.';
+      msg.innerHTML = 'Creating and joining ClipNow campaigns is part of the <b>Platinum</b> plan' + (MEMBER && MEMBER.plan ? '. You’re on ' + esc(MEMBER.plan) + '.' : '.') + ' Upgrade to post your own campaign or join creators’ campaigns here.';
       b.innerHTML = (MEMBER && MEMBER.status !== 'none' ? '<a class="btn btn-green" href="#" data-billing>Upgrade to Platinum</a>' : '<a class="btn btn-green" href="/#pricing">Get Platinum</a>') + '<a class="btn btn-ghost" href="/#pricing">Compare plans</a>';
     }
   }
   sec.addEventListener('click', function(e){ if (e.target.closest('[data-cp-signin]') && window.openSignIn) window.openSignIn('Sign in to use Campaigns.'); });
 
+  /* ----- Top 10 trending (AI; Gold & Platinum) ----- */
+  var TRBUSY = false;
+  function trLocked(kind){
+    var fake = [1,2,3,4,5].map(function(i){ return '<li class="tr-item"><h4>Campaign title goes here</h4><p class="cp-rate">$1.50 per 1,000 views</p><p>by Creator name · TikTok, YouTube Shorts</p></li>'; }).join('');
+    var btns = kind === 'out'
+      ? '<button class="btn btn-green btn-sm" type="button" data-cp-signin>Sign in</button> <a class="btn btn-ghost btn-sm" href="/#pricing">See plans</a>'
+      : (MEMBER && MEMBER.status !== 'none' ? '<a class="btn btn-green btn-sm" href="#" data-billing>Upgrade to Gold</a> ' : '<a class="btn btn-green btn-sm" href="/#pricing">Get Gold</a> ') + '<a class="btn btn-ghost btn-sm" href="/#pricing">Compare plans</a>';
+    $('#trBody').innerHTML = '<div class="tr-locked"><ol class="tr-list" aria-hidden="true">' + fake + '</ol><div class="tr-lock"><div><p>' + (kind === 'out' ? 'The Top 10 trending campaigns are for <b>Gold</b> and <b>Platinum</b> members. Already a member? Sign in.' : 'The Top 10 trending campaigns are part of <b>Gold</b> and <b>Platinum</b>' + (MEMBER && MEMBER.plan ? '. You’re on ' + esc(MEMBER.plan) + '.' : '.')) + '</p>' + btns + '</div></div></div>';
+  }
+  function loadTrending(){
+    if (!IS_CAMPAIGNS || TRBUSY) return;
+    if (!(MEMBER && MEMBER.signedIn)) return trLocked('out');
+    if (!MEMBER.active || (MEMBER.planKey !== 'pro' && MEMBER.planKey !== 'agency')) return trLocked('plan');
+    TRBUSY = true;
+    req('api/trending.php').then(function(j){
+      TRBUSY = false;
+      if (!j.ok){ if (j._status === 403) return trLocked('plan'); if (j._status === 401) return trLocked('out'); $('#trBody').innerHTML = '<p class="cp-empty">' + esc(j.error || 'Trending campaigns couldn’t load.') + '</p>'; return; }
+      if (!j.items || !j.items.length){ $('#trBody').innerHTML = '<p class="cp-empty">Today’s list is being prepared. Check back soon.</p>'; return; }
+      var when = new Date(j.updated * 1000), today = new Date().toDateString() === when.toDateString();
+      $('#trBody').innerHTML = '<p class="note" style="margin:0 0 12px">Updated ' + (today ? 'today at ' + when.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : when.toLocaleDateString([], { month:'short', day:'numeric' })) + '</p><ol class="tr-list">' + j.items.map(function(c){
+        return '<li class="tr-item"><h4>' + esc(c.title) + '</h4>' +
+          '<p class="cp-rate">' + esc(c.pay) + '</p>' +
+          '<p>by ' + esc(c.creator) + (c.platforms && c.platforms.length ? ' · ' + esc(c.platforms.join(', ')) : '') + '</p>' +
+          '<div class="cp-meta">' + (c.budget && c.budget !== 'Not stated' ? '<span class="cp-tag">Budget: ' + esc(c.budget) + '</span>' : '') + (c.deadline && c.deadline !== 'Not stated' ? '<span class="cp-tag">Ends: ' + esc(c.deadline) + '</span>' : '') + (c.confidence !== 'high' ? '<span class="cp-st warn">' + (c.confidence === 'low' ? 'Check details carefully' : 'Double-check details') + '</span>' : '') + '</div>' +
+          (c.how_to_join ? '<p><b style="color:var(--text);font-weight:600">How to join:</b> ' + esc(c.how_to_join) + '</p>' : '') +
+          (c.why ? '<p style="font-size:13.5px;color:var(--faint)">' + esc(c.why) + '</p>' : '') +
+          '<div class="cp-acts" style="margin-top:6px"><a class="btn btn-green btn-sm" href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer">Open campaign ↗</a><a class="btn btn-ghost btn-sm" href="/studio">Clip it in the Studio</a></div></li>';
+      }).join('') + '</ol><p class="cp-fine">Found by AI on public web pages. ClipNow isn’t connected to these campaigns and can’t confirm they pay. Never pay to join a campaign.</p>';
+    });
+  }
+  // Platinum members see ClipNow's own campaigns first, everyone else sees the Top 10 first.
+  function placeTrending(){
+    var tr = $('#cpTrend'), plat = MEMBER && MEMBER.active && MEMBER.planKey === 'agency';
+    if (plat) $('#cpApp').after(tr); else $('#cpLoading').before(tr);
+  }
+
   /* ----- Loading ----- */
   function load(){
-    if (!IS_CAMPAIGNS || busy) return;
+    if (!IS_CAMPAIGNS) return;
+    placeTrending(); loadTrending();
+    if (busy) return;
     if (!(MEMBER && MEMBER.signedIn)) return gate('out');
     if (MEMBER.planKey !== 'agency' || !MEMBER.active) return gate('plan');
     busy = true;
@@ -2921,7 +2983,7 @@ if ('IntersectionObserver' in window){
     var d = $('#cpHowto'), v = $('video', d);
     d.addEventListener('toggle', function(){ if (d.open){ var pr = v.play(); if (pr && pr.catch) pr.catch(function(){}); } else v.pause(); });
   })();
-  window.Campaigns = { refresh:function(){ busy = false; load(); } };
+  window.Campaigns = { refresh:function(){ busy = false; TRBUSY = false; load(); } };
   if (IS_CAMPAIGNS && MEMBER) load();
 })();
 

@@ -665,3 +665,125 @@ function cn_camp_log(array $entry): void {
   if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
   file_put_contents(CN_DATA . '/campaign-log.jsonl', json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
 }
+
+/* ---------- Trending paid campaigns (AI, Gold & Platinum) ----------
+ * Once a day Claude searches the web for paid clipping campaigns that are running now and
+ * returns the Top 10 through a strict "save_campaigns" tool. Saved to trending-campaigns.json.
+ * Key: admin portal → Settings → Anthropic API key (config.json 'anthropic_key').
+ */
+const CN_AI_MODEL = 'claude-opus-5-5';
+const CN_AI_MAX_SEARCHES = 8;
+
+function cn_trending(): array { return cn_read('trending-campaigns.json', ['updated' => 0, 'items' => [], 'last_try' => 0, 'error' => '']); }
+function cn_can_see_trending(?array $m): bool { return $m !== null && !empty($m['active']) && in_array($m['plan_key'] ?? '', ['pro', 'agency'], true); }
+
+/** One Messages API call. Returns the decoded response or throws with Anthropic's error message. */
+function cn_claude(array $body, array $betas = []): array {
+  $key = (string)(cn_config()['anthropic_key'] ?? '');
+  if ($key === '') throw new RuntimeException('Add your Anthropic API key in Settings first.');
+  $h = ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2026-10-21'];
+  if ($betas) $h[] = 'anthropic-beta: ' . implode(',', $betas);
+  $ch = curl_init(getenv('CLIPNOW_ANTHROPIC_URL') ?: 'https://api.anthropic.com/v1/messages');   // the override is only for local tests
+  curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_HTTPHEADER => $h, CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_SLASHES),
+    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 280, CURLOPT_CONNECTTIMEOUT => 20]);
+  $raw = curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
+  if ($raw === false) throw new RuntimeException('Couldn\'t reach Anthropic: ' . $err);
+  $j = json_decode((string)$raw, true);
+  if ($code >= 400 || !is_array($j)) {
+    $msg = $j['error']['message'] ?? ('HTTP ' . $code);
+    if ($code === 401) $msg = 'Anthropic says the API key is wrong. Paste it again in Settings.';
+    if ($code === 429) $msg = 'Anthropic is busy or your API limit was reached. Try again later.';
+    if ($code === 400 && stripos((string)$msg, 'credit') !== false) $msg = 'Your Anthropic account is out of credits. Add credits in the Anthropic Console → Billing.';
+    throw new RuntimeException($msg);
+  }
+  return $j;
+}
+
+/** Ask Claude for today's Top 10 and save it. Returns the saved data (with 'error' set on failure). */
+function cn_trending_run(): array {
+  @set_time_limit(600);
+  $old = cn_trending();
+  $old['last_try'] = time();
+  $item = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['title', 'creator', 'platforms', 'pay', 'rate_usd_per_1k', 'budget', 'deadline', 'how_to_join', 'url', 'why_trending', 'confidence'],
+    'properties' => [
+      'title' => ['type' => 'string', 'description' => 'Campaign name as posted'],
+      'creator' => ['type' => 'string', 'description' => 'Creator, streamer, brand or agency running it'],
+      'platforms' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Where clips must be posted, e.g. TikTok, YouTube Shorts, Instagram Reels'],
+      'pay' => ['type' => 'string', 'description' => 'Pay terms in plain words, e.g. "$1.50 per 1,000 views, $500 cap per clipper"'],
+      'rate_usd_per_1k' => ['type' => 'number', 'description' => 'Pay per 1,000 views in US dollars; 0 if not stated'],
+      'budget' => ['type' => 'string', 'description' => 'Total or remaining budget if stated, else "Not stated"'],
+      'deadline' => ['type' => 'string', 'description' => 'End date if stated, else "Not stated"'],
+      'how_to_join' => ['type' => 'string', 'description' => 'One sentence: where and how a clipper joins'],
+      'url' => ['type' => 'string', 'description' => 'The page where the campaign is posted (must be a page you found in search)'],
+      'why_trending' => ['type' => 'string', 'description' => 'One short sentence on why it ranks here'],
+      'confidence' => ['type' => 'string', 'enum' => ['high', 'medium', 'low'], 'description' => 'How sure you are the details are current and correct'],
+    ]];
+  $tools = [
+    ['type' => 'web_search_20260209', 'name' => 'web_search', 'max_uses' => CN_AI_MAX_SEARCHES],
+    ['name' => 'save_campaigns', 'strict' => true,
+      'description' => 'Save the final ranked list of up to 10 paid clipping campaigns. Call this exactly once, at the end.',
+      'input_schema' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['campaigns'],
+        'properties' => ['campaigns' => ['type' => 'array', 'items' => $item]]]],
+  ];
+  $today = gmdate('F j, Y');
+  $prompt = "Today is $today. Find the 10 best paid clipping campaigns that are open right now: campaigns where a creator, streamer, podcaster, brand or agency pays clippers for views on short clips (TikTok, YouTube Shorts, Instagram Reels and similar), usually per 1,000 views.\n\n"
+    . "Search public sources such as Whop Content Rewards listings, clipping agencies' public pages, and creators' public posts on X or Reddit announcing campaigns. Only include campaigns that appear to be open now and that a new clipper could join from a public page. Skip anything that looks expired, unpaid, a scam (asks clippers to pay, unrealistic rates), or that requires reposting content without the owner's permission.\n\n"
+    . "Rank by what matters to a clipper: higher pay per 1,000 views, more budget left, newer, and from creators with real audiences. Use only details you saw on the source page; if something isn't stated, say \"Not stated\" (or 0 for the rate). Every url must be a page you actually found.\n\n"
+    . "When you're done searching, call save_campaigns once with the ranked list (best first, at most 10).";
+  $messages = [['role' => 'user', 'content' => $prompt]];
+  $body = ['model' => CN_AI_MODEL, 'max_tokens' => 16000, 'output_config' => ['effort' => 'medium'],
+    'tools' => $tools, 'tool_choice' => ['type' => 'auto'], 'fallbacks' => 'default', 'messages' => $messages];
+  $searches = 0; $in = 0; $out = 0;
+  try {
+    for ($turn = 0; $turn < 5; $turn++) {
+      $body['messages'] = $messages;
+      $r = cn_claude($body, ['server-side-fallback-2026-07-01']);
+      $in += (int)($r['usage']['input_tokens'] ?? 0) + (int)($r['usage']['cache_read_input_tokens'] ?? 0) + (int)($r['usage']['cache_creation_input_tokens'] ?? 0);
+      $out += (int)($r['usage']['output_tokens'] ?? 0);
+      $searches += (int)($r['usage']['server_tool_use']['web_search_requests'] ?? 0);
+      $stop = $r['stop_reason'] ?? '';
+      if ($stop === 'refusal') throw new RuntimeException('Claude declined the search this time. It will try again tomorrow.');
+      foreach ($r['content'] ?? [] as $blk) {
+        if (($blk['type'] ?? '') === 'tool_use' && ($blk['name'] ?? '') === 'save_campaigns') {
+          $items = cn_trending_clean((array)($blk['input']['campaigns'] ?? []));
+          if (!$items) throw new RuntimeException('The search finished but found no campaigns it could confirm. It will try again tomorrow.');
+          $data = ['updated' => time(), 'last_try' => time(), 'items' => $items, 'error' => '', 'model' => $r['model'] ?? CN_AI_MODEL,
+            'searches' => $searches, 'input_tokens' => $in, 'output_tokens' => $out,
+            'cost_usd' => round($searches * 0.01 + $in * 4 / 1e6 + $out * 20 / 1e6, 2)];
+          cn_write('trending-campaigns.json', $data);
+          cn_camp_log(['event' => 'trending updated', 'count' => count($items), 'searches' => $searches, 'cost_usd' => $data['cost_usd']]);
+          return $data;
+        }
+      }
+      if ($stop === 'pause_turn') { $messages[] = ['role' => 'assistant', 'content' => $r['content']]; continue; }
+      // Finished without saving: ask once more, plainly, for the tool call.
+      $messages[] = ['role' => 'assistant', 'content' => $r['content']];
+      $messages[] = ['role' => 'user', 'content' => 'Please call save_campaigns now with the campaigns you found.'];
+    }
+    throw new RuntimeException('The search didn\'t finish. It will try again tomorrow.');
+  } catch (Throwable $e) {
+    $old['error'] = $e->getMessage();
+    cn_write('trending-campaigns.json', $old);
+    cn_camp_log(['event' => 'trending failed', 'error' => $e->getMessage()]);
+    return $old;
+  }
+}
+
+/** Keep only well-formed items with a real web address; trim long text. */
+function cn_trending_clean(array $list): array {
+  $out = [];
+  foreach ($list as $c) {
+    if (!is_array($c)) continue;
+    $url = trim((string)($c['url'] ?? ''));
+    if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('~^https?://~i', $url)) continue;
+    $s = fn($k, $n) => mb_substr(trim((string)($c[$k] ?? '')), 0, $n);
+    $out[] = ['title' => $s('title', 120), 'creator' => $s('creator', 80),
+      'platforms' => array_slice(array_values(array_filter(array_map(fn($p) => mb_substr(trim((string)$p), 0, 40), (array)($c['platforms'] ?? [])))), 0, 6),
+      'pay' => $s('pay', 160), 'rate' => max(0, min(1000, (float)($c['rate_usd_per_1k'] ?? 0))), 'budget' => $s('budget', 100), 'deadline' => $s('deadline', 60),
+      'how_to_join' => $s('how_to_join', 240), 'url' => mb_substr($url, 0, 500), 'why' => $s('why_trending', 200),
+      'confidence' => in_array($c['confidence'] ?? '', ['high', 'medium', 'low'], true) ? $c['confidence'] : 'low'];
+    if (count($out) >= 10) break;
+  }
+  return $out;
+}

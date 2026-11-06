@@ -64,6 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($do === 'logout') { $_SESSION = []; session_destroy(); header('Location: ./'); exit; }
 
+  if ($do === 'trending_run') {
+    if ((string)($cfg['anthropic_key'] ?? '') === '') { flash('Add your Anthropic API key in Settings first.', false); back('settings'); }
+    $t = cn_trending_run();
+    flash($t['error'] !== '' ? 'The search didn\'t work: ' . $t['error'] : 'Found ' . count($t['items']) . ' campaigns (cost about $' . $t['cost_usd'] . ').', $t['error'] === '');
+    back('campaigns');
+  }
+
   if (in_array($do, ['camp_hide', 'camp_show', 'camp_delete', 'camp_clear_reports'], true)) {
     $cid = (string)($_POST['camp'] ?? '');
     $c = cn_camp_load($cid);
@@ -162,6 +169,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (strlen($up) < 20 || strlen($up) > 4096 || preg_match('/\s/', $up)) { flash('That doesn\'t look like an Upload-Post API key. Copy it again from Upload-Post → API Keys.', false); back('settings'); }
       $cfg['uploadpost_key'] = $up;
     }
+    $ak = trim((string)($_POST['anthropic_key'] ?? ''));
+    if ($ak !== '') {
+      if (!str_starts_with($ak, 'sk-ant-') || strlen($ak) > 400 || preg_match('/\s/', $ak)) { flash('That doesn\'t look like an Anthropic API key. It starts with sk-ant-. Copy it again from the Anthropic Console → API Keys.', false); back('settings'); }
+      $cfg['anthropic_key'] = $ak;
+    }
+    if (!empty($_POST['anthropic_key_remove'])) $cfg['anthropic_key'] = '';
     foreach (['from_email', 'reply_to'] as $f) {
       $v = trim((string)($_POST[$f] ?? ''));
       if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) { flash("“$v” isn't a valid email address.", false); back('settings'); }
@@ -473,6 +486,17 @@ $view = $_GET['view'] ?? 'subs';
     <h2>Campaigns</h2>
     <p>Platinum members create these and other Platinum members join them. Creators pay clippers directly; ClipNow only keeps track. <b>Hide</b> takes a campaign out of everyone's list except its creator's (you can show it again). <b>Delete</b> removes it and its screenshots for good.</p>
   </div>
+  <?php $tr = cn_trending(); $hasKey = (string)($cfg['anthropic_key'] ?? '') !== ''; ?>
+  <div class="panel">
+    <h2>AI: Top 10 trending campaigns</h2>
+    <p>Gold and Platinum members see this list on the Campaigns page. It refreshes about once a day through the daily cron job<?= $hasKey ? '' : '. <b>No Anthropic API key yet:</b> add one in <a href="?view=settings">Settings</a>' ?>.
+      <?php if ($tr['updated']): ?>Last updated <b><?= e(date('M j, Y g:i a', (int)$tr['updated'])) ?></b>: <?= count($tr['items']) ?> campaigns, <?= (int)($tr['searches'] ?? 0) ?> web searches, about $<?= e(number_format((float)($tr['cost_usd'] ?? 0), 2)) ?>.<?php else: ?>It hasn't run yet.<?php endif; ?></p>
+    <?php if (($tr['error'] ?? '') !== ''): ?><div class="flash bad">Last try (<?= e(date('M j g:i a', (int)$tr['last_try'])) ?>): <?= e($tr['error']) ?></div><?php endif; ?>
+    <form method="post" class="inline" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Searching… (up to 3 minutes)'"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="trending_run"><button class="btn go" id="trRun" <?= $hasKey ? '' : 'disabled' ?>>Run search now</button></form>
+    <?php if ($tr['items']): ?><ol style="margin:14px 0 0;padding-left:20px">
+      <?php foreach ($tr['items'] as $it): ?><li style="margin-bottom:6px"><a href="<?= e($it['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($it['title']) ?></a> · <?= e($it['creator']) ?> · <?= e($it['pay']) ?> <span class="sub">(<?= e($it['confidence']) ?> confidence)</span></li><?php endforeach; ?>
+    </ol><?php endif; ?>
+  </div>
   <div class="stats">
     <div class="stat"><b><?= count($camps) ?></b><span>Campaigns</span></div>
     <div class="stat"><b><?= $reported ?></b><span>With reports</span></div>
@@ -541,6 +565,14 @@ $view = $_GET['view'] ?? 'subs';
       <p>Lets members connect TikTok, YouTube, Instagram, Facebook and X and post clips straight from ClipNow. Paste your API key from Upload-Post → API Keys. Current key: <b><?= e($u === '' ? 'Not set' : substr($u, 0, 6) . '…' . substr($u, -4)) ?></b></p>
       <label for="upk">New key (leave blank to keep the current one)</label>
       <input id="upk" name="uploadpost_key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Upload-Post API key">
+    </div>
+    <div class="panel">
+      <h2>Anthropic (AI trending campaigns)</h2>
+      <?php $ak = (string)($cfg['anthropic_key'] ?? ''); ?>
+      <p>Powers the daily "Top 10 trending campaigns" list for Gold and Platinum members. Create a key in the Anthropic Console → API Keys and make sure the account has credits. Current key: <b><?= e($ak === '' ? 'Not set' : substr($ak, 0, 10) . '…' . substr($ak, -4)) ?></b></p>
+      <label for="ank">New key (leave blank to keep the current one)</label>
+      <input id="ank" name="anthropic_key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+      <?php if ($ak !== ''): ?><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" name="anthropic_key_remove" value="1" style="width:auto"> Remove the key (stops the daily search)</label><?php endif; ?>
     </div>
     <div class="panel">
       <h2>Late-payment notices</h2>

@@ -201,3 +201,18 @@ else sees an explainer with Sign in / Upgrade buttons.
 - **Data:** `~/clipnow-data/campaigns/<id>.json`, screenshots in `~/clipnow-data/campaign-shots/`
   (private, served only to the creator and the clipper who sent them via `api/campaigns.php`).
 - **Later:** automatic view tracking via platform APIs; payouts through Stripe Connect if wanted.
+
+## 11. AI Top 10 trending campaigns (Gold & Platinum, live)
+
+On the Campaigns page. Once a day (`admin/cron.php`, skips if it ran in the last 20 h) Claude
+(`claude-opus-5-5`, effort medium, server-side fallbacks on) uses web search (up to 8 searches) to
+find paid clipping campaigns open now on public pages, and returns a ranked Top 10 through a
+strict `save_campaigns` tool. Saved to `~/clipnow-data/trending-campaigns.json`; served to Gold and
+Platinum by `api/trending.php`. Silver/visitors see a blurred, locked preview.
+
+- **Key:** Admin portal → Settings → Anthropic (stored in config.json, never in the repo).
+- **Run now / status / cost per run:** Admin portal → Campaigns → "AI: Top 10 trending campaigns".
+- **Cost:** web search $10 per 1,000 searches plus Opus 5.5 tokens ($4 / $20 per MTok); expect
+  roughly $0.30–0.70 a day. Switching `CN_AI_MODEL` in `admin/lib.php` to `claude-sonnet-5-5`
+  would roughly halve the token part.
+- Every item links to its source page; the page warns that ClipNow can't confirm campaigns pay.
