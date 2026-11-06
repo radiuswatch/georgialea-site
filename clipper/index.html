@@ -347,6 +347,22 @@
   @media (max-width:1240px){.nav-links a[href="#how"],.nav-links a[href="#faq"]{display:none}}
   @media (max-width:1040px){.nav-links a[href="privacy.html"],.nav-links a[href="#daily"]{display:none}}
 
+  /* Install the app (home-screen banner and how-to) */
+  .app-banner{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--green-dim);border-radius:14px;padding:10px 6px 10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .app-banner[hidden]{display:none}
+  .app-banner img{width:40px;height:40px;border-radius:10px;flex:none}
+  .app-banner div{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px;color:var(--muted);line-height:1.35}
+  .app-banner b{color:var(--text);font-size:14.5px}
+  .app-banner .ct-x{font-size:24px;min-width:40px}
+  @media (min-width:701px){.app-banner{display:none}}
+  .install-box{max-width:440px}
+  .install-steps{margin:0;padding:0;list-style:none;display:grid;gap:12px;counter-reset:st}
+  .install-steps li{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;font-size:15.5px;line-height:1.45}
+  .install-steps li::before{counter-increment:st;content:counter(st);width:30px;height:30px;border-radius:50%;background:var(--green-deep);color:var(--green);display:grid;place-items:center;font-weight:700;font-size:14px}
+  .install-steps svg{width:18px;height:18px;vertical-align:-3px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .install-note{margin:0;font-size:13.5px;color:var(--faint)}
+  @media (max-width:700px){.modal.sheet{place-items:end stretch}.modal.sheet .modal-box{height:auto;border-radius:16px 16px 0 0;border:1px solid var(--line);border-bottom:0;justify-content:flex-start}}
+
   /* Mobile app bar */
   .tabbar{display:none}
   @media (max-width:700px){
@@ -697,7 +713,7 @@
 <footer>
   <div class="wrap foot">
     <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/">App Planet</a></span>
-    <nav class="foot-legal" aria-label="Help"><b>Help</b><a href="#faq">FAQ</a><a href="#contact" data-contact>Contact us</a></nav>
+    <nav class="foot-legal" aria-label="Help"><b>Help</b><a href="#faq">FAQ</a><a href="#contact" data-contact>Contact us</a><a href="#install" data-install hidden>Get the app</a></nav>
     <nav class="foot-legal" aria-label="Policies"><b>Policies</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
   </div>
 </footer>
@@ -747,6 +763,26 @@
       <p id="ctDoneMsg"></p>
       <button class="btn btn-ghost" type="button" id="ctDoneClose">Close</button>
     </div>
+  </div>
+</div>
+<div class="app-banner" id="appBanner" role="region" aria-label="Get the ClipNow app" hidden>
+  <img src="icon-192.png" alt="">
+  <div><b>Get the ClipNow app</b><span>One tap from your home screen, full screen.</span></div>
+  <button class="btn btn-green btn-sm" type="button" data-install>Install</button>
+  <button class="ct-x" type="button" id="abClose" aria-label="Not now">×</button>
+</div>
+<div class="modal sheet" id="installModal" role="dialog" aria-modal="true" aria-labelledby="inTitle">
+  <div class="modal-box install-box">
+    <div class="ct-head">
+      <div>
+        <h3 id="inTitle">Add ClipNow to your home screen</h3>
+        <p>It opens full screen, like any other app. Free, no app store needed.</p>
+      </div>
+      <button type="button" class="ct-x" id="inClose" aria-label="Close">×</button>
+    </div>
+    <ol class="install-steps" id="inSteps"></ol>
+    <p class="install-note" id="inNote"></p>
+    <button class="btn btn-ghost" type="button" id="inDone">Got it</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -1974,6 +2010,98 @@ $$('[data-plan]').forEach(function(a){
     }
   });
 });
+
+/* ---------- Install the app ---------- */
+(function(){
+  var SHARE = '<svg viewBox="0 0 24 24" aria-label="Share"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+  var DOTS = '<b>⋮</b>';
+  var ua = navigator.userAgent;
+  var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/.test(ua);
+  var inApp = /FBAN|FBAV|Instagram|musical_ly|BytedanceWebview|TikTok|Snapchat|Line\//.test(ua);
+  var installed = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var deferred = null;
+
+  // Offline support (service worker), only on the real site or a local test server
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+  window.addEventListener('offline', function(){ toast('You’re offline. Some features need a connection.'); });
+
+  if (installed) return; // already opened from the home screen: no install prompts
+
+  var footLink = $('[data-install][hidden]');
+  if (footLink) footLink.hidden = false;
+
+  function steps(list, note){
+    $('#inSteps').innerHTML = list.map(function(s){ return '<li><span>' + s + '</span></li>'; }).join('');
+    $('#inNote').textContent = note || '';
+  }
+  function openHowTo(){
+    if (isIOS && inApp) steps([
+      'This page is open inside another app. Tap ' + DOTS.replace('⋮', '•••') + ' or the share button and choose <b>Open in Safari</b> (or Open in browser).',
+      'In Safari, tap ' + SHARE + ' <b>Share</b>, then <b>Add to Home Screen</b>.',
+      'Tap <b>Add</b>.'
+    ], 'Apps like Instagram and TikTok can’t add websites to your home screen, so this needs Safari.');
+    else if (isIOS) steps([
+      'Tap ' + SHARE + ' <b>Share</b>. In Safari it’s at the bottom of the screen (top right on iPad). In Chrome it’s next to the address bar.',
+      'Scroll down and tap <b>Add to Home Screen</b>.',
+      'Tap <b>Add</b>. ClipNow appears on your home screen.'
+    ], 'Don’t see Add to Home Screen? Tap Edit Actions at the bottom of the share menu and add it.');
+    else if (isAndroid) steps([
+      'Tap the browser menu ' + DOTS + ' (top right in Chrome).',
+      'Tap <b>Install app</b> or <b>Add to Home screen</b>.',
+      'Tap <b>Install</b>. ClipNow appears with your other apps.'
+    ], inApp ? 'If you’re inside another app like Instagram or TikTok, first tap ' + '⋮' + ' and choose Open in browser.' : '');
+    else steps([
+      'On your phone, open <b>clipnow.vip</b>.',
+      'iPhone: tap ' + SHARE + ' <b>Share</b> then <b>Add to Home Screen</b>. Android: tap ' + DOTS + ' then <b>Install app</b>.',
+      'On a computer with Chrome or Edge, click the install icon at the right end of the address bar.'
+    ], '');
+    $('#installModal').classList.add('on');
+  }
+  function closeHowTo(){ $('#installModal').classList.remove('on'); if (location.hash === '#install') try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }
+
+  function hideBanner(){ $('#appBanner').hidden = true; }
+  function install(){
+    hideBanner();
+    if (!deferred) return openHowTo();
+    var p = deferred; deferred = null;
+    p.prompt();
+    p.userChoice.then(function(c){ if (c.outcome !== 'accepted') store('cn_install_later', Date.now()); }).catch(function(){});
+  }
+
+  // Android / desktop Chrome and Edge: the browser offers its own install dialog
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred = e; maybeShowBanner(); });
+  window.addEventListener('appinstalled', function(){
+    deferred = null; hideBanner(); closeHowTo();
+    if (footLink) footLink.hidden = true;
+    toast('ClipNow is on your home screen');
+  });
+
+  // Phone banner: shown once the visitor has looked around a little, and not again for 2 weeks after "Not now"
+  var bannerReady = false;
+  setTimeout(function(){ bannerReady = true; maybeShowBanner(); }, 12000);
+  function maybeShowBanner(){
+    if (!bannerReady || !(deferred || isIOS)) return;
+    if (!window.matchMedia || !matchMedia('(max-width:700px)').matches) return;
+    var later = store('cn_install_later');
+    if (later && Date.now() - later < 14 * 864e5) return;
+    if ($('.modal.on') || (document.querySelector('dialog[open]'))) return setTimeout(maybeShowBanner, 8000);
+    $('#appBanner').hidden = false;
+  }
+  $('#abClose').addEventListener('click', function(){ hideBanner(); store('cn_install_later', Date.now()); });
+
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('[data-install]'); if (!a) return;
+    e.preventDefault(); install();
+  });
+  $('#inClose').addEventListener('click', closeHowTo);
+  $('#inDone').addEventListener('click', closeHowTo);
+  $('#installModal').addEventListener('click', function(e){ if (e.target === this) closeHowTo(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeHowTo(); });
+  if (location.hash === '#install') setTimeout(install, 0);
+})();
 
 /* ---------- Reveal ---------- */
 var els = $$('.reveal');

@@ -13,6 +13,10 @@ AddType application/manifest+json .webmanifest
   <FilesMatch "\.html$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
+  # The offline helper must be re-checked on every visit so app updates reach phones
+  <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
   <FilesMatch "\.png$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
