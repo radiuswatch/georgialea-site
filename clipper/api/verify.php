@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $email = cn_same_origin() ? cn_use_login_link($t) : null;
   if (!$email) { header('Location: ' . CN_SITE . '/?signin=expired', true, 303); exit; }
   cn_start_session($email);
-  header('Location: ' . CN_SITE . '/?signin=ok#studio', true, 303);
+  header('Location: ' . CN_SITE . '/studio?signin=ok', true, 303);
   exit;
 }
 $valid = preg_match('/^[A-Za-z0-9_-]{30,}$/', $t) && ($j = cn_json_file(cn_token_file('logins', $t), null)) && ($j['exp'] ?? 0) >= time();

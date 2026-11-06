@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok
 try {
   $m = cn_current_member(true);
   if (!$m || empty($m['customer_id'])) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
-  $p = cn_stripe('POST', '/v1/billing_portal/sessions', ['customer' => $m['customer_id'], 'return_url' => CN_SITE . '/#studio']);
+  $p = cn_stripe('POST', '/v1/billing_portal/sessions', ['customer' => $m['customer_id'], 'return_url' => CN_SITE . '/studio']);
   cn_json_out(['ok' => true, 'url' => $p['url']]);
 } catch (Throwable $e) {
   cn_json_out(['ok' => false, 'error' => 'Billing is unavailable right now. Please try again shortly.'], 503);

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B0D0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -48,6 +49,7 @@
   .nav-links{display:flex;gap:24px;font-size:14px;align-items:center}
   .nav-links a{color:var(--muted)}
   .nav-links a:hover{color:var(--text)}
+  .nav-links a.on{color:var(--green)}
   .nav-links a.btn{color:#06230F}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:10px;font-size:16px;font-weight:600;border:0;cursor:pointer;text-align:center}
@@ -131,6 +133,10 @@
   .btn[disabled]{opacity:.45;cursor:not-allowed}
 
   .hero{padding:88px 0 40px;border-bottom:0}
+  /* Two views of one page: the home page, and the Studio at /studio */
+  html:not(.pg-studio) #studio{display:none}
+  html.pg-studio main > section:not(#studio){display:none}
+  html.pg-studio #studio{padding-top:28px}
   .hero + #studio{padding-top:8px}
   .hero + #studio .sect-head{margin-bottom:16px;gap:6px}
   .hero + #studio .sect-head h2{font-family:var(--sans);font-weight:600;font-size:22px;line-height:1.3}
@@ -454,9 +460,9 @@
 
 <header>
   <div class="nav">
-    <a class="brand" href="#top"><span class="brand-mark">CN</span><span data-brand>ClipNow</span></a>
+    <a class="brand" href="/"><span class="brand-mark">CN</span><span data-brand>ClipNow</span></a>
     <nav class="nav-links">
-      <a href="#studio">Studio</a>
+      <a href="/studio" data-page="studio">Studio</a>
       <a href="#how">How it works</a>
       <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
@@ -486,6 +492,11 @@
       <button class="pill" type="button" data-cat="17">Sports</button>
       <button class="pill" type="button" data-cat="23">Comedy</button>
       <button class="pill" type="button" data-cat="10">Music</button>
+    </div>
+
+    <div class="cta-row reveal" style="margin-top:22px">
+      <a class="btn btn-green" href="/studio">Open the Studio</a>
+      <span class="note" style="margin:0">Already have the video? Clip it there.</span>
     </div>
 
     <div class="results" id="results" hidden aria-live="polite">
@@ -898,7 +909,7 @@
 
 <nav class="tabbar" aria-label="App sections">
   <a href="#top" data-sec="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</a>
-  <a href="#studio" data-sec="studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
+  <a href="/studio" data-sec="studio" data-page="studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
   <a href="#platforms" data-sec="platforms"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/></svg>Platforms</a>
   <a href="#daily" data-sec="daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
   <a href="#pricing" data-sec="pricing"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3S9.5 10 12 10.5s4.5 1.3 4.5 3-2 3.5-4.5 3.5-4.5-1.3-4.5-3"/></svg>Plans</a>
@@ -941,6 +952,8 @@ var PLATFORMS = [
 
 /* ---------- Helpers ---------- */
 function $(s, r){ return (r||document).querySelector(s); }
+var IS_STUDIO = document.documentElement.classList.contains('pg-studio');
+function goPricing(){ if (IS_STUDIO) location.href = '/#pricing'; else document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); }
 function $$(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
 function fmt(t){ t = Math.max(0, t); var m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + (s<10?'0':'') + s; }
 function store(k, v){ try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch(e){ return null; } }
@@ -1341,7 +1354,7 @@ $('#exportBtn').addEventListener('click', function(){
   var todo = picked.filter(function(c){ return c.made !== H; });   // clips already made at this quality are kept
   if (!todo.length){ st.textContent = 'Those clips are already made. They’re in step 3.'; goStage(3); return; }
   var tr = trial();
-  if (tr.ended){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); toast('Your free trial has ended. Pick a plan to keep exporting.'); return; }
+  if (tr.ended){ toast('Your free trial has ended. Pick a plan to keep exporting.'); goPricing(); return; }
   if (!tr.started && !tr.member){ store('cp_trial', { start:Date.now() }); renderTrial(); }
   btn.disabled = true;
   var R = makeRenderer();   // must happen inside the tap
@@ -1647,6 +1660,10 @@ function setSource(v, fromStudio){
   $('#studioLink').href = 'https://studio.youtube.com/video/' + encodeURIComponent(v.id) + '/edit';
   var t = $('#topic'); if (v.channel) t.value = v.channel; else if (v.title && v.title !== 'YouTube video' && !t.value) t.value = v.title.slice(0, 40);
   $('#ytForm').hidden = true; $('#orLine').hidden = true;
+  if (!IS_STUDIO){   // picked from the home page search: open it in the Studio page
+    try { sessionStorage.setItem('cn_src', JSON.stringify(v)); } catch(e){}
+    location.href = '/studio'; return;
+  }
   goStage(1);
   if (!fromStudio) document.getElementById('studio').scrollIntoView({ behavior:'smooth' });
   toast('Video picked. Now add its file.');
@@ -1707,7 +1724,7 @@ if ('IntersectionObserver' in window){
   var secIO = new IntersectionObserver(function(entries){
     entries.forEach(function(en){ if (en.isIntersecting){ var id = en.target.id; tabLinks.forEach(function(a){ a.classList.toggle('on', a.dataset.sec === id); }); } });
   }, { rootMargin:'-45% 0px -50% 0px' });
-  ['search','studio','platforms','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
+  if (!IS_STUDIO) ['search','platforms','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
 }
 
 /* ---------- Platforms guide ---------- */
@@ -2077,14 +2094,14 @@ renderTrial();
     if (!signed){
       sub.textContent = 'Members can connect TikTok, YouTube, Instagram, Facebook and X, then post or schedule each clip in one tap.';
       button('btn-green', 'Sign in to auto-post', function(){ window.ClipNowAccount && ClipNowAccount.open(); });
-      button('btn-ghost', 'See plans', function(){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); });
+      button('btn-ghost', 'See plans', goPricing);
     } else if (!info){
       note.textContent = 'Checking your connected accounts…';
     } else if (!info.available){
       note.textContent = 'Auto-posting is being switched on. Check back soon.';
     } else if (info.limit === 0){
       sub.textContent = 'Auto-posting comes with every ClipNow plan.';
-      button('btn-green', 'Start a free trial', function(){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); });
+      button('btn-green', 'Start a free trial', goPricing);
     } else {
       var n = connected().length;
       sub.textContent = n ? 'Use Post now or Schedule on each clip above. It posts to the connected platforms you have switched on below.' : 'Connect the accounts you want ClipNow to post to.';
@@ -2471,6 +2488,29 @@ if ('IntersectionObserver' in window){
   var io = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold:.08 });
   els.forEach(function(el){ io.observe(el); });
 } else els.forEach(function(el){ el.classList.add('in'); });
+
+/* ---------- Studio page (/studio) ---------- */
+(function(){
+  $$('[data-page="studio"]').forEach(function(a){ a.classList.toggle('on', IS_STUDIO); });
+  if (!IS_STUDIO) return;
+  document.title = 'Studio · ClipNow';
+  var canon = document.querySelector('link[rel=canonical]'); if (canon) canon.href = 'https://clipnow.vip/studio';
+  // Links to home page sections go to the home page
+  $$('a[href^="#"]').forEach(function(a){
+    var id = a.getAttribute('href').slice(1);
+    if (a.hasAttribute('data-contact') || a.hasAttribute('data-install') || !id) return;
+    var t = document.getElementById(id);
+    if (id === 'top' || id === 'search') a.setAttribute('href', '/');
+    else if (t && !document.getElementById('studio').contains(t)) a.setAttribute('href', '/#' + id);
+  });
+  $$('.tabbar a').forEach(function(a){ a.classList.toggle('on', a.dataset.sec === 'studio'); if (a.dataset.sec !== 'studio' && a.getAttribute('href').charAt(0) === '#') a.setAttribute('href', a.getAttribute('href') === '#top' ? '/' : '/' + a.getAttribute('href')); });
+  // A video picked with "Clip this" on the home page
+  var v = null; try { v = JSON.parse(sessionStorage.getItem('cn_src')); sessionStorage.removeItem('cn_src'); } catch(e){}
+  if (v && v.id){
+    setSource(v, true);
+    if (!v.title || v.title === 'YouTube video') ytTitle(v.id).then(function(full){ if (S.source && S.source.id === full.id) setSource(full, true); });
+  }
+})();
 
 window.__clip = S; // handy for debugging in the console
 })();

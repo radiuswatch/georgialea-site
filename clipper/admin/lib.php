@@ -464,7 +464,7 @@ function cn_up_connect_url(array $member): string {
   }
   $j = cn_up('POST', '/uploadposts/users/generate-jwt', [
     'username' => $u,
-    'redirect_url' => CN_SITE . '/?connected=1#studio',
+    'redirect_url' => CN_SITE . '/studio?connected=1',
     'redirect_button_text' => 'Back to ClipNow',
     'logo_image' => CN_SITE . '/brand/clipnow-mark-512.png',
     'platforms' => array_keys(CN_POST_PLATFORMS),

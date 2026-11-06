@@ -33,7 +33,7 @@
       "name": "Studio",
       "short_name": "Studio",
       "description": "Turn a video into clips",
-      "url": "./#studio",
+      "url": "./studio",
       "icons": [
         {
           "src": "icon-192.png",

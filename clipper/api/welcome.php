@@ -13,8 +13,8 @@ try {
   // Only a completed checkout from the last day can sign someone in.
   if (($cs['status'] ?? '') !== 'complete' || !$email || ($cs['created'] ?? 0) < time() - 86400) throw new RuntimeException('not complete');
   cn_start_session($email);
-  header('Location: ' . CN_SITE . '/?signin=welcome#studio', true, 303);
+  header('Location: ' . CN_SITE . '/studio?signin=welcome', true, 303);
 } catch (Throwable $e) {
   // Payment may still have worked; ask them to sign in with their email instead.
-  header('Location: ' . CN_SITE . '/?signin=needed#studio', true, 303);
+  header('Location: ' . CN_SITE . '/studio?signin=needed', true, 303);
 }
