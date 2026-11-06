@@ -392,8 +392,6 @@
       <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
       <a href="#pricing">Pricing</a>
-      <a href="#faq">FAQ</a>
-      <a href="privacy.html">Policies</a>
       <a href="#contact" data-contact>Contact</a>
       <button class="btn btn-ghost btn-sm" id="acctBtn" type="button">Sign in</button>
       <a class="btn btn-green btn-sm" href="#top">Find videos</a>
@@ -686,7 +684,7 @@
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
       <details><summary>Does my video get uploaded to your servers?</summary><p>No. Finding and cutting clips runs entirely in your browser, so your full video stays on your device. The only time anything is uploaded is when you tap <b>Post now</b> or <b>Schedule</b> on a clip: that one clip is sent through our posting partner, Upload-Post, to the accounts you connected, and nothing else.</p></details>
       <details><summary>How do I connect my social media accounts?</summary><p>Sign in, then in Studio step 3 tap <b>Connect accounts</b> under Auto-post and sign in to each platform. Set each account up first with the 5-minute guides in <a href="#platforms">Platforms</a>. Snapchat doesn’t allow auto-posting yet, so you post those clips from your phone.</p></details>
-      <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just email us at <a href="mailto:helpdesk@clipnow.vip">helpdesk@clipnow.vip</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
+      <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just <a href="#contact" data-contact data-reason="Billing or cancelling">send us a message</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
       <details><summary>Where are your privacy policy and terms?</summary><p>Read our <a href="privacy.html">Privacy Policy</a>, <a href="terms.html">Terms of Service</a> and <a href="refunds.html">Refunds &amp; Cancellation Policy</a>. The short version: your videos never leave your device, payments are handled by Stripe, and we don't sell your information.</p></details>
     </div>
     <div class="cta-row reveal" style="margin-top:28px">
@@ -700,8 +698,8 @@
 <footer>
   <div class="wrap foot">
     <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/">App Planet</a></span>
+    <nav class="foot-legal" aria-label="Help"><b>Help</b><a href="#faq">FAQ</a><a href="#contact" data-contact>Contact us</a></nav>
     <nav class="foot-legal" aria-label="Policies"><b>Policies</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
-    <span><a href="#contact" data-contact>Contact us</a> · helpdesk@clipnow.vip</span>
   </div>
 </footer>
 
@@ -1620,7 +1618,9 @@ function openContact(reason, plan, prefill){
   $('#contactModal').classList.add('on');
   setTimeout(function(){ var first = ['#ctName','#ctEmail','#ctReason','#ctMsg'].map(function(s){ return $(s); }).filter(function(el){ return !el.value; })[0]; (first || $('#ctMsg')).focus(); }, 60);
 }
-function closeContact(){ $('#contactModal').classList.remove('on'); }
+function closeContact(){ $('#contactModal').classList.remove('on'); if (/^#contact/.test(location.hash)) try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }
+function contactFromHash(){ var h = location.hash; if (h === '#contact') openContact(''); else if (h === '#contact-billing') openContact('Billing or cancelling'); }
+window.addEventListener('hashchange', contactFromHash); setTimeout(contactFromHash, 0);
 document.addEventListener('click', function(e){
   var a = e.target.closest('[data-contact]'); if (!a) return;
   e.preventDefault(); openContact(a.dataset.reason || '');
