@@ -160,7 +160,7 @@
   .stage{padding:28px;display:none}
   .stage.on{display:block}
 
-  .drop{border:1.5px dashed var(--green-dim);border-radius:14px;padding:48px 20px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s}
+  .drop{display:block;border:1.5px dashed var(--green-dim);border-radius:14px;padding:48px 20px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s}
   .drop:hover,.drop.over{background:#0F1A12;border-color:var(--green)}
   .drop h3{font-family:var(--sans);font-weight:600;font-size:19px;margin-bottom:6px}
   .drop p{color:var(--muted);margin:0;font-size:15px}
@@ -325,11 +325,29 @@
   .golink b{font-weight:600;font-size:15.5px}
   .golink span{font-size:13.5px;color:var(--muted)}
   .golink i{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--green)}
-  .src-banner{display:flex;gap:14px;align-items:center;background:var(--green-deep);border:1px solid var(--green-dim);border-radius:12px;padding:12px;margin-bottom:16px}
+  .yt-link{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .yt-link[hidden],.or-line[hidden]{display:none}
+  .yt-link label{font-size:15px;font-weight:600;color:var(--text)}
+  .yt-row{display:flex;gap:8px}
+  .yt-row input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:16px;color:var(--text)}
+  .yt-row input:focus{outline:none;border-color:var(--green)}
+  .yt-row input[aria-invalid=true]{border-color:var(--warn)}
+  .yt-err{margin:0;font-size:14px;color:var(--warn)} .yt-err:empty{display:none}
+  .or-line{display:flex;align-items:center;gap:12px;margin:2px 0 14px;color:var(--faint);font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase}
+  .or-line::before,.or-line::after{content:'';flex:1;height:1px;background:var(--line)}
+  .src-help{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .src-help p{margin:0;font-size:14.5px;color:#BFE9CF;line-height:1.5}
+  .src-help p b{color:var(--text)}
+  .src-help p[hidden],.src-help[hidden]{display:none}
+  .src-help .src-fine{font-size:12.5px;color:var(--muted)}
+  .src-help .seg{background:var(--bg)}
+  .src-top{display:flex;gap:14px;align-items:center}
+  .src-banner{display:block;background:var(--green-deep);border:1px solid var(--green-dim);border-radius:12px;padding:12px;margin-bottom:16px}
+  .src-banner[hidden]{display:none}
   .src-banner img{width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;flex-shrink:0}
-  .src-banner div{min-width:0;font-size:14px;color:#BFE9CF}
-  .src-banner b{display:block;color:var(--text);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .src-banner button{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px;align-self:flex-start}
+  .src-top>div{min-width:0;flex:1;font-size:14px;color:#BFE9CF}
+  .src-top b{display:block;color:var(--text);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .src-banner .src-x{background:none;border:0;color:var(--muted);font-size:24px;cursor:pointer;padding:4px 8px;align-self:flex-start;min-width:44px;min-height:44px}
 
   /* Platforms guide */
   .pg-progress{font-family:var(--mono);font-size:13px;color:var(--green);margin-bottom:14px}
@@ -528,11 +546,31 @@
 
       <!-- Stage 1 -->
       <div class="stage on" data-stage="1">
+        <form class="yt-link" id="ytForm" novalidate>
+          <label for="ytUrl">Have a YouTube link? Paste it here</label>
+          <div class="yt-row">
+            <input type="url" id="ytUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://youtube.com/watch?v=…">
+            <button class="btn btn-green btn-sm" type="submit">Use link</button>
+          </div>
+          <p class="yt-err" id="ytErr" role="alert"></p>
+        </form>
         <div class="src-banner" id="srcBanner" hidden>
-          <img alt="">
-          <div><b></b><span>Now upload this video's file. Use the download link from your clipping campaign, or the original if it's your own video. YouTube doesn't allow pulling the file from a link.</span></div>
-          <button type="button" aria-label="Clear selected video">×</button>
+          <div class="src-top">
+            <img alt="">
+            <div><b></b><span>Next, add this video's file below. Where do you get it?</span></div>
+            <button type="button" class="src-x" aria-label="Clear selected video">×</button>
+          </div>
+          <div class="src-help">
+            <div class="seg" role="tablist" aria-label="Where the video comes from">
+              <button type="button" class="on" data-help="own" role="tab" aria-selected="true">It's my video</button>
+              <button type="button" data-help="camp" role="tab" aria-selected="false">From a clipping campaign</button>
+            </div>
+            <p data-for="own">On a computer, open the video in <b>YouTube Studio</b>, click <b>⋮</b> at the top right and choose <b>Download</b>. Then drop the file in below. <a id="studioLink" target="_blank" rel="noopener" href="https://studio.youtube.com">Open it in YouTube Studio ↗</a></p>
+            <p data-for="camp" hidden>Use the <b>download link</b> the campaign gives you (on Whop, Discord or Google Drive), save the file, then drop it in below.</p>
+            <p class="src-fine">YouTube only lets the video's owner download it, so ClipNow can't pull the file straight from the link.</p>
+          </div>
         </div>
+        <div class="or-line" id="orLine"><span>or upload the file</span></div>
         <label class="drop" id="drop">
           <input type="file" id="file" accept="video/*">
           <h3 id="dropTitle">Drop a video here, or click to choose one</h3>
@@ -947,6 +985,8 @@ function loadFile(f){
   if (!/^video\//.test(f.type) && !/\.(mp4|mov|webm|m4v|mkv)$/i.test(f.name)) { toast('That file isn’t a video'); return; }
   if (S.url) URL.revokeObjectURL(S.url);
   S.file = f; S.url = URL.createObjectURL(f); S.clips = []; S.energy = null;
+  $('#srcBanner .src-help').hidden = true; $('#srcBanner .src-top span').textContent = 'File added. You’re ready to pick your clips.';
+  $('#ytForm').hidden = true; $('#orLine').hidden = true;
   srcV.src = S.url;
   $('#srcGrid').hidden = false;
   $('#anStatus').textContent = f.name + ' · ' + (f.size/1048576).toFixed(0) + ' MB';
@@ -1531,16 +1571,67 @@ $('#resBody').addEventListener('click', function(e){
   var b = e.target.closest('[data-clip]'); if (!b) return;
   setSource(R.list[+b.dataset.clip]);
 });
-function setSource(v){
+function setSource(v, fromStudio){
   S.source = v;
   var bn = $('#srcBanner'); bn.hidden = false;
   $('img', bn).src = v.thumb; $('b', bn).textContent = v.title || 'YouTube video';
-  if (v.channel) $('#topic').value = v.channel;
+  $('.src-help', bn).hidden = !!S.file; $('.src-top span', bn).textContent = S.file ? 'File added. You’re ready to pick your clips.' : 'Next, add this video’s file below. Where do you get it?';
+  $('#studioLink').href = 'https://studio.youtube.com/video/' + encodeURIComponent(v.id) + '/edit';
+  var t = $('#topic'); if (v.channel) t.value = v.channel; else if (v.title && v.title !== 'YouTube video' && !t.value) t.value = v.title.slice(0, 40);
+  $('#ytForm').hidden = true; $('#orLine').hidden = true;
   goStage(1);
-  document.getElementById('studio').scrollIntoView({ behavior:'smooth' });
-  toast('Video picked. Upload its file to clip it.');
+  if (!fromStudio) document.getElementById('studio').scrollIntoView({ behavior:'smooth' });
+  toast('Video picked. Now add its file.');
 }
-$('#srcBanner button').addEventListener('click', function(){ S.source = null; $('#srcBanner').hidden = true; });
+function clearSource(){
+  S.source = null; $('#srcBanner').hidden = true;
+  $('#ytForm').hidden = false; $('#orLine').hidden = false; $('#ytUrl').value = '';
+}
+$('#srcBanner .src-x').addEventListener('click', clearSource);
+$('#srcBanner .seg').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if (!b) return;
+  $$('#srcBanner .seg button').forEach(function(x){ var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  $$('#srcBanner [data-for]').forEach(function(p){ p.hidden = p.dataset.for !== b.dataset.help; });
+});
+
+/* Paste a YouTube link in the Studio: shows the video and how to get its file. */
+function ytTitle(id){
+  var fallback = { id:id, title:'YouTube video', thumb:'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg' };
+  if (CONFIG.youtubeKey) return details([id]).then(function(v){ return v[0] || fallback; }, function(){ return fallback; });
+  // noembed.com returns YouTube's public oEmbed info (title, channel) to web pages
+  var ctl = window.AbortController ? new AbortController() : null;
+  var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 4000);
+  return fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id), ctl ? { signal:ctl.signal } : {})
+    .then(function(r){ return r.json(); })
+    .then(function(j){ clearTimeout(timer); return j && j.title ? { id:id, title:j.title, channel:j.author_name || '', thumb:fallback.thumb } : fallback; })
+    .catch(function(){ clearTimeout(timer); return fallback; });
+}
+function useLink(q){
+  var err = $('#ytErr'), inp = $('#ytUrl');
+  q = (q || '').trim(); err.textContent = ''; inp.setAttribute('aria-invalid', 'false');
+  if (!q){ inp.focus(); return; }
+  var p = parseQuery(q);
+  if (p.kind !== 'video'){
+    inp.setAttribute('aria-invalid', 'true');
+    err.textContent = /youtube|youtu\.be/i.test(q) ? 'That’s a channel link. Paste the link to one video (it has watch?v=, youtu.be/ or /shorts/ in it).' : 'That doesn’t look like a YouTube video link. Copy it from the Share button under the video.';
+    return;
+  }
+  var btn = $('#ytForm button'); btn.disabled = true; btn.textContent = 'Finding…';
+  ytTitle(p.id).then(function(v){ btn.disabled = false; btn.textContent = 'Use link'; setSource(v, true); });
+}
+$('#ytForm').addEventListener('submit', function(e){ e.preventDefault(); useLink($('#ytUrl').value); });
+$('#ytUrl').addEventListener('paste', function(){ setTimeout(function(){ if (parseQuery($('#ytUrl').value).kind === 'video') useLink($('#ytUrl').value); }, 0); });
+// Ctrl+V / Cmd+V anywhere on the Upload step (not while typing in another box)
+document.addEventListener('paste', function(e){
+  var stage = document.querySelector('.stage[data-stage="1"]');
+  if (!stage || !stage.classList.contains('on') || $('#ytForm').hidden) return;
+  var a = document.activeElement;
+  if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+  var r = stage.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;
+  var text = ((e.clipboardData || window.clipboardData).getData('text') || '').trim();
+  if (parseQuery(text).kind !== 'video') return;
+  e.preventDefault(); $('#ytUrl').value = text; useLink(text);
+});
 
 /* ---------- Mobile app bar ---------- */
 var tabLinks = $$('.tabbar a');

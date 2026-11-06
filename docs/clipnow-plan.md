@@ -73,6 +73,15 @@ taking off beat old ones with big totals. Pills show YouTube's most-popular char
 - "Clip this" doesn't download from YouTube (that's against YouTube's terms). It shows the
   picked video in the studio and asks for the file: the campaign's download link or the
   user's own original.
+- **Studio link box (live):** step 1 has "Have a YouTube link? Paste it here" (also catches
+  Ctrl/Cmd+V anywhere on the step). It shows the video's title and thumbnail (title via the
+  YouTube key if set, else noembed.com), fills the topic with the channel name, and guides the
+  user to the file: their own video → YouTube Studio ⋮ → Download (allowed for owners);
+  a campaign → the campaign's download link.
+- **Full link import (not built, owner's decision pending):** paste a link and the video loads by
+  itself, like Opus Clip. Needs a separate server running yt-dlp plus a proxy or paid download API
+  (~$10–50/month; YouTube blocks most hosting IPs), breaks YouTube's terms, and puts copyright
+  complaints on ClipNow. Get legal advice before building it.
 
 ## 4. Full platform architecture (paid tiers)
 
