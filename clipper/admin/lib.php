@@ -598,3 +598,70 @@ function cn_run_auto(array $subs, bool $force = false): array {
   cn_save_config($fresh);
   return $report;
 }
+
+/* ---------- Campaigns (Platinum only) ----------
+ * A Platinum creator posts a campaign: their content, a rate per 1,000 views and an optional
+ * budget. Other Platinum members join it, post clips, and report each post's views with a
+ * screenshot. The creator approves the views and pays clippers directly (ClipNow never holds
+ * money). Stored in ~/clipnow-data/campaigns/<id>.json; screenshots in campaign-shots/.
+ */
+const CN_CAMP_PLATFORMS = ['tiktok' => 'TikTok', 'youtube' => 'YouTube Shorts', 'instagram' => 'Instagram Reels', 'facebook' => 'Facebook Reels', 'snapchat' => 'Snapchat', 'x' => 'X'];
+const CN_CAMP_SHOT_BYTES = 6 * 1048576;
+
+function cn_is_platinum(?array $m): bool { return $m !== null && !empty($m['active']) && ($m['plan_key'] ?? '') === 'agency'; }
+function cn_camp_id_ok($id): bool { return is_string($id) && (bool)preg_match('/^c[a-z0-9]{12}$/', $id); }
+function cn_camp_new_id(): string { return 'c' . substr(bin2hex(random_bytes(8)), 0, 12); }
+function cn_camp_file(string $id): string { return cn_dir('campaigns') . '/' . $id . '.json'; }
+function cn_camp_load(string $id): ?array { return cn_camp_id_ok($id) ? cn_json_file(cn_camp_file($id), null) : null; }
+
+/** Every campaign, newest first. */
+function cn_camp_all(): array {
+  $out = [];
+  foreach (glob(cn_dir('campaigns') . '/c*.json') ?: [] as $f) { $c = cn_json_file($f, null); if ($c) $out[] = $c; }
+  usort($out, fn($a, $b) => ($b['created'] ?? 0) <=> ($a['created'] ?? 0));
+  return $out;
+}
+
+/** Change a campaign under a file lock. $fn gets the campaign by reference; return a string to refuse. */
+function cn_camp_update(string $id, callable $fn): array {
+  if (!cn_camp_id_ok($id)) throw new InvalidArgumentException('That campaign doesn\'t exist.');
+  $f = cn_camp_file($id);
+  if (!is_file($f)) throw new InvalidArgumentException('That campaign doesn\'t exist.');
+  $h = fopen($f, 'c+');
+  if (!$h || !flock($h, LOCK_EX)) throw new RuntimeException('Busy, please try again.');
+  try {
+    $c = json_decode((string)stream_get_contents($h), true);
+    if (!is_array($c)) throw new RuntimeException('That campaign couldn\'t be read.');
+    $err = $fn($c);
+    if (is_string($err)) throw new InvalidArgumentException($err);
+    $c['updated'] = time();
+    ftruncate($h, 0); rewind($h);
+    fwrite($h, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    fflush($h);
+    return $c;
+  } finally { flock($h, LOCK_UN); fclose($h); }
+}
+
+function cn_camp_create(array $c): array {
+  $c['id'] = cn_camp_new_id();
+  $f = cn_camp_file($c['id']);
+  file_put_contents($f, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+  chmod($f, 0600);
+  return $c;
+}
+
+/** Approved views → money owed, in cents, for one clipper or (email '') everyone. */
+function cn_camp_owed(array $c, string $email = ''): int {
+  $views = 0;
+  // approved_views stays counted while a clipper's updated views wait for review
+  foreach ($c['submissions'] ?? [] as $s) if ($email === '' || $s['email'] === $email) $views += (int)($s['approved_views'] ?? 0);
+  return (int)round($views * (int)$c['rate_cents'] / 1000);
+}
+function cn_camp_paid(array $c, string $email = ''): int {
+  $paid = $c['paid'] ?? [];
+  return $email === '' ? (int)array_sum($paid) : (int)($paid[$email] ?? 0);
+}
+function cn_camp_log(array $entry): void {
+  if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
+  file_put_contents(CN_DATA . '/campaign-log.jsonl', json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+}

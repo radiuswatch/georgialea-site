@@ -64,6 +64,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($do === 'logout') { $_SESSION = []; session_destroy(); header('Location: ./'); exit; }
 
+  if (in_array($do, ['camp_hide', 'camp_show', 'camp_delete', 'camp_clear_reports'], true)) {
+    $cid = (string)($_POST['camp'] ?? '');
+    $c = cn_camp_load($cid);
+    if (!$c) { flash('That campaign no longer exists.', false); back('campaigns'); }
+    if ($do === 'camp_delete') {
+      foreach ($c['submissions'] as $sub) if (($sub['shot'] ?? '') !== '') @unlink(cn_dir('campaign-shots') . '/' . basename($sub['shot']));
+      @unlink(cn_camp_file($cid));
+      cn_camp_log(['event' => 'deleted by admin', 'id' => $cid, 'title' => $c['title'], 'email' => $c['owner']]);
+      flash('Deleted "' . $c['title'] . '" and its screenshots.');
+    } else {
+      cn_camp_update($cid, function (&$c) use ($do) {
+        if ($do === 'camp_hide') $c['hidden'] = true;
+        if ($do === 'camp_show') $c['hidden'] = false;
+        if ($do === 'camp_clear_reports') $c['reports'] = [];
+      });
+      cn_camp_log(['event' => $do, 'id' => $cid, 'title' => $c['title']]);
+      flash(['camp_hide' => 'Hidden. Only its creator can still see it.', 'camp_show' => 'It\'s visible to Platinum members again.', 'camp_clear_reports' => 'Reports cleared.'][$do]);
+    }
+    back('campaigns');
+  }
+
   if ($do === 'send') {
     try {
       $s = cn_stripe('GET', '/v1/subscriptions/' . rawurlencode((string)$_POST['sub']), ['expand' => ['customer', 'latest_invoice']]);
@@ -274,6 +295,7 @@ $view = $_GET['view'] ?? 'subs';
     <nav>
       <a href="./" class="<?= $view === 'subs' ? 'on' : '' ?>">Subscriptions</a>
       <a href="?view=codes" class="<?= $view === 'codes' ? 'on' : '' ?>">Family codes</a>
+      <a href="?view=campaigns" class="<?= $view === 'campaigns' ? 'on' : '' ?>">Campaigns</a>
       <a href="?view=log" class="<?= $view === 'log' ? 'on' : '' ?>">Notice log</a>
       <a href="?view=settings" class="<?= $view === 'settings' ? 'on' : '' ?>">Settings</a>
       <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="logout">Sign out</button></form>
@@ -440,6 +462,47 @@ $view = $_GET['view'] ?? 'subs';
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; }, function(){ if(el.select){el.select();} document.execCommand('copy'); b.textContent='Copied'; });
     setTimeout(function(){ b.textContent=b.dataset.copy==='newCode'?'Copy code':'Copy message'; },1500); }); });
   </script>
+
+<?php elseif ($view === 'campaigns'):
+  $camps = cn_camp_all();
+  $reported = count(array_filter($camps, fn($c) => !empty($c['reports'])));
+  $hiddenN = count(array_filter($camps, fn($c) => !empty($c['hidden'])));
+  $money = fn($c) => '$' . number_format($c / 100, 2);
+?>
+  <div class="panel">
+    <h2>Campaigns</h2>
+    <p>Platinum members create these and other Platinum members join them. Creators pay clippers directly; ClipNow only keeps track. <b>Hide</b> takes a campaign out of everyone's list except its creator's (you can show it again). <b>Delete</b> removes it and its screenshots for good.</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><b><?= count($camps) ?></b><span>Campaigns</span></div>
+    <div class="stat"><b><?= $reported ?></b><span>With reports</span></div>
+    <div class="stat"><b><?= $hiddenN ?></b><span>Hidden</span></div>
+  </div>
+  <div class="card"><div class="scroll">
+  <?php if (!$camps): ?><div class="empty">No campaigns yet.</div><?php else: ?>
+  <table class="members"><thead><tr><th>Campaign</th><th>Creator</th><th>Rate · budget</th><th>Clippers · posts</th><th>Status</th><th></th></tr></thead><tbody>
+  <?php foreach ($camps as $c):
+    $owed = cn_camp_owed($c); $pend = count(array_filter($c['submissions'], fn($x) => $x['status'] === 'pending'));
+    $st = !empty($c['hidden']) ? ['s-canceled', 'Hidden'] : ($c['status'] === 'closed' ? ['s-canceled', 'Closed'] : (($c['ends'] && $c['ends'] < time()) ? ['s-canceled', 'Ended'] : ['s-active', 'Open'])); ?>
+    <tr>
+      <td class="who"><b><?= e($c['title']) ?></b><span><?= e($c['creator']) ?> · started <?= day((int)$c['created']) ?></span>
+        <?php foreach ($c['reports'] ?? [] as $r): ?><div class="sub" style="color:var(--warn)">Report from <?= e($r['email']) ?> (<?= e(day((int)$r['at'])) ?>): <?= e($r['reason']) ?></div><?php endforeach; ?></td>
+      <td><?= e($c['owner']) ?></td>
+      <td class="num"><?= $money($c['rate_cents']) ?>/1K views<div class="sub"><?= $c['budget_cents'] ? $money($owed) . ' of ' . $money($c['budget_cents']) . ' used' : 'No budget cap · ' . $money($owed) . ' earned' ?></div></td>
+      <td class="num"><?= count($c['clippers']) ?> · <?= count($c['submissions']) ?><?= $pend ? '<div class="sub">' . $pend . ' waiting for review</div>' : '' ?></td>
+      <td><span class="badge <?= $st[0] ?>"><?= $st[1] ?></span><?= !empty($c['reports']) ? ' <span class="badge s-past_due">' . count($c['reports']) . ' report' . (count($c['reports']) > 1 ? 's' : '') . '</span>' : '' ?></td>
+      <td class="acts" style="white-space:nowrap">
+        <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="camp" value="<?= e($c['id']) ?>">
+          <?php if (empty($c['hidden'])): ?><button class="btn" name="do" value="camp_hide">Hide</button><?php else: ?><button class="btn" name="do" value="camp_show">Show</button><?php endif; ?>
+          <?php if (!empty($c['reports'])): ?><button class="btn" name="do" value="camp_clear_reports">Clear reports</button><?php endif; ?>
+          <button class="btn warn" name="do" value="camp_delete" onclick="return confirm('Delete this campaign, its clippers\' posts and screenshots for good?')">Delete</button>
+        </form>
+      </td>
+    </tr>
+  <?php endforeach; ?>
+  </tbody></table>
+  <?php endif; ?>
+  </div></div>
 
 <?php elseif ($view === 'log'): $log = cn_recent_log(200); ?>
   <div class="panel">

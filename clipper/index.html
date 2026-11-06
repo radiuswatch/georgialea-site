@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
+<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^\/campaigns\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-campaigns'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B0D0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -85,6 +85,57 @@
   .ap-howto summary small{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap}
   .ap-howto[open] summary .play{background:var(--card)}
   .ap-howto video{display:block;width:100%;max-width:300px;aspect-ratio:9/16;margin:12px 0 0;border-radius:16px;border:1px solid var(--line);background:#000}
+  /* Campaigns (Platinum) */
+  .cp-gate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .cp-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .cp-card h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:0 0 6px}
+  .cp-card p{margin:0;color:var(--muted);font-size:15px}
+  .cp-gate-msg{margin:22px 0 12px;font-size:16px}
+  .cp-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+  .cp-bar .seg button{padding:9px 14px;white-space:nowrap}
+  .cp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+  .cp-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;color:inherit;font:inherit}
+  .cp-item:hover{border-color:var(--green-dim)}
+  .cp-item h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:0;line-height:1.3}
+  .cp-by{font-size:13.5px;color:var(--muted)}
+  .cp-rate{font-family:var(--mono);color:var(--green);font-size:15px}
+  .cp-about{font-size:14px;color:var(--muted);margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .cp-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px}
+  .cp-tag{font-family:var(--mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+  .cp-st{font-family:var(--mono);font-size:12px;border-radius:999px;padding:3px 9px;background:var(--green-deep);color:var(--green)}
+  .cp-st.off{background:#222;color:var(--faint)} .cp-st.me{background:#13283F;color:#7DB4F0} .cp-st.warn{background:var(--warn-deep);color:var(--warn)}
+  .cp-empty{grid-column:1/-1;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:24px;text-align:center}
+  .cp-back{background:none;border:0;color:var(--green);font:inherit;font-size:14.5px;cursor:pointer;padding:8px 0;margin-bottom:6px}
+  .cp-head{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+  .cp-head h3{font-family:var(--sans);font-weight:600;font-size:24px;margin:0;line-height:1.25}
+  .cp-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .cp-box h4{margin:0 0 10px;font-size:16px;font-weight:600}
+  .cp-box p{margin:0 0 8px;font-size:15px}
+  .cp-pre{white-space:pre-wrap;color:var(--muted);font-size:15px;margin:0}
+  .cp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+  .cp-stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .cp-stat b{display:block;font-family:var(--mono);font-size:19px;color:var(--text)}
+  .cp-stat span{font-size:12.5px;color:var(--muted)}
+  .cp-row{border-top:1px solid var(--line);padding:12px 0;display:flex;flex-direction:column;gap:8px}
+  .cp-row:first-of-type{border-top:0;padding-top:0}
+  .cp-row-top{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;font-size:14.5px}
+  .cp-row a{overflow-wrap:anywhere}
+  .cp-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .cp-acts input{width:130px}
+  .cp-acts input,.cp-form input,.cp-form textarea,.cp-box input,.cp-box select,.cp-box textarea{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;font-size:16px;color:var(--text);color-scheme:dark}
+  .cp-box .field input,.cp-box .field select,.cp-form .field input,.cp-form .field textarea{width:100%}
+  .cp-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:560px){.cp-2{grid-template-columns:1fr}}
+  .cp-checks{display:flex;flex-wrap:wrap;gap:8px}
+  .cp-checks label{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--text)}
+  .cp-checks input{accent-color:var(--green);width:auto}
+  .cp-form{max-width:720px}
+  .cp-form h3{font-family:var(--sans);font-weight:600;font-size:22px;margin:0 0 14px}
+  .cp-fine{font-size:13.5px;color:var(--faint);margin:14px 0 8px}
+  .cp-msg{font-size:14px;color:var(--green);margin:6px 0 0}.cp-msg.bad{color:#F0706A}.cp-msg:empty{display:none}
+  .cp-money{font-family:var(--mono)}
+  .cp-link{background:none;border:0;color:var(--faint);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:6px 0}
+  .lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
   /* Tap-to-pick scheduler */
   .sch{display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
   .sch[hidden]{display:none}
@@ -136,6 +187,9 @@
   /* Two views of one page: the home page, and the Studio at /studio */
   html:not(.pg-studio) #studio{display:none}
   html.pg-studio main > section:not(#studio){display:none}
+  html:not(.pg-campaigns) #campaigns{display:none}
+  html.pg-campaigns main > section:not(#campaigns){display:none}
+  html.pg-campaigns #campaigns{padding-top:28px}
   html.pg-studio #studio{padding-top:28px}
   .hero + #studio{padding-top:8px}
   .hero + #studio .sect-head{margin-bottom:16px;gap:6px}
@@ -425,8 +479,8 @@
   /* Mobile app bar */
   .tabbar{display:none}
   @media (max-width:700px){
-    .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
-    .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--faint);font-size:11.5px;padding:6px 0;min-height:48px;justify-content:center}
+    .tabbar{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+    .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--faint);font-size:10.5px;padding:6px 0;min-height:48px;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap}
     .tabbar a.on{color:var(--green)}
     .tabbar svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
@@ -464,12 +518,12 @@
     <nav class="nav-links">
       <a href="/" data-page="home">Home</a>
       <a href="/studio" data-page="studio">Studio</a>
+      <a href="/campaigns" data-page="campaigns">Campaigns</a>
       <a href="#how">How it works</a>
       <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
       <a href="#pricing">Pricing</a>
       <button class="btn btn-ghost btn-sm" id="acctBtn" type="button">Sign in</button>
-      <a class="btn btn-green btn-sm" href="#top">Find videos</a>
     </nav>
   </div>
 </header>
@@ -650,6 +704,63 @@
   </div>
 </section>
 
+<section id="campaigns">
+  <div class="wrap">
+    <div class="sect-head">
+      <p class="eyebrow">Campaigns · Platinum</p>
+      <h2>Paid clipping campaigns</h2>
+      <p class="sub">Streamers and podcasters post a campaign and pay clippers for the views their clips get. Clippers join, post, and report their views. Creators approve the views and pay clippers directly. ClipNow keeps track of it all and never takes a cut.</p>
+    </div>
+
+    <p class="note" id="cpLoading">Loading campaigns…</p>
+    <div id="cpGate" class="cp-gate" hidden>
+      <div class="cp-gate-grid">
+        <div class="cp-card"><h3>For streamers &amp; podcasters</h3><p>Post your content, set a rate per 1,000 views and a budget, and let clippers spread your best moments across TikTok, Shorts and Reels. You approve every post's views before anything is owed.</p></div>
+        <div class="cp-card"><h3>For clippers</h3><p>Find creators who pay for clips, grab their content, clip it in the Studio, and track what you've earned in one place. Payments come straight from the creator.</p></div>
+      </div>
+      <p class="cp-gate-msg" id="cpGateMsg">Campaigns are part of the <b>Platinum</b> plan.</p>
+      <div class="cta-row" id="cpGateBtns"></div>
+    </div>
+
+    <div id="cpApp" hidden>
+      <div class="cp-bar">
+        <div class="seg" id="cpTabs" role="tablist">
+          <button type="button" class="on" data-tab="all" role="tab">Browse</button>
+          <button type="button" data-tab="joined" role="tab">Joined</button>
+          <button type="button" data-tab="mine" role="tab">My campaigns</button>
+        </div>
+        <button class="btn btn-green btn-sm" type="button" id="cpNew">Create a campaign</button>
+      </div>
+      <div id="cpList" class="cp-list" aria-live="polite"></div>
+      <div id="cpDetail" hidden></div>
+      <form id="cpForm" class="cp-form" hidden novalidate>
+        <button type="button" class="cp-back" data-back>← All campaigns</button>
+        <h3 id="cpFormTitle">Create a campaign</h3>
+        <div class="fields">
+          <div class="field"><label for="cfTitle">Campaign title</label><input type="text" id="cfTitle" name="title" maxlength="100" placeholder="e.g. Best moments from my Friday streams"></div>
+          <div class="field"><label for="cfCreator">Your creator name (channel or show)</label><input type="text" id="cfCreator" name="creator" maxlength="60" placeholder="e.g. Wil Hat Live"></div>
+          <div class="field"><label for="cfAbout">What clippers should make</label><textarea id="cfAbout" name="about" maxlength="2000" rows="3" placeholder="Which videos to clip, what kind of moments work, anything clippers should know."></textarea></div>
+          <div class="field"><label for="cfRules">Rules</label><textarea id="cfRules" name="rules" maxlength="2000" rows="3" placeholder="e.g. Clips 15–60 seconds. Credit @me in the caption. No reuploading full streams."></textarea></div>
+          <div class="field"><label for="cfSource">Where clippers get your videos</label><input type="url" id="cfSource" name="source" inputmode="url" maxlength="500" placeholder="Google Drive or Dropbox folder, or your YouTube channel"></div>
+          <div class="cp-2">
+            <div class="field"><label for="cfRate">You pay per 1,000 views ($)</label><input type="text" id="cfRate" name="rate" inputmode="decimal" placeholder="1.00"></div>
+            <div class="field"><label for="cfBudget">Total budget ($, optional)</label><input type="text" id="cfBudget" name="budget" inputmode="decimal" placeholder="No limit"></div>
+          </div>
+          <div class="field"><span class="lbl">Platforms clippers can post on</span><div class="cp-checks" id="cfPlats"></div></div>
+          <div class="cp-2">
+            <div class="field"><label for="cfTags">Required tags or @mentions (optional)</label><input type="text" id="cfTags" name="tags" maxlength="200" placeholder="@you #ad"></div>
+            <div class="field"><label for="cfEnds">End date (optional)</label><input type="date" id="cfEnds" name="ends"></div>
+          </div>
+          <div class="field"><label for="cfPay">How and when you pay clippers</label><input type="text" id="cfPay" name="pay_note" maxlength="200" placeholder="e.g. PayPal or Cash App, every Friday for approved views"></div>
+        </div>
+        <p class="cp-fine">You pay clippers yourself for the views you approve. ClipNow doesn't hold or send money. Only post content you own or have the rights to.</p>
+        <p class="ct-err" id="cfErr" role="alert"></p>
+        <div class="cta-row"><button class="btn btn-green" type="submit" id="cfSave">Publish campaign</button><button class="btn btn-ghost" type="button" data-back>Cancel</button></div>
+      </form>
+    </div>
+  </div>
+</section>
+
 <section id="how">
   <div class="wrap">
     <div class="sect-head reveal">
@@ -764,6 +875,7 @@
         <div class="price-for">For teams running many accounts</div>
         <ul class="price-list">
           <li>Everything in Gold</li>
+          <li><b>Campaigns:</b> post paid clipping campaigns for your content, or join other creators’ campaigns</li>
           <li class="soon">Up to 10 accounts per platform <span class="soon-tag">Coming soon</span></li>
           <li class="soon">3 team seats <span class="soon-tag">Coming soon</span></li>
           <li class="soon">Payout reports per account <span class="soon-tag">Coming soon</span></li>
@@ -911,6 +1023,7 @@
 <nav class="tabbar" aria-label="App sections">
   <a href="#top" data-sec="search" data-page="home"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11.5h4.5v-6h4v6h4.5V9"/></svg>Home</a>
   <a href="/studio" data-sec="studio" data-page="studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
+  <a href="/campaigns" data-sec="campaigns" data-page="campaigns"><svg viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>Campaigns</a>
   <a href="#platforms" data-sec="platforms"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/></svg>Platforms</a>
   <a href="#daily" data-sec="daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
   <a href="#pricing" data-sec="pricing"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3S9.5 10 12 10.5s4.5 1.3 4.5 3-2 3.5-4.5 3.5-4.5-1.3-4.5-3"/></svg>Plans</a>
@@ -954,7 +1067,9 @@ var PLATFORMS = [
 /* ---------- Helpers ---------- */
 function $(s, r){ return (r||document).querySelector(s); }
 var IS_STUDIO = document.documentElement.classList.contains('pg-studio');
-function goPricing(){ if (IS_STUDIO) location.href = '/#pricing'; else document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); }
+var IS_CAMPAIGNS = document.documentElement.classList.contains('pg-campaigns');
+var IS_SUBPAGE = IS_STUDIO || IS_CAMPAIGNS;
+function goPricing(){ if (IS_SUBPAGE) location.href = '/#pricing'; else document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); }
 function $$(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
 function fmt(t){ t = Math.max(0, t); var m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + (s<10?'0':'') + s; }
 function store(k, v){ try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch(e){ return null; } }
@@ -1725,7 +1840,7 @@ if ('IntersectionObserver' in window){
   var secIO = new IntersectionObserver(function(entries){
     entries.forEach(function(en){ if (en.isIntersecting){ var id = en.target.id; tabLinks.forEach(function(a){ a.classList.toggle('on', a.dataset.sec === id); }); } });
   }, { rootMargin:'-45% 0px -50% 0px' });
-  if (!IS_STUDIO) ['search','platforms','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
+  if (!IS_SUBPAGE) ['search','platforms','daily','pricing'].forEach(function(id){ var el = document.getElementById(id); if (el) secIO.observe(el); });
 }
 
 /* ---------- Platforms guide ---------- */
@@ -2019,6 +2134,7 @@ renderTrial();
     }
     renderTrial();
     if (window.AutoPost) AutoPost.refresh();
+    if (window.Campaigns) Campaigns.refresh();
   }
   function refresh(fresh){ return api('me.php' + (fresh ? '?fresh=1' : '')).then(function(j){ if (j && j._status === 200) MEMBER = j.signedIn ? j : null; render(); return MEMBER; }, function(){}); }
   function open(msg){
@@ -2028,6 +2144,7 @@ renderTrial();
     if (!(MEMBER && MEMBER.signedIn)) setTimeout(function(){ $('#acctEmail').focus(); }, 50);
   }
   btn.addEventListener('click', function(){ open(); });
+  window.openSignIn = open;
   $('#acctPlans').addEventListener('click', function(){ dlg.close(); });
   $('#acctRetry').addEventListener('click', function(e){ e.preventDefault(); $('#acctSent').hidden = true; $('#acctForm').hidden = false; $('#acctEmail').select(); });
   $('#acctForm').addEventListener('submit', function(e){
@@ -2490,22 +2607,289 @@ if ('IntersectionObserver' in window){
   els.forEach(function(el){ io.observe(el); });
 } else els.forEach(function(el){ el.classList.add('in'); });
 
-/* ---------- Studio page (/studio) ---------- */
+/* ---------- Campaigns (Platinum): /campaigns ---------- */
 (function(){
-  $$('.nav-links [data-page]').forEach(function(a){ a.classList.toggle('on', a.dataset.page === (IS_STUDIO ? 'studio' : 'home')); });
-  if (IS_STUDIO) $$('.tabbar [data-page="studio"]').forEach(function(a){ a.classList.add('on'); });
-  if (!IS_STUDIO) return;
-  document.title = 'Studio · ClipNow';
-  var canon = document.querySelector('link[rel=canonical]'); if (canon) canon.href = 'https://clipnow.vip/studio';
+  var sec = document.getElementById('campaigns'); if (!sec) return;
+  var PLATS = { tiktok:'TikTok', youtube:'YouTube Shorts', instagram:'Instagram Reels', facebook:'Facebook Reels', snapchat:'Snapchat', x:'X' };
+  var LIST = [], TAB = 'all', loaded = false, busy = false, CUR = null;
+  function money(c){ return '$' + (c / 100).toFixed(2); }
+  function num(n){ return Number(n || 0).toLocaleString(); }
+  function day(t){ return t ? new Date(t * 1000).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) : ''; }
+  // Bluehost asks new visitors' browsers to set a "humans" cookie on .php requests; set it and retry.
+  function req(url, opts, retry){
+    return fetch(url, Object.assign({ credentials:'same-origin' }, opts || {})).then(function(r){ return r.text().then(function(t){
+      try { var j = JSON.parse(t); j._status = r.status; return j; } catch(e){}
+      var m = /document\.cookie\s*=\s*["']([A-Za-z0-9_]+=[^"';]*)/.exec(t);
+      if (m) document.cookie = m[1] + '; path=/; SameSite=Lax; Secure';
+      if ((retry || 0) < 2) return new Promise(function(res){ setTimeout(res, 700); }).then(function(){ return req(url, opts, (retry || 0) + 1); });
+      return { ok:false, error:'ClipNow couldn’t reach the server. Please try again.', _status:r.status };
+    }); }, function(){ return { ok:false, error:'You seem to be offline. Please try again.' }; });
+  }
+  function post(body){ return req('api/campaigns.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) }); }
+  function postForm(fd){ return req('api/campaigns.php', { method:'POST', body:fd }); }
+
+  function statusTag(c){
+    var t = { open:['Open',''], closed:['Closed','off'], ended:['Ended','off'], full:['Budget used','warn'], hidden:['Hidden by ClipNow','warn'] }[c.status] || [c.status, 'off'];
+    return '<span class="cp-st ' + t[1] + '">' + esc(t[0]) + '</span>' + (c.mine ? ' <span class="cp-st me">Yours</span>' : c.joined ? ' <span class="cp-st me">Joined</span>' : '');
+  }
+  function platTags(list){ return list.map(function(p){ return '<span class="cp-tag">' + esc(PLATS[p] || p) + '</span>'; }).join(''); }
+
+  /* ----- Gate for people without Platinum ----- */
+  function gate(kind){
+    $('#cpLoading').hidden = true; $('#cpGate').hidden = false; $('#cpApp').hidden = true;
+    var msg = $('#cpGateMsg'), b = $('#cpGateBtns');
+    if (kind === 'out'){
+      msg.innerHTML = 'Campaigns are part of the <b>Platinum</b> plan. Already a member? Sign in.';
+      b.innerHTML = '<button class="btn btn-green" type="button" data-cp-signin>Sign in</button><a class="btn btn-ghost" href="/#pricing">See Platinum</a>';
+    } else {
+      msg.innerHTML = 'Campaigns are part of the <b>Platinum</b> plan' + (MEMBER && MEMBER.plan ? '. You’re on ' + esc(MEMBER.plan) + '.' : '.') + ' Upgrade to create campaigns or join them.';
+      b.innerHTML = (MEMBER && MEMBER.status !== 'none' ? '<a class="btn btn-green" href="#" data-billing>Upgrade to Platinum</a>' : '<a class="btn btn-green" href="/#pricing">Get Platinum</a>') + '<a class="btn btn-ghost" href="/#pricing">Compare plans</a>';
+    }
+  }
+  sec.addEventListener('click', function(e){ if (e.target.closest('[data-cp-signin]') && window.openSignIn) window.openSignIn('Sign in to use Campaigns.'); });
+
+  /* ----- Loading ----- */
+  function load(){
+    if (!IS_CAMPAIGNS || busy) return;
+    if (!(MEMBER && MEMBER.signedIn)) return gate('out');
+    if (MEMBER.planKey !== 'agency' || !MEMBER.active) return gate('plan');
+    busy = true;
+    req('api/campaigns.php?list=1').then(function(j){
+      busy = false;
+      if (!j.ok){ if (j._status === 401) return gate('out'); if (j._status === 403) return gate('plan'); $('#cpList').innerHTML = '<p class="cp-empty">' + esc(j.error || 'Campaigns couldn’t load.') + '</p>'; return; }
+      $('#cpLoading').hidden = true; $('#cpGate').hidden = true; $('#cpApp').hidden = false;
+      LIST = j.campaigns || []; loaded = true; route();
+    });
+  }
+  function route(){
+    var h = location.hash, m;
+    $('#cpList').hidden = $('#cpDetail').hidden = $('#cpForm').hidden = true;
+    $('.cp-bar').hidden = false;
+    if (h === '#new'){ $('.cp-bar').hidden = true; return showForm(null); }
+    if ((m = /^#edit=(c[a-z0-9]{12})$/.exec(h))){ $('.cp-bar').hidden = true; return openCamp(m[1], true); }
+    if ((m = /^#c=(c[a-z0-9]{12})$/.exec(h))){ $('.cp-bar').hidden = true; return openCamp(m[1]); }
+    renderList();
+  }
+  window.addEventListener('hashchange', function(){ if (IS_CAMPAIGNS && loaded) route(); });
+  function go(h){ if (location.hash === h) route(); else location.hash = h; window.scrollTo({ top:0, behavior:'smooth' }); }
+  sec.addEventListener('click', function(e){ if (e.target.closest('[data-back]')){ e.preventDefault(); go(''); try { history.replaceState(null, '', location.pathname); } catch(err){} route(); } });
+
+  /* ----- List ----- */
+  function renderList(){
+    var box = $('#cpList'); box.hidden = false;
+    var rows = LIST.filter(function(c){ return TAB === 'all' ? (c.status === 'open' || c.joined || c.mine) : TAB === 'joined' ? c.joined : c.mine; });
+    if (!rows.length){
+      box.innerHTML = '<p class="cp-empty">' + (TAB === 'mine' ? 'You haven’t created a campaign yet. Tap <b>Create a campaign</b> to post your first one.' : TAB === 'joined' ? 'You haven’t joined a campaign yet. Browse the open ones and tap a campaign to join.' : 'No open campaigns right now. Check back soon, or create your own.') + '</p>';
+      return;
+    }
+    box.innerHTML = rows.map(function(c){
+      return '<button type="button" class="cp-item" data-open="' + esc(c.id) + '">' +
+        '<div class="cp-meta">' + statusTag(c) + '</div>' +
+        '<h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · ' + num(c.clippers) + ' clipper' + (c.clippers === 1 ? '' : 's') + '</div>' +
+        '<div class="cp-rate">' + money(c.rate_cents) + ' per 1,000 views' + (c.budget_cents ? ' · ' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' left' : '') + '</div>' +
+        (c.about ? '<p class="cp-about">' + esc(c.about) + '</p>' : '') +
+        '<div class="cp-meta">' + platTags(c.platforms) + (c.ends ? '<span class="cp-tag">Ends ' + esc(day(c.ends)) + '</span>' : '') + '</div></button>';
+    }).join('');
+  }
+  $('#cpTabs').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return; TAB = b.dataset.tab;
+    $$('#cpTabs button').forEach(function(x){ x.classList.toggle('on', x === b); });
+    renderList();
+  });
+  $('#cpList').addEventListener('click', function(e){ var b = e.target.closest('[data-open]'); if (b) go('#c=' + b.dataset.open); });
+  $('#cpNew').addEventListener('click', function(){ go('#new'); });
+
+  /* ----- One campaign ----- */
+  function openCamp(id, editing){
+    var box = $('#cpDetail'); box.hidden = false; box.innerHTML = '<p class="note">Loading…</p>';
+    req('api/campaigns.php?id=' + encodeURIComponent(id)).then(function(j){
+      if (!j.ok){ box.innerHTML = '<button type="button" class="cp-back" data-back>← All campaigns</button><p class="cp-empty">' + esc(j.error || 'That campaign isn’t available.') + '</p>'; return; }
+      CUR = j.campaign; mergeList(CUR);
+      if (editing){ box.hidden = true; return CUR.mine ? showForm(CUR) : go('#c=' + id); }
+      renderCamp();
+    });
+  }
+  function mergeList(c){ var i = LIST.findIndex(function(x){ return x.id === c.id; }); if (i > -1) LIST[i] = c; else LIST.unshift(c); }
+  function renderCamp(){
+    var c = CUR, box = $('#cpDetail'), h = '';
+    h += '<button type="button" class="cp-back" data-back>← All campaigns</button>';
+    h += '<div class="cp-head"><div class="cp-meta">' + statusTag(c) + '</div><h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · started ' + esc(day(c.created)) + (c.ends ? ' · ends ' + esc(day(c.ends)) : '') + '</div>' +
+      '<div class="cp-rate">' + money(c.rate_cents) + ' per 1,000 views' + (c.budget_cents ? ' · ' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' budget left' : ' · no budget cap') + '</div>' +
+      '<div class="cp-meta">' + platTags(c.platforms) + (c.tags ? '<span class="cp-tag">Tags: ' + esc(c.tags) + '</span>' : '') + '</div></div>';
+    h += '<div class="cp-box"><h4>About</h4><p class="cp-pre">' + esc(c.about || 'No description.') + '</p>' + (c.rules ? '<h4 style="margin-top:14px">Rules</h4><p class="cp-pre">' + esc(c.rules) + '</p>' : '') +
+      '<h4 style="margin-top:14px">Payment</h4><p class="cp-pre">' + esc(c.pay_note) + '</p><p class="cp-fine" style="margin:8px 0 0">The creator pays clippers directly for approved views. ClipNow doesn’t hold or send money.</p></div>';
+    if (c.mine) h += ownerHtml(c);
+    else if (c.joined) h += clipperHtml(c);
+    else h += joinHtml(c);
+    if (!c.mine) h += '<div class="cp-box" id="cpReport" hidden><h4>Report this campaign</h4><div class="field"><textarea rows="3" maxlength="1000" placeholder="What’s wrong? For example: they don’t pay, the content isn’t theirs, or it breaks the rules."></textarea></div><div class="cp-acts" style="margin-top:8px"><button class="btn btn-ghost btn-sm" type="button" data-act="report">Send report</button></div><p class="cp-msg"></p></div><button type="button" class="cp-link" data-act="report-open">Report this campaign</button>';
+    box.innerHTML = h;
+  }
+  function joinHtml(c){
+    if (c.status !== 'open') return '<div class="cp-box"><p>This campaign isn’t taking new clippers.</p></div>';
+    return '<div class="cp-box"><h4>Join this campaign</h4>' +
+      '<div class="fields"><div class="field"><label for="cjName">Your name (the creator sees this)</label><input type="text" id="cjName" maxlength="60" value="' + esc((MEMBER && MEMBER.email || '').split('@')[0]) + '"></div>' +
+      '<div class="field"><label for="cjHandle">Where the creator pays you</label><input type="text" id="cjHandle" maxlength="120" placeholder="e.g. PayPal: you@email.com or Cash App: $you"></div></div>' +
+      '<p class="cp-fine">Only the creator sees your name and payout details. By joining you agree to follow the campaign’s rules.</p>' +
+      '<div class="cp-acts"><button class="btn btn-green" type="button" data-act="join">Join campaign</button></div><p class="cp-msg"></p></div>';
+  }
+  function subStatus(s){
+    if (s.status === 'pending') return '<span class="cp-st warn">Waiting for review</span>' + (s.approved_views ? ' <span class="cp-st">' + num(s.approved_views) + ' already approved</span>' : '');
+    if (s.status === 'approved') return '<span class="cp-st">Approved: ' + num(s.approved_views) + ' views</span>';
+    return '<span class="cp-st off">Not approved</span>';
+  }
+  function clipperHtml(c){
+    var me = c.me, h = '';
+    h += '<div class="cp-stats"><div class="cp-stat"><b>' + money(me.owed_cents) + '</b><span>Earned (approved)</span></div><div class="cp-stat"><b>' + money(me.paid_cents) + '</b><span>Paid to you</span></div><div class="cp-stat"><b>' + money(Math.max(0, me.owed_cents - me.paid_cents)) + '</b><span>Still owed</span></div><div class="cp-stat"><b>' + num(me.submissions.length) + '</b><span>Posts</span></div></div>';
+    h += '<div class="cp-box"><h4>1. Get the content and clip it</h4><p>Download the creator’s videos, then make clips in the Studio.' + (c.tags ? ' Put <b>' + esc(c.tags) + '</b> in every caption.' : '') + '</p><div class="cp-acts">' +
+      (c.source ? '<a class="btn btn-ghost btn-sm" href="' + esc(c.source) + '" target="_blank" rel="noopener">Get the videos ↗</a>' : '') +
+      '<button class="btn btn-green btn-sm" type="button" data-act="studio">Clip it in the Studio</button></div></div>';
+    if (c.status === 'open') {
+      h += '<div class="cp-box"><h4>2. Submit a post</h4><p>After your clip is posted, add its link, its current views and a screenshot that shows the views.</p><div class="fields">' +
+        '<div class="cp-2"><div class="field"><label for="csPlat">Platform</label><select id="csPlat">' + c.platforms.map(function(p){ return '<option value="' + esc(p) + '">' + esc(PLATS[p] || p) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label for="csViews">Views right now</label><input type="text" id="csViews" inputmode="numeric" placeholder="e.g. 12500"></div></div>' +
+        '<div class="field"><label for="csUrl">Link to your post</label><input type="url" id="csUrl" inputmode="url" placeholder="https://www.tiktok.com/@you/video/…"></div>' +
+        '<div class="field"><label for="csShot">Screenshot showing the views</label><input type="file" id="csShot" accept="image/*"></div></div>' +
+        '<div class="cp-acts" style="margin-top:12px"><button class="btn btn-green" type="button" data-act="submit">Submit post</button></div><p class="cp-msg"></p></div>';
+    }
+    h += '<div class="cp-box"><h4>Your posts</h4>' + (me.submissions.length ? me.submissions.slice().reverse().map(function(s){
+      return '<div class="cp-row" data-sub="' + esc(s.id) + '"><div class="cp-row-top"><span><b>' + esc(PLATS[s.platform] || s.platform) + '</b> · <a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)) + '</a></span><span>' + num(s.views) + ' views reported</span></div>' +
+        '<div class="cp-meta">' + subStatus(s) + (s.note ? ' <span class="cp-tag">Note: ' + esc(s.note) + '</span>' : '') + '</div>' +
+        '<div class="cp-acts"><button class="cp-link" type="button" data-act="upd-open">Update views</button></div>' +
+        '<div class="cp-acts" data-upd hidden><input type="text" inputmode="numeric" placeholder="New view count" data-views><input type="file" accept="image/*" data-shot style="width:auto;max-width:100%"><button class="btn btn-green btn-sm" type="button" data-act="update">Send update</button></div><p class="cp-msg"></p></div>';
+    }).join('') : '<p class="note" style="margin:0">No posts yet.</p>') + '</div>';
+    h += '<div class="cp-box"><h4>Your payout details</h4><p>' + esc(me.name) + ' · ' + esc(me.handle) + '</p><button class="cp-link" type="button" data-act="rejoin-open">Change</button><div data-rejoin hidden><div class="fields"><div class="field"><label>Name</label><input type="text" maxlength="60" value="' + esc(me.name) + '" data-name></div><div class="field"><label>Where the creator pays you</label><input type="text" maxlength="120" value="' + esc(me.handle) + '" data-handle></div></div><div class="cp-acts" style="margin-top:10px"><button class="btn btn-green btn-sm" type="button" data-act="rejoin">Save</button></div></div><p class="cp-msg"></p></div>';
+    return h;
+  }
+  function ownerHtml(c){
+    var h = '', pend = c.submissions.filter(function(s){ return s.status === 'pending'; });
+    h += '<div class="cp-stats"><div class="cp-stat"><b>' + num(c.all_clippers.length) + '</b><span>Clippers</span></div><div class="cp-stat"><b>' + num(c.approved_views) + '</b><span>Approved views</span></div><div class="cp-stat"><b>' + money(c.owed_cents) + '</b><span>Earned by clippers</span></div><div class="cp-stat"><b>' + money(c.paid_cents) + '</b><span>You’ve paid</span></div><div class="cp-stat"><b>' + num(pend.length) + '</b><span>Waiting for review</span></div></div>';
+    h += '<div class="cp-acts" style="margin-bottom:14px"><button class="btn btn-ghost btn-sm" type="button" data-act="edit">Edit campaign</button>' +
+      (c.status === 'closed' ? '<button class="btn btn-ghost btn-sm" type="button" data-act="reopen">Reopen</button>' : '<button class="btn btn-ghost btn-sm" type="button" data-act="close">Close to new posts</button>') +
+      (c.source ? '<a class="btn btn-ghost btn-sm" href="' + esc(c.source) + '" target="_blank" rel="noopener">Your content link ↗</a>' : '') + '</div><p class="cp-msg" id="cpOwnerMsg"></p>';
+    function subRow(s){
+      return '<div class="cp-row" data-sub="' + esc(s.id) + '"><div class="cp-row-top"><span><b>' + esc(s.name) + '</b> · ' + esc(PLATS[s.platform] || s.platform) + ' · <a href="' + esc(s.url) + '" target="_blank" rel="noopener">Open post ↗</a></span><span><b>' + num(s.views) + '</b> views reported · <a href="api/campaigns.php?id=' + esc(c.id) + '&amp;shot=' + esc(s.id) + '" target="_blank" rel="noopener">Screenshot ↗</a></span></div>' +
+        '<div class="cp-meta">' + subStatus(s) + (s.note ? ' <span class="cp-tag">Note: ' + esc(s.note) + '</span>' : '') + '</div>' +
+        (s.status === 'pending' ? '<div class="cp-acts"><input type="text" inputmode="numeric" value="' + esc(s.views) + '" aria-label="Views to approve" data-av><button class="btn btn-green btn-sm" type="button" data-act="approve">Approve views</button><button class="btn btn-ghost btn-sm" type="button" data-act="reject">Don’t approve</button></div>' : '') +
+        '<p class="cp-msg"></p></div>';
+    }
+    h += '<div class="cp-box"><h4>Waiting for review</h4>' + (pend.length ? pend.map(subRow).join('') : '<p class="note" style="margin:0">Nothing to review. New posts from clippers show up here.</p>') + '</div>';
+    h += '<div class="cp-box"><h4>Clippers and payments</h4>' + (c.all_clippers.length ? c.all_clippers.map(function(cl){
+      var bal = Math.max(0, cl.owed_cents - cl.paid_cents);
+      return '<div class="cp-row" data-email="' + esc(cl.email) + '"><div class="cp-row-top"><span><b>' + esc(cl.name) + '</b> · pay to: ' + esc(cl.handle) + '</span><span class="cp-money">Earned ' + money(cl.owed_cents) + ' · paid ' + money(cl.paid_cents) + ' · <b>owed ' + money(bal) + '</b></span></div>' +
+        '<div class="cp-acts"><input type="text" inputmode="decimal" placeholder="Amount paid ($)" value="' + (bal ? (bal / 100).toFixed(2) : '') + '" data-amt><button class="btn btn-ghost btn-sm" type="button" data-act="paid">Record payment</button></div><p class="cp-msg"></p></div>';
+    }).join('') : '<p class="note" style="margin:0">No clippers yet. Share this page with Platinum clippers: clipnow.vip/campaigns</p>') + '</div>';
+    var done = c.submissions.filter(function(s){ return s.status !== 'pending'; });
+    if (done.length) h += '<details class="cp-box"><summary style="cursor:pointer;font-weight:600">Reviewed posts (' + done.length + ')</summary><div style="margin-top:12px">' + done.slice().reverse().map(subRow).join('') + '</div></details>';
+    return h;
+  }
+
+  /* ----- Actions on a campaign ----- */
+  function say(el, text, bad){ if (el){ el.textContent = text; el.className = 'cp-msg' + (bad ? ' bad' : ''); } }
+  function after(j, msgEl, okText){
+    if (!j.ok){ say(msgEl, j.error || 'Something went wrong. Please try again.', true); return false; }
+    CUR = j.campaign; mergeList(CUR); renderCamp(); if (okText) toast(okText); return true;
+  }
+  $('#cpDetail').addEventListener('click', function(e){
+    var b = e.target.closest('[data-act]'); if (!b || !CUR) return;
+    var act = b.dataset.act, row = b.closest('.cp-row'), box = b.closest('.cp-box'), msg = (row || box || document).querySelector('.cp-msg');
+    function lock(p){ b.disabled = true; return p.then(function(j){ b.disabled = false; return j; }); }
+    if (act === 'report-open'){ $('#cpReport').hidden = false; b.hidden = true; $('#cpReport textarea').focus(); return; }
+    if (act === 'report'){ var why = $('#cpReport textarea').value.trim(); if (!why) return say(msg, 'Tell us what’s wrong.', true);
+      return lock(post({ action:'report', id:CUR.id, reason:why })).then(function(j){ say(msg, j.ok ? j.message : (j.error || 'Couldn’t send.'), !j.ok); }); }
+    if (act === 'join' || act === 'rejoin'){
+      var name = act === 'join' ? $('#cjName').value : box.querySelector('[data-name]').value, handle = act === 'join' ? $('#cjHandle').value : box.querySelector('[data-handle]').value;
+      return lock(post({ action:'join', id:CUR.id, name:name, handle:handle })).then(function(j){ after(j, msg, act === 'join' ? 'You joined the campaign' : 'Saved'); });
+    }
+    if (act === 'rejoin-open'){ box.querySelector('[data-rejoin]').hidden = false; b.hidden = true; return; }
+    if (act === 'studio'){ try { sessionStorage.setItem('cn_camp', JSON.stringify({ tags:CUR.tags || '', title:CUR.title })); } catch(err){} location.href = '/studio'; return; }
+    if (act === 'submit'){
+      var f = $('#csShot').files[0], fd = new FormData();
+      if (!$('#csUrl').value.trim()) return say(msg, 'Paste the link to your post.', true);
+      if (!/\d/.test($('#csViews').value)) return say(msg, 'Enter the post’s current views.', true);
+      if (!f) return say(msg, 'Add a screenshot that shows the views.', true);
+      fd.append('action', 'submit'); fd.append('id', CUR.id); fd.append('platform', $('#csPlat').value); fd.append('url', $('#csUrl').value.trim()); fd.append('views', $('#csViews').value); fd.append('shot', f);
+      say(msg, 'Sending…');
+      return lock(postForm(fd)).then(function(j){ after(j, msg, 'Post submitted for review'); });
+    }
+    if (act === 'upd-open'){ row.querySelector('[data-upd]').hidden = false; b.hidden = true; return; }
+    if (act === 'update'){
+      var f2 = row.querySelector('[data-shot]').files[0], fd2 = new FormData(), v = row.querySelector('[data-views]').value;
+      if (!/\d/.test(v)) return say(msg, 'Enter the new view count.', true);
+      if (!f2) return say(msg, 'Add a new screenshot that shows the views.', true);
+      fd2.append('action', 'submit'); fd2.append('id', CUR.id); fd2.append('sub', row.dataset.sub); fd2.append('views', v); fd2.append('shot', f2);
+      say(msg, 'Sending…');
+      return lock(postForm(fd2)).then(function(j){ after(j, msg, 'Views updated. The creator will review them.'); });
+    }
+    if (act === 'approve' || act === 'reject'){
+      var body = { action:'review', id:CUR.id, sub:row.dataset.sub, decision:act === 'approve' ? 'approve' : 'reject' };
+      if (act === 'approve') body.approved_views = row.querySelector('[data-av]').value;
+      return lock(post(body)).then(function(j){ after(j, msg, act === 'approve' ? 'Views approved' : 'Marked as not approved'); });
+    }
+    if (act === 'paid'){
+      var amt = row.querySelector('[data-amt]').value;
+      if (!(parseFloat(String(amt).replace(/[$,]/g, '')) > 0)) return say(msg, 'Enter the amount you paid.', true);
+      return lock(post({ action:'paid', id:CUR.id, email:row.dataset.email, amount:amt })).then(function(j){ after(j, msg, 'Payment recorded'); });
+    }
+    if (act === 'close' || act === 'reopen'){
+      return lock(post({ action:'edit', id:CUR.id, status:act === 'close' ? 'closed' : 'open' })).then(function(j){ after(j, $('#cpOwnerMsg'), act === 'close' ? 'Closed to new posts' : 'Reopened'); });
+    }
+    if (act === 'edit') go('#edit=' + CUR.id);
+  });
+
+  /* ----- Create / edit form ----- */
+  $('#cfPlats').innerHTML = Object.keys(PLATS).map(function(p){ return '<label><input type="checkbox" value="' + p + '"' + (p !== 'snapchat' && p !== 'x' ? ' checked' : '') + '> ' + esc(PLATS[p]) + '</label>'; }).join('');
+  function showForm(c){
+    var f = $('#cpForm'); f.hidden = false; f.dataset.id = c ? c.id : '';
+    $('#cpFormTitle').textContent = c ? 'Edit campaign' : 'Create a campaign';
+    $('#cfSave').textContent = c ? 'Save changes' : 'Publish campaign';
+    $('#cfErr').textContent = '';
+    var d = c || {};
+    $('#cfTitle').value = d.title || ''; $('#cfCreator').value = d.creator || ''; $('#cfAbout').value = d.about || ''; $('#cfRules').value = d.rules || '';
+    $('#cfSource').value = d.source || ''; $('#cfRate').value = d.rate_cents ? (d.rate_cents / 100).toFixed(2) : ''; $('#cfBudget').value = d.budget_cents ? (d.budget_cents / 100).toFixed(2) : '';
+    $('#cfTags').value = d.tags || ''; $('#cfPay').value = d.pay_note || '';
+    $('#cfEnds').value = d.ends ? new Date(d.ends * 1000).toISOString().slice(0, 10) : '';
+    if (c) $$('#cfPlats input').forEach(function(i){ i.checked = c.platforms.indexOf(i.value) > -1; });
+    setTimeout(function(){ $('#cfTitle').focus(); }, 50);
+  }
+  $('#cpForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var f = this, id = f.dataset.id, btn = $('#cfSave');
+    var body = { action:id ? 'edit' : 'create', id:id, title:$('#cfTitle').value, creator:$('#cfCreator').value, about:$('#cfAbout').value, rules:$('#cfRules').value,
+      source:$('#cfSource').value, rate:$('#cfRate').value, budget:$('#cfBudget').value, tags:$('#cfTags').value, ends:$('#cfEnds').value, pay_note:$('#cfPay').value,
+      platforms:$$('#cfPlats input').filter(function(i){ return i.checked; }).map(function(i){ return i.value; }) };
+    btn.disabled = true;
+    post(body).then(function(j){
+      btn.disabled = false;
+      if (!j.ok){ $('#cfErr').textContent = j.error || 'Something went wrong. Please try again.'; return; }
+      mergeList(j.campaign); toast(id ? 'Campaign saved' : 'Your campaign is live');
+      go('#c=' + j.campaign.id);
+    });
+  });
+
+  window.Campaigns = { refresh:function(){ busy = false; load(); } };
+  if (IS_CAMPAIGNS && MEMBER) load();
+})();
+
+/* ---------- Studio and Campaigns pages ---------- */
+(function(){
+  var PAGE = IS_STUDIO ? 'studio' : IS_CAMPAIGNS ? 'campaigns' : 'home';
+  $$('.nav-links [data-page]').forEach(function(a){ a.classList.toggle('on', a.dataset.page === PAGE); });
+  if (IS_SUBPAGE) $$('.tabbar [data-page="' + PAGE + '"]').forEach(function(a){ a.classList.add('on'); });
+  if (!IS_SUBPAGE) return;
+  document.title = (IS_STUDIO ? 'Studio' : 'Campaigns') + ' · ClipNow';
+  var canon = document.querySelector('link[rel=canonical]'); if (canon) canon.href = 'https://clipnow.vip/' + PAGE;
   // Links to home page sections go to the home page
   $$('a[href^="#"]').forEach(function(a){
     var id = a.getAttribute('href').slice(1);
     if (a.hasAttribute('data-contact') || a.hasAttribute('data-install') || !id) return;
     var t = document.getElementById(id);
     if (id === 'top' || id === 'search') a.setAttribute('href', '/');
-    else if (t && !document.getElementById('studio').contains(t)) a.setAttribute('href', '/#' + id);
+    else if (t && !document.getElementById(PAGE).contains(t)) a.setAttribute('href', '/#' + id);
   });
-  $$('.tabbar a').forEach(function(a){ a.classList.toggle('on', a.dataset.sec === 'studio'); if (a.dataset.sec !== 'studio' && a.getAttribute('href').charAt(0) === '#') a.setAttribute('href', a.getAttribute('href') === '#top' ? '/' : '/' + a.getAttribute('href')); });
+  $$('.tabbar a').forEach(function(a){ a.classList.toggle('on', a.dataset.page === PAGE); if (a.getAttribute('href').charAt(0) === '#') a.setAttribute('href', a.getAttribute('href') === '#top' ? '/' : '/' + a.getAttribute('href')); });
+  // Campaign tags carried over from a campaign's "Clip it in the Studio" button
+  if (IS_STUDIO) try { var cc = JSON.parse(sessionStorage.getItem('cn_camp')); sessionStorage.removeItem('cn_camp'); if (cc && cc.tags) { $('#campTags').value = cc.tags; toast('Campaign tags added: ' + cc.tags); } } catch(e){}
+  if (!IS_STUDIO) return;
   // A video picked with "Clip this" on the home page
   var v = null; try { v = JSON.parse(sessionStorage.getItem('cn_src')); sessionStorage.removeItem('cn_src'); } catch(e){}
   if (v && v.id){

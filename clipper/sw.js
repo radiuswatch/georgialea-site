@@ -8,8 +8,8 @@
  *
  * Bump VERSION when this file changes so phones drop the old saved copies.
  */
-const VERSION = 'clipnow-v2';
-const PAGES = ['./', 'studio', 'privacy.html', 'terms.html', 'refunds.html'];
+const VERSION = 'clipnow-v3';
+const PAGES = ['./', 'studio', 'campaigns', 'privacy.html', 'terms.html', 'refunds.html'];
 const ASSETS = ['manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'explainer-poster.jpg'];
 
 self.addEventListener('install', (e) => {

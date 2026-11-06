@@ -180,3 +180,23 @@ Every ClipNow explainer video uses the same narrator so they sound like one bran
   end card with the CN mark.
 - **Current videos:** `clipper/explainer.mp4` (how ClipNow works, 16:9, 52 s) and
   `clipper/schedule-explainer.mp4` (how to schedule a post, 9:16, 48 s).
+
+## 10. Campaigns (Platinum only, live)
+
+`clipnow.vip/campaigns`. Only active **Platinum** members can create or join campaigns; everyone
+else sees an explainer with Sign in / Upgrade buttons.
+
+- **Creators** post a campaign: title, creator name, what to make, rules, a content link
+  (Drive/Dropbox/channel), rate per 1,000 views, optional budget and end date, platforms,
+  required tags, and how/when they pay. They review each post (link, reported views, screenshot),
+  approve views (never more than reported, never past the budget), and record payments.
+- **Clippers** join with a display name and payout handle (only the creator sees it), get the
+  content link, use "Clip it in the Studio" (carries the required tags into the Studio), then submit
+  each post's link, views and a screenshot. Updating views sends the post back for review; already
+  approved views keep counting.
+- **Money:** creators pay clippers directly. ClipNow never holds or sends money (Terms §7).
+- **Admin:** Admin portal → Campaigns: see reports, hide/show, clear reports, delete (removes
+  screenshots too). Events go to `~/clipnow-data/campaign-log.jsonl`.
+- **Data:** `~/clipnow-data/campaigns/<id>.json`, screenshots in `~/clipnow-data/campaign-shots/`
+  (private, served only to the creator and the clipper who sent them via `api/campaigns.php`).
+- **Later:** automatic view tracking via platform APIs; payouts through Stripe Connect if wanted.

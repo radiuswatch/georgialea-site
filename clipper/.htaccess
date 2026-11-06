@@ -8,6 +8,8 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # The Studio page: clipnow.vip/studio is the same app file, showing only the Studio
 RewriteRule ^studio/$ /studio [L,R=301]
 RewriteRule ^studio$ index.html [L]
+RewriteRule ^campaigns/$ /campaigns [L,R=301]
+RewriteRule ^campaigns$ index.html [L]
 
 # Serve the app manifest with the right type
 AddType application/manifest+json .webmanifest
