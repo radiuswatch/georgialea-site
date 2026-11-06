@@ -6,7 +6,7 @@ try {
   $m = cn_current_member();
   if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
   $out = [];
-  foreach (cn_post_history($m, 15) as $i => $p) {
+  foreach (cn_post_history($m, 60) as $i => $p) {
     $row = ['at' => $p['at'], 'title' => $p['title'] ?? '', 'platforms' => $p['platforms'] ?? [], 'scheduled' => (int)($p['scheduled'] ?? 0), 'status' => 'sent', 'results' => []];
     // Check live status for the 5 most recent posts only, to keep this fast.
     if ($i < 5 && (($p['request_id'] ?? '') !== '' || ($p['job_id'] ?? '') !== '')) {

@@ -75,6 +75,29 @@
   .xp{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);width:100%}
   .xp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .xp-row input[type=datetime-local]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;color:var(--text);color-scheme:dark}
+  /* Tap-to-pick scheduler */
+  .sch{display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .sch[hidden]{display:none}
+  .sch-h{margin:0;font-weight:600;font-size:15px;color:var(--text)}
+  .sch-lab{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .sch-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .sch-chips::-webkit-scrollbar{display:none}
+  .sch-times{flex-wrap:wrap;overflow:visible}
+  .sch-chip{flex:none;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:14px;padding:8px 12px;min-height:44px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+  .sch-chip small{font-size:11.5px;color:var(--faint)}
+  .sch-chip:hover{border-color:var(--muted)}
+  .sch-chip.on{background:var(--green-deep);border-color:var(--green);color:var(--green)}
+  .sch-chip.on small{color:var(--green)}
+  .sch-chip[disabled]{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+  .sch input[type=date],.sch input[type=time]{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:16px;color:var(--text);color-scheme:dark;min-height:44px}
+  .sch input[hidden]{display:none}
+  .sch-sum{margin:0;font-size:14.5px;color:var(--text);display:flex;gap:8px;align-items:flex-start}
+  .sch-sum::before{content:'✓';color:var(--green);font-weight:700}
+  .sch-sum.bad{color:#F0706A}.sch-sum.bad::before{content:'!';color:#F0706A}
+  .sch-go{display:flex;gap:8px;flex-wrap:wrap}
+  .ap-up h5{margin:18px 0 4px;font-size:14px;color:var(--muted);font-weight:600}
+  .ap-day{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin:12px 0 2px}
+  .ap-up .ap-post .t{font-family:var(--mono);font-size:13px;color:var(--text);min-width:72px}
   .xp-msg{font-size:13.5px;color:var(--muted)} .xp-msg.ok{color:var(--green)} .xp-msg.bad{color:#F0706A}
   .export-item{flex-wrap:wrap}
   /* Account / sign-in */
@@ -576,6 +599,7 @@
           <div class="ap-accts" id="apAccts"></div>
           <div class="ap-actions" id="apActions"></div>
           <p class="ap-note" id="apNote"></p>
+          <div class="ap-recent ap-up" id="apUpcoming" hidden><h5>Upcoming posts</h5><div id="apUpcomingList"></div></div>
           <div class="ap-recent" id="apRecent" hidden><h5>Recent posts</h5><div id="apRecentList"></div></div>
         </div>
         <div class="callout" id="manualNote"><b>Prefer to post yourself?</b> Save each clip, copy its caption, and the Open button takes you to that platform's upload page. Snapchat is manual only.</div>
@@ -1904,15 +1928,18 @@ renderTrial();
   }
 
   function recent(){
-    if (!(MEMBER && MEMBER.signedIn && info && info.limit > 0)) { $('#apRecent').hidden = true; return; }
+    if (!(MEMBER && MEMBER.signedIn && info && info.limit > 0)) { $('#apRecent').hidden = $('#apUpcoming').hidden = true; return; }
     get('posts.php').then(function(j){
       var box = $('#apRecentList'); box.innerHTML = '';
-      var posts = (j && j.posts) || []; $('#apRecent').hidden = !posts.length;
+      var all = (j && j.posts) || [], nowS = Date.now() / 1000;
+      var isUp = function(p){ return p.scheduled > nowS && !/fail|error/i.test(String(p.status)); };
+      upcoming(all.filter(isUp));
+      var posts = all.filter(function(p){ return !isUp(p); }); $('#apRecent').hidden = !posts.length;
       posts.slice(0, 8).forEach(function(p){
         var row = el('div', 'ap-post'), left = el('div'), right = el('div');
         left.appendChild(el('b', '', p.title || 'Clip'));
         left.appendChild(document.createTextNode(' · ' + p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
-        var when = p.scheduled ? 'Scheduled for ' + new Date(p.scheduled * 1000).toLocaleString() : new Date(p.at * 1000).toLocaleString();
+        var when = p.scheduled ? 'Scheduled for ' + dayName(new Date(p.scheduled * 1000)) + ' at ' + timeName(new Date(p.scheduled * 1000)) : dayName(new Date(p.at * 1000)) + ' at ' + timeName(new Date(p.at * 1000));
         var stTxt = { pending:'Posting…', processing:'Posting…', in_progress:'Posting…', scheduled:'Scheduled', completed:'Posted', success:'Posted', failed:'Failed', error:'Failed', sent:'Sent' }[String(p.status).toLowerCase()] || p.status;
         var res = p.results || [], good = res.filter(function(r){ return r.ok; }).length;
         if (res.length && good === 0) stTxt = 'Failed'; else if (res.length && good < res.length) stTxt = 'Partly posted';
@@ -1926,6 +1953,159 @@ renderTrial();
         row.appendChild(left); row.appendChild(right); box.appendChild(row);
       });
     });
+  }
+
+  /** Upcoming scheduled posts, soonest first, grouped by day ("Today", "Tomorrow", "Saturday, Nov 8"). */
+  function upcoming(list){
+    var box = $('#apUpcomingList'); box.innerHTML = '';
+    $('#apUpcoming').hidden = !list.length;
+    list.sort(function(a, b){ return a.scheduled - b.scheduled; });
+    var lastDay = '';
+    list.forEach(function(p){
+      var d = new Date(p.scheduled * 1000), day = dayName(d);
+      if (day !== lastDay){ box.appendChild(el('div', 'ap-day', day)); lastDay = day; }
+      var row = el('div', 'ap-post'), left = el('div');
+      left.appendChild(el('span', 't', timeName(d)));
+      left.appendChild(document.createTextNode(' '));
+      left.appendChild(el('b', '', p.title || 'Clip'));
+      row.appendChild(left);
+      row.appendChild(el('span', 'st', p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
+      box.appendChild(row);
+    });
+  }
+  function midnight(d){ var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+  function dayName(d){
+    var diff = Math.round((midnight(d) - midnight(new Date())) / 864e5);
+    if (diff === 0) return 'Today'; if (diff === 1) return 'Tomorrow';
+    return d.toLocaleDateString([], { weekday:'long', month:'short', day:'numeric' });
+  }
+  function timeName(d){ return d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }); }
+
+  /**
+   * Tap-to-pick scheduler: day chips (next 14 days + "More dates"), time chips (+ "Other time"),
+   * and a plain-English summary of exactly when and where the clip will post.
+   * Calls go(value) with a local "YYYY-MM-DDTHH:MM" string, the format api/post.php expects.
+   */
+  var TIMES = [9 * 60, 12 * 60, 15 * 60, 18 * 60, 19 * 60, 21 * 60];
+  var MAX_DAYS = 59;   // the server allows up to 60 days ahead
+  var LEAD_MIN = 6;    // the server needs at least 5 minutes' notice
+  function scheduler(go, btns){
+    var box = el('div', 'sch'); box.hidden = true;
+    box.appendChild(el('p', 'sch-h', 'When should this post?'));
+    box.appendChild(el('div', 'sch-lab', 'Day'));
+    var days = el('div', 'sch-chips'); box.appendChild(days);
+    var dateIn = el('input'); dateIn.type = 'date'; dateIn.hidden = true; dateIn.setAttribute('aria-label', 'Pick a date');
+    box.appendChild(dateIn);
+    box.appendChild(el('div', 'sch-lab', 'Time'));
+    var times = el('div', 'sch-chips sch-times'); box.appendChild(times);
+    var timeIn = el('input'); timeIn.type = 'time'; timeIn.step = 300; timeIn.hidden = true; timeIn.setAttribute('aria-label', 'Pick a time');
+    box.appendChild(timeIn);
+    var sum = el('p', 'sch-sum'); sum.setAttribute('aria-live', 'polite'); box.appendChild(sum);
+    var row = el('div', 'sch-go');
+    var ok = el('button', 'btn btn-green btn-sm', 'Schedule post'); ok.type = 'button';
+    var cancel = el('button', 'btn btn-ghost btn-sm', 'Cancel'); cancel.type = 'button';
+    row.appendChild(ok); row.appendChild(cancel); box.appendChild(row);
+    btns.push(ok);
+
+    var day = null, mins = null, customDay = false, customTime = false;
+    function at(d, m){ var x = midnight(d); x.setMinutes(m); return x; }
+    function okTime(d, m){ return at(d, m).getTime() >= Date.now() + LEAD_MIN * 60e3; }
+    function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function hm(m){ return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+    function chip(label, small){ var b = el('button', 'sch-chip'); b.type = 'button'; b.appendChild(document.createTextNode(label)); if (small) b.appendChild(el('small', '', small)); return b; }
+
+    function draw(){
+      var today = midnight(new Date());
+      days.innerHTML = '';
+      for (var i = 0; i < 14; i++){
+        var d = new Date(today); d.setDate(d.getDate() + i);
+        var b = i === 0 ? chip('Today') : i === 1 ? chip('Tomorrow') : chip(d.toLocaleDateString([], { weekday:'short' }), d.toLocaleDateString([], { month:'short', day:'numeric' }));
+        b.dataset.d = ymd(d);
+        if (i === 0 && !okTime(d, 23 * 60 + 55)) b.disabled = true;
+        if (!customDay && day && ymd(day) === b.dataset.d) b.classList.add('on');
+        days.appendChild(b);
+      }
+      var more = chip(customDay && day ? day.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) : 'More dates…');
+      more.dataset.more = '1'; if (customDay) more.classList.add('on'); days.appendChild(more);
+
+      times.innerHTML = '';
+      TIMES.forEach(function(m){
+        var b = chip(new Date(2000, 0, 1, 0, m).toLocaleTimeString([], { hour:'numeric', minute: m % 60 ? '2-digit' : undefined }));
+        b.dataset.m = m;
+        if (day && !okTime(day, m)) b.disabled = true;
+        if (!customTime && mins === m) b.classList.add('on');
+        times.appendChild(b);
+      });
+      var other = chip(customTime && mins != null ? new Date(2000, 0, 1, 0, mins).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : 'Other time…');
+      other.dataset.other = '1'; if (customTime) other.classList.add('on'); times.appendChild(other);
+      summary();
+    }
+    function summary(){
+      var bad = '';
+      if (!day) bad = 'Pick a day.';
+      else if (mins == null) bad = 'Pick a time.';
+      else if (!okTime(day, mins)) bad = 'That time has passed or is too soon. Pick a time at least 5 minutes from now.';
+      var names = targets().map(function(p){ return NAMES[p]; });
+      if (!bad && !names.length) bad = 'Switch on at least one connected platform in the cards below.';
+      ok.disabled = !!bad;
+      if (bad){ sum.textContent = bad; sum.className = 'sch-sum bad'; return; }
+      var t = at(day, mins);
+      sum.textContent = 'Posts ' + dayName(t) + ' at ' + timeName(t) + ' (your time) to ' + names.join(', ') + '.';
+      sum.className = 'sch-sum';
+    }
+    // First open: the next preset time that's still possible today, else tomorrow at 12 PM.
+    function pickDefault(){
+      var t = midnight(new Date());
+      var m = TIMES.filter(function(x){ return okTime(t, x); })[0];
+      if (m == null){ t.setDate(t.getDate() + 1); m = 12 * 60; }
+      day = t; mins = m; customDay = customTime = false;
+    }
+
+    days.addEventListener('click', function(e){
+      var b = e.target.closest('.sch-chip'); if (!b || b.disabled) return;
+      if (b.dataset.more){
+        var today = midnight(new Date()), max = new Date(today); max.setDate(max.getDate() + MAX_DAYS);
+        dateIn.min = ymd(today); dateIn.max = ymd(max); dateIn.value = day ? ymd(day) : '';
+        dateIn.hidden = false; try { dateIn.showPicker(); } catch(err){ dateIn.focus(); }
+        return;
+      }
+      var p = b.dataset.d.split('-'); day = new Date(+p[0], p[1] - 1, +p[2]); customDay = false; dateIn.hidden = true;
+      if (mins != null && !okTime(day, mins)) mins = TIMES.filter(function(x){ return okTime(day, x); })[0];
+      draw();
+    });
+    dateIn.addEventListener('change', function(){
+      if (!dateIn.value) return;
+      var p = dateIn.value.split('-'), d = new Date(+p[0], p[1] - 1, +p[2]);
+      var max = midnight(new Date()); max.setDate(max.getDate() + MAX_DAYS);
+      if (d < midnight(new Date()) || d > max){ sum.textContent = 'Pick a date within the next 60 days.'; sum.className = 'sch-sum bad'; return; }
+      day = d; customDay = Math.round((d - midnight(new Date())) / 864e5) >= 14; dateIn.hidden = true;
+      draw();
+    });
+    times.addEventListener('click', function(e){
+      var b = e.target.closest('.sch-chip'); if (!b || b.disabled) return;
+      if (b.dataset.other){
+        timeIn.value = mins != null ? hm(mins) : '';
+        timeIn.hidden = false; try { timeIn.showPicker(); } catch(err){ timeIn.focus(); }
+        return;
+      }
+      mins = +b.dataset.m; customTime = false; timeIn.hidden = true; draw();
+    });
+    timeIn.addEventListener('change', function(){
+      if (!timeIn.value) return;
+      var p = timeIn.value.split(':'); mins = (+p[0]) * 60 + (+p[1]);
+      customTime = TIMES.indexOf(mins) < 0; draw();
+    });
+    ok.addEventListener('click', function(){ if (day && mins != null && okTime(day, mins)) go(ymd(day) + 'T' + hm(mins)); });
+    cancel.addEventListener('click', function(){ box.hidden = true; });
+
+    return {
+      el: box,
+      toggle: function(){
+        box.hidden = !box.hidden;
+        if (!box.hidden){ if (!day || !okTime(day, mins)) pickDefault(); draw(); box.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
+      },
+      close: function(){ box.hidden = true; }
+    };
   }
 
   function send(x, when, msg, btns){
@@ -1956,7 +2136,7 @@ renderTrial();
       if (j.ok){
         var names = t.map(function(p){ return NAMES[p]; }).join(', ');
         var skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
-        say((j.scheduled ? 'Scheduled for ' + new Date(j.scheduled * 1000).toLocaleString() + ' on ' + names + '.' : 'Sent to ' + names + '. It can take a few minutes to appear.')
+        say((j.scheduled ? 'Scheduled for ' + dayName(new Date(j.scheduled * 1000)) + ' at ' + timeName(new Date(j.scheduled * 1000)) + ' on ' + names + '. It’s listed under Upcoming posts below.' : 'Sent to ' + names + '. It can take a few minutes to appear.')
           + (skipped.length ? ' Skipped ' + skipped.join(', ') + ' (not connected).' : ''), 'ok');
         setTimeout(recent, 1500);
       } else say(j.error || 'Posting failed. Please try again.', 'bad');
@@ -1976,14 +2156,12 @@ renderTrial();
       var box = el('div', 'xp'), r1 = el('div', 'xp-row'), msg = el('span', 'xp-msg');
       var now = el('button', 'btn btn-green btn-sm', 'Post now'), sch = el('button', 'btn btn-ghost btn-sm', 'Schedule…');
       now.type = sch.type = 'button';
-      var dt = el('input'); dt.type = 'datetime-local'; dt.hidden = true;
-      var d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); dt.value = new Date(d - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
-      var ok = el('button', 'btn btn-green btn-sm', 'Schedule post'); ok.type = 'button'; ok.hidden = true;
-      now.addEventListener('click', function(){ send(x, '', msg, [now, sch, ok]); });
-      sch.addEventListener('click', function(){ dt.hidden = ok.hidden = !dt.hidden; if (!dt.hidden) dt.focus(); });
-      ok.addEventListener('click', function(){ if (!dt.value) return; send(x, dt.value, msg, [now, sch, ok]); });
-      r1.appendChild(now); r1.appendChild(sch); r1.appendChild(dt); r1.appendChild(ok);
-      box.appendChild(r1); box.appendChild(msg); row.appendChild(box);
+      var btns = [now, sch];
+      var picker = scheduler(function(when){ picker.close(); send(x, when, msg, btns); }, btns);
+      now.addEventListener('click', function(){ picker.close(); send(x, '', msg, btns); });
+      sch.addEventListener('click', function(){ picker.toggle(); });
+      r1.appendChild(now); r1.appendChild(sch);
+      box.appendChild(r1); box.appendChild(picker.el); box.appendChild(msg); row.appendChild(box);
     }
   };
   var c = /[?&]connected=1/.test(location.search);
