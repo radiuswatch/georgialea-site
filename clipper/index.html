@@ -1640,8 +1640,20 @@ $('#contactForm').addEventListener('submit', function(e){
   if (bad){ $('#ctErr').textContent = bad[2]; $(bad[0]).focus(); return; }
   var btn = $('#ctSend'); btn.disabled = true; btn.textContent = 'Sending…'; $('#ctErr').textContent = '';
   var body = { name:f.name, email:f.email, reason:f.reason, message:f.message, plan:ct.plan, website:$('#ctWebsite').value, elapsed:Date.now()-ct.opened };
-  fetch('contact.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
-    .then(function(r){ return r.json().catch(function(){ throw new Error('bad'); }); })
+  // Sent as a normal form post. Bluehost's firewall (ModSecurity) sometimes blocks a
+  // request with an HTML "Not Acceptable" page, so a reply that isn't JSON is retried.
+  function sendOnce(){
+    return fetch('contact.php', { method:'POST', body:new URLSearchParams(body), credentials:'same-origin' })
+      .then(function(r){ return r.json().catch(function(){ throw new Error('bad'); }); });
+  }
+  function sendWithRetry(left){
+    return sendOnce().catch(function(err){
+      if (left > 0 && err && err.message === 'bad')
+        return new Promise(function(res){ setTimeout(res, 1200); }).then(function(){ return sendWithRetry(left - 1); });
+      throw err;
+    });
+  }
+  sendWithRetry(3)
     .then(function(j){
       if (!j.ok) throw new Error(j.message || 'bad');
       store('cp_ct_me', { name:f.name, email:f.email });
