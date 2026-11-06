@@ -157,3 +157,17 @@ budget (not of clipper earnings).
    payout report per campaign.
 5. **Later:** campaign marketplace, smart reframing, team seats, mobile app (App Planet
    can build the iOS client).
+
+## 9. Explainer videos: house style
+
+Every ClipNow explainer video uses the same narrator so they sound like one brand.
+
+- **Voice:** Higgsfield preset voice **Evie** (`voice_id 7a6845a2-5865-5669-a0ca-8fc8d8e96528`,
+  `voice_type preset`), model `seed_audio`, default speed/pitch, WAV 48 kHz.
+- **Loudness:** normalise the final mix to about **-16 LUFS** (true peak -1.5 dB).
+- **Timing:** one short narration line per scene; each scene lasts at least as long as its line,
+  and the line starts as the scene's caption appears.
+- **Look:** dark ClipNow theme, caption bar at the top with a green step number, green tap markers,
+  end card with the CN mark.
+- **Current videos:** `clipper/explainer.mp4` (how ClipNow works, 16:9, 52 s) and
+  `clipper/schedule-explainer.mp4` (how to schedule a post, 9:16, 48 s).
