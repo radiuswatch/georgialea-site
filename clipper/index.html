@@ -1161,10 +1161,11 @@ function renderClips(){
     inp.value = c.hook;
     function refresh(){ $('.range', el).textContent = fmt(c.start) + ' – ' + fmt(c.end); $('.len', el).textContent = Math.round(c.end-c.start) + 's'; thumb(c, cv); }
     refresh();
-    var hookT; inp.addEventListener('input', function(){ c.hook = inp.value; clearTimeout(hookT); hookT = setTimeout(function(){ thumb(c, cv); }, 250); });
+    var hookT; inp.addEventListener('input', function(){ c.hook = inp.value; c.made = 0; clearTimeout(hookT); hookT = setTimeout(function(){ thumb(c, cv); }, 250); });
     $('.nudge', el).addEventListener('click', function(e){
       var b = e.target.closest('button'); if (!b) return;
       var d = b.dataset.n[1]==='+' ? 2 : -2;
+      c.made = 0;
       if (b.dataset.n[0]==='s') c.start = Math.max(0, Math.min(c.end-5, c.start+d)); else c.end = Math.min(S.duration, Math.max(c.start+5, c.end+d));
       refresh();
     });
@@ -1215,7 +1216,7 @@ function closePreview(){
   cancelAnimationFrame(pv.raf); pv.v.pause(); pv.v.removeAttribute('src'); pv.v.load();
   var d = pv.done; pv = { v:null }; $('#modal').classList.remove('on'); if (d) d();
 }
-$('#pvCrop').addEventListener('input', function(){ if (pv.clip) pv.clip.crop = +this.value; });
+$('#pvCrop').addEventListener('input', function(){ if (pv.clip){ pv.clip.crop = +this.value; pv.clip.made = 0; } });
 $('#pvPlay').addEventListener('click', function(){ if (!pv.v) return; if (pv.v.paused){ pv.v.play(); this.textContent='Pause'; } else { pv.v.pause(); this.textContent='Play'; } });
 $('#pvClose').addEventListener('click', closePreview);
 $('#modal').addEventListener('click', function(e){ if (e.target === this) closePreview(); });
@@ -1229,83 +1230,160 @@ function pickMime(){
   return '';
 }
 var sharedAC = null;
-function renderClip(clip, H, onProgress){
+/**
+ * One hidden player for a whole export batch. It's created and started inside the
+ * Export tap, so browsers that only allow sound after a tap (Safari, phones) keep
+ * letting it play for every clip, not just the first.
+ */
+function makeRenderer(){
+  var v = document.createElement('video');
+  v.src = S.url; v.playsInline = true; v.preload = 'auto';
+  v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true');
+  v.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(v);
+  var src = null;
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    sharedAC = sharedAC || new AC();
+    if (sharedAC.state === 'suspended') sharedAC.resume();
+    src = sharedAC.createMediaElementSource(v);   // sound goes to the recording only, not the speaker
+  } catch(e){ src = null; }
+  try { var pp = v.play(); if (pp && pp.then) pp.then(function(){ v.pause(); }, function(){}); } catch(e){}
+  return { v:v, src:src, close:function(){ try { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); } catch(e){} } };
+}
+function waitReady(v, ms){
+  return new Promise(function(resolve, reject){
+    if (v.readyState >= 2) return resolve();
+    var t = setTimeout(function(){ cleanup(); reject(new Error('Couldn’t read the video. Try choosing the file again.')); }, ms);
+    function ok(){ cleanup(); resolve(); }
+    function bad(){ cleanup(); reject(new Error('Couldn’t read the video. Try choosing the file again.')); }
+    function cleanup(){ clearTimeout(t); v.removeEventListener('loadeddata', ok); v.removeEventListener('error', bad); }
+    v.addEventListener('loadeddata', ok); v.addEventListener('error', bad);
+  });
+}
+function seekSafe(v, t){ return Promise.race([seek(v, t), new Promise(function(r){ setTimeout(r, 4000); })]); }
+
+/**
+ * Records one clip in real time. Pauses cleanly while the page is hidden (phone locked,
+ * app switched) and carries on when it's back. If playback stalls, it nudges the player;
+ * after 25 seconds with no progress it gives up with a clear message instead of hanging.
+ */
+function renderClip(clip, H, onProgress, R, onState){
   return new Promise(function(resolve, reject){
     var mime = pickMime();
     if (mime === null) return reject(new Error('Your browser can’t record video. Try Chrome, Edge or Firefox on a computer.'));
-    var W = Math.round(H*9/16);
+    var v = R.v, W = Math.round(H*9/16);
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
-    var v = document.createElement('video'); v.src = S.url; v.playsInline = true; v.preload = 'auto';
-    v.addEventListener('error', function(){ reject(new Error('Couldn’t read the video.')); }, {once:true});
-    v.addEventListener('loadeddata', function(){
-      seek(v, clip.start).then(function(){
-        var stream = cv.captureStream(30);
-        try {
-          var AC = window.AudioContext || window.webkitAudioContext;
-          sharedAC = sharedAC || new AC();
-          if (sharedAC.state === 'suspended') sharedAC.resume();
-          var src = sharedAC.createMediaElementSource(v), dest = sharedAC.createMediaStreamDestination();
-          src.connect(dest);                      // record the sound without playing it out loud
-          dest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
-        } catch(e){ /* video without sound still exports */ }
-        var rec = new MediaRecorder(stream, mime ? { mimeType:mime, videoBitsPerSecond: H>=1080 ? 8e6 : 4.5e6 } : undefined);
-        var chunks = [];
-        rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
-        rec.onstop = function(){
-          stream.getTracks().forEach(function(t){ t.stop(); });
-          v.pause(); v.removeAttribute('src'); v.load();
-          var type = (rec.mimeType || mime || 'video/webm').split(';')[0];
-          resolve({ blob:new Blob(chunks, { type:type }), ext: type.indexOf('mp4')>-1 ? 'mp4' : 'webm' });
-        };
-        var stopped = false;
-        function tick(){
-          if (stopped) return;
-          drawFrame(ctx, v, W, H, clip, v.currentTime);
-          onProgress((v.currentTime-clip.start)/(clip.end-clip.start));
-          if (v.currentTime >= clip.end || v.ended){ stopped = true; rec.stop(); return; }
-          if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+    waitReady(v, 20000).then(function(){ v.pause(); return seekSafe(v, clip.start); }).then(function(){
+      var stream = cv.captureStream(30), dest = null;
+      if (R.src) try {
+        if (sharedAC.state === 'suspended') sharedAC.resume();
+        dest = sharedAC.createMediaStreamDestination();
+        R.src.connect(dest);
+        dest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+      } catch(e){ dest = null; /* video without sound still exports */ }
+      var rec = new MediaRecorder(stream, mime ? { mimeType:mime, videoBitsPerSecond: H>=1080 ? 8e6 : 4.5e6 } : undefined);
+      var chunks = [], finished = false, away = false, lastT = v.currentTime, lastMove = Date.now(), lastNudge = 0, failed = null;
+      rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = function(){
+        clearInterval(guard);
+        stream.getTracks().forEach(function(t){ t.stop(); });
+        if (dest) try { R.src.disconnect(dest); } catch(e){}
+        v.pause();
+        if (failed) return reject(failed);
+        var type = (rec.mimeType || mime || 'video/webm').split(';')[0];
+        resolve({ blob:new Blob(chunks, { type:type }), ext: type.indexOf('mp4')>-1 ? 'mp4' : 'webm' });
+      };
+      function finish(err){
+        if (finished) return; finished = true; failed = err || null;
+        try { if (rec.state === 'paused') rec.resume(); if (rec.state !== 'inactive') rec.stop(); else rec.onstop(); } catch(e){ rec.onstop(); }
+      }
+      function tick(){
+        if (finished || away) return;
+        drawFrame(ctx, v, W, H, clip, v.currentTime);
+        onProgress(Math.min(1, (v.currentTime-clip.start)/(clip.end-clip.start)));
+        if (v.currentTime >= clip.end || v.ended) return finish();
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+      }
+      function play(){ var pr = v.play(); if (pr && pr.then) pr.then(function(){ if (!finished && !away) tick(); }, function(){}); }
+      var guard = setInterval(function(){
+        if (finished) return;
+        var now = Date.now();
+        if (document.hidden){
+          if (!away){ away = true; v.pause(); try { if (rec.state === 'recording') rec.pause(); } catch(e){} onState('away'); }
+          return;
         }
-        drawFrame(ctx, v, W, H, clip, clip.start);
-        rec.start(500);
-        v.play().then(tick, function(err){ stopped = true; rec.stop(); reject(err); });
-        // safety net in case frame callbacks stall (hidden tab)
-        var guard = setInterval(function(){ if (stopped) return clearInterval(guard); if (v.currentTime >= clip.end || v.ended){ stopped = true; clearInterval(guard); rec.stop(); } else drawFrame(ctx, v, W, H, clip, v.currentTime); }, 250);
-      });
-    }, {once:true});
+        if (away){
+          away = false; lastMove = now; lastT = v.currentTime;
+          try { if (rec.state === 'paused') rec.resume(); } catch(e){}
+          onState('back'); play(); return;
+        }
+        if (v.currentTime >= clip.end || v.ended) return finish();
+        if (v.currentTime > lastT + 0.01){ lastT = v.currentTime; lastMove = now; }
+        else if (now - lastMove > 3000 && now - lastNudge > 3000){ lastNudge = now; play(); }
+        if (now - lastMove > 25000) finish(new Error('The video stopped playing.'));
+        drawFrame(ctx, v, W, H, clip, v.currentTime);   // keeps frames coming if frame callbacks slow down
+      }, 300);
+      drawFrame(ctx, v, W, H, clip, clip.start);
+      rec.start(500);
+      var pr = v.play();
+      if (pr && pr.then) pr.then(tick, function(){ /* the guard keeps retrying; gives up after 25 s */ });
+      else tick();
+    }).catch(reject);
   });
 }
 
 $('#exportBtn').addEventListener('click', function(){
-  var btn = this, picked = S.clips.filter(function(c){ return c.picked; });
+  var btn = this, H = +$('#quality').value, st = $('#exStatus');
+  var picked = S.clips.filter(function(c){ return c.picked; });
   if (!picked.length) return;
+  var todo = picked.filter(function(c){ return c.made !== H; });   // clips already made at this quality are kept
+  if (!todo.length){ st.textContent = 'Those clips are already made. They’re in step 3.'; goStage(3); return; }
   var tr = trial();
   if (tr.ended){ document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); toast('Your free trial has ended. Pick a plan to keep exporting.'); return; }
   if (!tr.started && !tr.member){ store('cp_trial', { start:Date.now() }); renderTrial(); }
-  var H = +$('#quality').value, st = $('#exStatus');
   btn.disabled = true;
+  var R = makeRenderer();   // must happen inside the tap
   var lock = null;
-  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function(l){ lock = l; }, function(){}); } catch(e){}
-  var total = picked.reduce(function(a,c){ return a + (c.end-c.start); }, 0), doneSec = 0;
-  st.textContent = 'Rendering ' + picked.length + ' clip' + (picked.length>1?'s':'') + '. This plays in real time, about ' + fmt(total) + '. ' + (MOBILE ? 'Keep the screen on and stay on this page.' : 'Keep this tab open.');
+  function getLock(){ try { if (navigator.wakeLock && !lock) navigator.wakeLock.request('screen').then(function(l){ lock = l; l.addEventListener('release', function(){ lock = null; }); }, function(){}); } catch(e){} }
+  getLock();
+  var total = todo.reduce(function(a,c){ return a + (c.end-c.start); }, 0), doneSec = 0, made = 0;
+  var skipped = picked.length - todo.length;
+  var intro = 'Making ' + todo.length + ' clip' + (todo.length>1?'s':'') + (skipped ? ' (' + skipped + ' already made)' : '') + '. This plays in real time, about ' + fmt(total) + '. ' + (MOBILE ? 'Keep the screen on and stay on this page.' : 'Keep this tab open.');
+  st.textContent = intro;
   var chain = Promise.resolve();
-  picked.forEach(function(c, i){
+  todo.forEach(function(c, i){
     chain = chain.then(function(){
-      return renderClip(c, H, function(p){ setProg('#exProg', (doneSec + p*(c.end-c.start))/total); }).then(function(out){
-        doneSec += c.end-c.start;
+      st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + '…';
+      function attempt(n){
+        return renderClip(c, H, function(p){ setProg('#exProg', (doneSec + p*(c.end-c.start))/total); }, R, function(state){
+          if (state === 'away') st.textContent = 'Paused at clip ' + (i+1) + ' of ' + todo.length + ' while you were away. It carries on when you come back to this page.';
+          else { st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + '…'; getLock(); }
+        }).catch(function(err){ if (n < 1) return attempt(n + 1); throw err; });   // one retry per clip
+      }
+      return attempt(0).then(function(out){
+        doneSec += c.end-c.start; made++;
         var name = slug($('#topic').value || 'clip') + '-' + (S.clips.indexOf(c)+1) + '.' + out.ext;
-        S.exports.push({ name:name, blob:out.blob, url:URL.createObjectURL(out.blob), size:out.blob.size, dur:c.end-c.start, hook:c.hook });
-        st.textContent = 'Finished ' + (i+1) + ' of ' + picked.length + '…';
-      });
+        S.exports = S.exports.filter(function(x){ if (x.clip === c){ try { URL.revokeObjectURL(x.url); } catch(e){} return false; } return true; });
+        S.exports.push({ clip:c, name:name, blob:out.blob, url:URL.createObjectURL(out.blob), size:out.blob.size, dur:c.end-c.start, hook:c.hook });
+        c.made = H;
+      }, function(err){ err.clipNo = i + 1; throw err; });
     });
   });
+  function wrapUp(){ hideProg('#exProg'); btn.disabled = false; R.close(); if (lock) lock.release().catch(function(){}); lock = null; renderExports(); renderPlatforms(); }
   chain.then(function(){
+    wrapUp();
     st.textContent = 'All done. Download your clips and grab your captions below.';
-    hideProg('#exProg'); btn.disabled = false; if (lock) lock.release().catch(function(){});
     $('.stage-tab[data-stage="2"]').classList.add('done');
-    renderExports(); renderPlatforms(); goStage(3);
+    goStage(3);
   }, function(err){
-    st.textContent = (err && err.message) || 'Export failed.'; hideProg('#exProg'); btn.disabled = false; if (lock) lock.release().catch(function(){});
+    wrapUp();
+    var left = todo.length - made;
+    st.textContent = (made ? 'Made ' + made + ' of ' + todo.length + ' clips (they’re in step 3). ' : '') +
+      'Clip ' + (err.clipNo || made + 1) + ' stopped: ' + ((err && err.message) || 'export failed.') +
+      ' Tap Export again to make the other ' + left + '. Keep the screen on and stay on this page while it works.';
+    if (made) $('.stage-tab[data-stage="2"]').classList.add('done');
   });
 });
 function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'clip'; }
