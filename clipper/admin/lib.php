@@ -787,3 +787,136 @@ function cn_trending_clean(array $list): array {
   }
   return $out;
 }
+
+/* ---------- My stats: views on members' clips ----------
+ * ~/clipnow-data/stats/<customer>.json holds every clip a member tracks: clips ClipNow posted
+ * (imported from the post log, request_id) and clips they add by link. Views come from
+ * Upload-Post's per-post analytics where possible, otherwise the member types them in.
+ * All members share one Upload-Post key, limited to 100 live analytics calls per 5 minutes,
+ * so ClipNow keeps itself under 80 and refreshes each clip at most every 6 hours.
+ */
+const CN_STATS_REFRESH = 6 * 3600;
+const CN_UP_ANALYTICS_PER_5MIN = 80;
+
+function cn_stats_file(array $m): string { return cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$m['customer_id']) . '.json'; }
+function cn_stats_load(array $m): array { $s = cn_json_file(cn_stats_file($m), []); $s += ['clips' => [], 'imported' => []]; return $s; }
+function cn_stats_save(array $m, array $s): void { file_put_contents(cn_stats_file($m), json_encode($s, JSON_UNESCAPED_SLASHES), LOCK_EX); }
+
+/** Platform name and native post ID from a post link. */
+function cn_stats_parse_url(string $url): array {
+  $u = strtolower($url); $id = ''; $m = [];
+  if (preg_match('~(youtube\.com|youtu\.be)~', $u)) { if (preg_match('~(?:shorts/|watch\?(?:.*&)?v=|youtu\.be/|live/|embed/)([\w-]{11})~i', $url, $m)) $id = $m[1]; return ['youtube', $id]; }
+  if (str_contains($u, 'tiktok.com')) { if (preg_match('~/video/(\d+)~', $url, $m)) $id = $m[1]; return ['tiktok', $id]; }
+  if (preg_match('~(^|//|\.)(x|twitter)\.com/~', $u)) { if (preg_match('~/status/(\d+)~', $url, $m)) $id = $m[1]; return ['x', $id]; }
+  if (str_contains($u, 'instagram.com')) return ['instagram', ''];
+  if (str_contains($u, 'facebook.com') || str_contains($u, 'fb.watch')) return ['facebook', ''];
+  if (str_contains($u, 'snapchat.com')) return ['snapchat', ''];
+  return ['other', ''];
+}
+
+/** Shared budget for live Upload-Post analytics calls. Returns true and books a call if one is free. */
+function cn_up_analytics_slot(): bool {
+  $f = CN_DATA . '/up-analytics-rate.json';
+  if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
+  $h = fopen($f, 'c+'); if (!$h) return false;
+  flock($h, LOCK_EX);
+  $hits = json_decode((string)stream_get_contents($h), true) ?: [];
+  $hits = array_values(array_filter($hits, fn($t) => $t > time() - 300));
+  $ok = count($hits) < CN_UP_ANALYTICS_PER_5MIN;
+  if ($ok) $hits[] = time();
+  ftruncate($h, 0); rewind($h); fwrite($h, json_encode($hits)); fflush($h);
+  flock($h, LOCK_UN); fclose($h);
+  return $ok;
+}
+
+/** Add clips ClipNow posted for this member that aren't tracked yet. */
+function cn_stats_import(array $m, array &$s): void {
+  foreach (cn_post_history($m, 200) as $p) {
+    $rid = (string)($p['request_id'] ?? '');
+    if ($rid === '' || isset($s['imported'][$rid])) continue;
+    $s['imported'][$rid] = time();
+    foreach ((array)($p['platforms'] ?? []) as $pf) {
+      $s['clips'][] = ['id' => 'k' . bin2hex(random_bytes(6)), 'source' => 'autopost', 'request_id' => $rid, 'platform' => (string)$pf,
+        'url' => '', 'post_id' => '', 'title' => (string)($p['title'] ?? ''), 'views' => 0, 'likes' => null, 'comments' => null,
+        'auto' => true, 'checked' => 0, 'error' => '', 'history' => [], 'campaign' => null,
+        'posted' => (int)(($p['scheduled'] ?? 0) ?: ($p['at'] ?? time())), 'created' => time()];
+    }
+  }
+}
+
+/** Views as the platform's own app shows them (Instagram Reels shared to Facebook count both). */
+function cn_stats_views(array $pm): int { return (int)($pm['crossposted_views'] ?? $pm['views'] ?? 0); }
+
+/** Record a new view count (keeps a short history for "gained since"). */
+function cn_stats_set_views(array &$c, int $views, string $how): void {
+  $c['views'] = max(0, $views);
+  $last = end($c['history']) ?: null;
+  if (!$last || $last['views'] !== $c['views'] || $last['at'] < time() - 20 * 3600) $c['history'][] = ['at' => time(), 'views' => $c['views'], 'how' => $how];
+  if (count($c['history']) > 40) $c['history'] = array_slice($c['history'], -40);
+}
+
+/**
+ * Refresh up to $max clips from Upload-Post (oldest first). Clips posted through ClipNow are read by
+ * request_id (one call covers every platform of that post); other clips on the member's connected
+ * accounts by their platform post ID. Returns how many calls were made.
+ */
+function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''): int {
+  if ((string)(cn_config()['uploadpost_key'] ?? '') === '') return 0;
+  $now = time(); $calls = 0; $done = [];
+  $due = array_keys(array_filter($s['clips'], fn($c) => !empty($c['auto']) && empty($c['hidden']) && ($onlyId === '' ? $c['checked'] < $now - CN_STATS_REFRESH : $c['id'] === $onlyId) && ($c['posted'] ?? 0) <= $now - 120));
+  usort($due, fn($a, $b) => $s['clips'][$a]['checked'] <=> $s['clips'][$b]['checked']);
+  foreach ($due as $i) {
+    if ($calls >= $max) break;
+    $c = $s['clips'][$i];
+    if ($c['source'] === 'autopost' && isset($done[$c['request_id']])) continue;
+    if (!cn_up_analytics_slot()) break;
+    $calls++;
+    try {
+      if ($c['source'] === 'autopost') {
+        $done[$c['request_id']] = true;
+        $r = cn_up('GET', '/uploadposts/post-analytics/' . rawurlencode($c['request_id']));
+        foreach ($s['clips'] as &$o) {
+          if (($o['request_id'] ?? '') !== $c['request_id']) continue;
+          $pd = $r['platforms'][$o['platform']] ?? null;
+          $o['checked'] = $now;
+          if (!is_array($pd)) { $o['error'] = 'No stats from ' . $o['platform'] . ' yet.'; continue; }
+          if (!empty($pd['post_url'])) $o['url'] = (string)$pd['post_url'];
+          if (!empty($pd['platform_post_id'])) $o['post_id'] = (string)$pd['platform_post_id'];
+          if (isset($pd['post_metrics']['views'])) {
+            cn_stats_set_views($o, cn_stats_views($pd['post_metrics']), 'auto');
+            $o['likes'] = isset($pd['post_metrics']['likes']) ? (int)$pd['post_metrics']['likes'] : null;
+            $o['comments'] = isset($pd['post_metrics']['comments']) ? (int)$pd['post_metrics']['comments'] : null;
+            $o['error'] = '';
+          } else {
+            $o['error'] = (string)($pd['post_metrics_error'] ?? (empty($pd['success']) ? 'This post didn’t publish.' : 'Views aren’t available for this post yet.'));
+          }
+        }
+        unset($o);
+      } else {
+        $r = cn_up('GET', '/uploadposts/post-analytics', ['platform_post_id' => $c['post_id'], 'platform' => $c['platform'], 'user' => cn_up_username($m)]);
+        $pd = $r['platforms'][$c['platform']] ?? null;
+        $pm = is_array($pd) ? ($pd['post_metrics'] ?? null) : null;
+        $s['clips'][$i]['checked'] = $now;
+        if (is_array($pm) && isset($pm['views'])) {
+          cn_stats_set_views($s['clips'][$i], cn_stats_views($pm), 'auto');
+          $s['clips'][$i]['likes'] = isset($pm['likes']) ? (int)$pm['likes'] : null;
+          $s['clips'][$i]['comments'] = isset($pm['comments']) ? (int)$pm['comments'] : null;
+          $s['clips'][$i]['error'] = '';
+        } else {
+          $s['clips'][$i]['error'] = (string)($pd['post_metrics_error'] ?? 'Views aren’t available for this post. Type them in instead.');
+        }
+      }
+    } catch (Throwable $e) {
+      $code = $e->getCode();
+      foreach ($s['clips'] as &$o) {
+        if ($o['id'] !== $c['id'] && !($c['source'] === 'autopost' && ($o['request_id'] ?? '') === $c['request_id'])) continue;
+        $o['checked'] = $now;
+        // Posts on accounts that aren't connected can't be read automatically: switch them to typed-in views.
+        if ($c['source'] !== 'autopost' && in_array($code, [400, 403, 404], true)) { $o['auto'] = false; $o['error'] = 'ClipNow can’t read this post automatically (it needs to be on an account you connected in Auto-post). Type its views in instead.'; }
+        else $o['error'] = 'Couldn’t update the views right now. ClipNow will try again later.';
+      }
+      unset($o);
+    }
+  }
+  return $calls;
+}

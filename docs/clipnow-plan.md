@@ -216,3 +216,21 @@ Platinum by `api/trending.php`. Silver/visitors see a blurred, locked preview.
   roughly $0.30–0.70 a day. Switching `CN_AI_MODEL` in `admin/lib.php` to `claude-sonnet-5-5`
   would roughly halve the token part.
 - Every item links to its source page; the page warns that ClipNow can't confirm campaigns pay.
+
+## 12. My stats (all paid plans, live)
+
+`clipnow.vip/stats`: views on a member's clips and potential earnings per campaign.
+
+- **Clips posted with ClipNow** (Post now / Schedule) are imported from the post log and update by
+  themselves through Upload-Post `GET /api/uploadposts/post-analytics/{request_id}` (views, likes,
+  comments per platform; Instagram uses `crossposted_views` when present, like the app).
+- **Clips added by link:** YouTube, TikTok and X links on the member's connected accounts update
+  through `GET /api/uploadposts/post-analytics?platform_post_id=&platform=&user=`; anything else
+  (Instagram/Facebook links, other people's accounts) uses typed-in views.
+- **Refresh:** each clip at most every 6 h, only when the member opens Stats, a few clips per call;
+  all members share Upload-Post's 100 calls / 5 min, so ClipNow keeps under 80
+  (`~/clipnow-data/up-analytics-rate.json`).
+- **Campaigns:** tag a clip with a ClipNow campaign the member joined, or an outside one (name +
+  pay per 1,000). Potential = views × rate, capped at the campaign budget; ClipNow campaigns also
+  show approved / paid / owed. Data in `~/clipnow-data/stats/<customer>.json`.
+- Later: let a campaign submission pull its views from Stats instead of typing them.

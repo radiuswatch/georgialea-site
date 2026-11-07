@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^\/campaigns\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-campaigns'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
+<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^\/campaigns\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-campaigns'); else if (/^\/stats\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-stats'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B0D0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -163,6 +163,25 @@
   .cp-money{font-family:var(--mono)}
   .cp-link{background:none;border:0;color:var(--faint);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:6px 0}
   .lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  /* My stats */
+  .st-h{font-family:var(--sans);font-weight:600;font-size:19px;margin:26px 0 12px}
+  .st-camps{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .st-camp{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}
+  .st-camp h4{margin:0;font-size:16px;font-weight:600;line-height:1.3}
+  .st-camp .big{font-family:var(--mono);font-size:24px;color:var(--green)}
+  .st-camp dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:4px 0 0;font-size:14px}
+  .st-camp dt{color:var(--muted)} .st-camp dd{margin:0;font-family:var(--mono);text-align:right}
+  .st-listhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .st-clip{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+  .st-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  .st-top h4{margin:0;font-size:15.5px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+  .st-views{text-align:right;flex:none}
+  .st-views b{display:block;font-family:var(--mono);font-size:22px;line-height:1.1}
+  .st-views span{font-size:12.5px;color:var(--green)}
+  .st-line{font-size:13.5px;color:var(--muted)}
+  .st-line.bad{color:var(--warn)}
+  .st-edit{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+  .st-edit[hidden]{display:none}
   /* Tap-to-pick scheduler */
   .sch{display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
   .sch[hidden]{display:none}
@@ -217,6 +236,9 @@
   html:not(.pg-campaigns) #campaigns{display:none}
   html.pg-campaigns main > section:not(#campaigns){display:none}
   html.pg-campaigns #campaigns{padding-top:28px}
+  html:not(.pg-stats) #stats{display:none}
+  html.pg-stats main > section:not(#stats){display:none}
+  html.pg-stats #stats{padding-top:28px}
   html.pg-studio #studio{padding-top:28px}
   .hero + #studio{padding-top:8px}
   .hero + #studio .sect-head{margin-bottom:16px;gap:6px}
@@ -486,6 +508,7 @@
   .nav-links{gap:20px}
   @media (max-width:1240px){.nav-links a[href$="#how"],.nav-links a[href$="#faq"]{display:none}}
   @media (max-width:1040px){.nav-links a[href="privacy.html"],.nav-links a[href$="#daily"]{display:none}}
+  @media (max-width:900px){.nav-links a[href$="#platforms"],.nav-links a[href$="#pricing"]{display:none}}
 
   /* Install the app (home-screen banner and how-to) */
   .app-banner{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--green-dim);border-radius:14px;padding:10px 6px 10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
@@ -505,6 +528,7 @@
 
   /* Mobile app bar */
   .tabbar{display:none}
+  .tabbar .tab-daily{display:none!important}
   @media (max-width:700px){
     .tabbar{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
     .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--faint);font-size:10.5px;padding:6px 0;min-height:48px;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap}
@@ -546,6 +570,7 @@
       <a href="/" data-page="home">Home</a>
       <a href="/studio" data-page="studio">Studio</a>
       <a href="/campaigns" data-page="campaigns">Campaigns</a>
+      <a href="/stats" data-page="stats">Stats</a>
       <a href="#how">How it works</a>
       <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
@@ -719,7 +744,7 @@
           <div class="ap-actions" id="apActions"></div>
           <p class="ap-note" id="apNote"></p>
           <div class="ap-recent ap-up" id="apUpcoming" hidden><h5>Upcoming posts</h5><div id="apUpcomingList"></div></div>
-          <div class="ap-recent" id="apRecent" hidden><h5>Recent posts</h5><div id="apRecentList"></div></div>
+          <div class="ap-recent" id="apRecent" hidden><h5>Recent posts</h5><div id="apRecentList"></div><p class="note" style="margin:10px 0 0"><a href="/stats">See views and likes in My stats →</a></p></div>
         </div>
         <div class="callout" id="manualNote"><b>Prefer to post yourself?</b> Save each clip, copy its caption, and the Open button takes you to that platform's upload page. Snapchat is manual only.</div>
       </div>
@@ -835,6 +860,47 @@
   </div>
 </section>
 
+<section id="stats">
+  <div class="wrap">
+    <div class="sect-head">
+      <p class="eyebrow">My stats</p>
+      <h2>How your clips are doing</h2>
+      <p class="sub">Views on every clip you post, and what your campaigns could pay. Clips you post with ClipNow update by themselves; add any other clip by its link.</p>
+    </div>
+    <p class="note" id="stLoading">Loading your stats…</p>
+    <div id="stGate" class="cp-gate" hidden><p class="cp-gate-msg" id="stGateMsg"></p><div class="cta-row" id="stGateBtns"></div></div>
+    <div id="stApp" hidden>
+      <div class="cp-stats" id="stTotals"></div>
+      <p class="note" id="stSync" hidden></p>
+
+      <h3 class="st-h">Potential earnings by campaign</h3>
+      <div id="stCamps" class="st-camps"></div>
+      <p class="cp-fine">Potential earnings = views × the campaign’s pay per 1,000 views (capped at its budget). The campaign decides which views count and pays you, so treat this as an estimate.</p>
+
+      <div class="st-listhead"><h3 class="st-h">Your clips</h3><button class="btn btn-green btn-sm" type="button" id="stAddBtn">Add a clip by link</button></div>
+      <div class="cp-box" id="stAdd" hidden>
+        <h4>Add a clip</h4>
+        <div class="fields">
+          <div class="field"><label for="saUrl">Link to the post</label><input type="url" id="saUrl" inputmode="url" placeholder="https://www.tiktok.com/@you/video/…"></div>
+          <div class="cp-2">
+            <div class="field"><label for="saTitle">Name (optional)</label><input type="text" id="saTitle" maxlength="120" placeholder="e.g. Funniest moment"></div>
+            <div class="field"><label for="saViews">Views right now (optional)</label><input type="text" id="saViews" inputmode="numeric" placeholder="e.g. 12500"></div>
+          </div>
+          <div class="field"><label for="saCamp">Campaign</label><select id="saCamp"></select></div>
+          <div class="cp-2" data-other hidden>
+            <div class="field"><label for="saCName">Campaign name</label><input type="text" id="saCName" maxlength="80" placeholder="e.g. Whop: Wil Hat clips"></div>
+            <div class="field"><label for="saCRate">Pays per 1,000 views ($)</label><input type="text" id="saCRate" inputmode="decimal" placeholder="1.00"></div>
+          </div>
+        </div>
+        <p class="cp-fine">TikTok, YouTube and X posts on accounts you connected in Auto-post update by themselves. For others, type the views in and update them when you like.</p>
+        <div class="cp-acts"><button class="btn btn-green" type="button" id="saSave">Add clip</button><button class="btn btn-ghost" type="button" id="saCancel">Cancel</button></div>
+        <p class="cp-msg" id="saMsg"></p>
+      </div>
+      <div id="stClips"></div>
+    </div>
+  </div>
+</section>
+
 <section id="how">
   <div class="wrap">
     <div class="sect-head reveal">
@@ -924,6 +990,7 @@
         <ul class="price-list">
           <li>60 clips a month</li>
           <li>Auto-post to 3 platforms at once</li>
+          <li><b>My stats:</b> views on your clips and potential campaign earnings</li>
           <li class="soon">Auto captions (spoken words on screen) <span class="soon-tag">Coming soon</span></li>
           <li>1080p HD exports</li>
         </ul>
@@ -939,7 +1006,6 @@
           <li>One-click posting to TikTok, YouTube, Instagram, Facebook &amp; X</li>
           <li>Schedule posts up to 60 days ahead</li>
           <li><b>AI Top 10 trending campaigns</b>, updated daily</li>
-          <li class="soon">Campaign view tracking <span class="soon-tag">Coming soon</span></li>
           <li class="soon">AI hooks, titles &amp; hashtags <span class="soon-tag">Coming soon</span></li>
         </ul>
         <a class="btn btn-green" data-plan="pro" href="#">Start free trial</a>
@@ -1099,8 +1165,9 @@
   <a href="#top" data-sec="search" data-page="home"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11.5h4.5v-6h4v6h4.5V9"/></svg>Home</a>
   <a href="/studio" data-sec="studio" data-page="studio"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>Studio</a>
   <a href="/campaigns" data-sec="campaigns" data-page="campaigns"><svg viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>Campaigns</a>
+  <a href="/stats" data-sec="stats" data-page="stats"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
   <a href="#platforms" data-sec="platforms"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/></svg>Platforms</a>
-  <a href="#daily" data-sec="daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
+  <a href="#daily" data-sec="daily" class="tab-daily"><svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Daily</a>
   <a href="#pricing" data-sec="pricing"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3S9.5 10 12 10.5s4.5 1.3 4.5 3-2 3.5-4.5 3.5-4.5-1.3-4.5-3"/></svg>Plans</a>
 </nav>
 
@@ -1143,7 +1210,8 @@ var PLATFORMS = [
 function $(s, r){ return (r||document).querySelector(s); }
 var IS_STUDIO = document.documentElement.classList.contains('pg-studio');
 var IS_CAMPAIGNS = document.documentElement.classList.contains('pg-campaigns');
-var IS_SUBPAGE = IS_STUDIO || IS_CAMPAIGNS;
+var IS_STATS = document.documentElement.classList.contains('pg-stats');
+var IS_SUBPAGE = IS_STUDIO || IS_CAMPAIGNS || IS_STATS;
 function goPricing(){ if (IS_SUBPAGE) location.href = '/#pricing'; else document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); }
 function $$(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
 function fmt(t){ t = Math.max(0, t); var m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + (s<10?'0':'') + s; }
@@ -2210,6 +2278,7 @@ renderTrial();
     renderTrial();
     if (window.AutoPost) AutoPost.refresh();
     if (window.Campaigns) Campaigns.refresh();
+    if (window.Stats) Stats.refresh();
   }
   function refresh(fresh){ return api('me.php' + (fresh ? '?fresh=1' : '')).then(function(j){ if (j && j._status === 200) MEMBER = j.signedIn ? j : null; render(); return MEMBER; }, function(){}); }
   function open(msg){
@@ -2531,6 +2600,7 @@ renderTrial();
 
   window.AutoPost = {
     refresh: function(){
+      if (!IS_STUDIO) return;   // the Auto-post panel only lives on the Studio page
       if (!(MEMBER && MEMBER.signedIn)) { info = null; render(); recent(); return; }
       if (busy) return; busy = true;
       get('social.php').then(function(j){ busy = false; info = j && j.ok ? j : { available:true, limit:0, accounts:null }; render(); recent(); }, function(){ busy = false; });
@@ -2870,6 +2940,7 @@ if ('IntersectionObserver' in window){
         '<div class="cp-acts"><button class="cp-link" type="button" data-act="upd-open">Update views</button></div>' +
         '<div class="cp-acts" data-upd hidden><input type="text" inputmode="numeric" placeholder="New view count" data-views><input type="file" accept="image/*" data-shot style="width:auto;max-width:100%"><button class="btn btn-green btn-sm" type="button" data-act="update">Send update</button></div><p class="cp-msg"></p></div>';
     }).join('') : '<p class="note" style="margin:0">No posts yet.</p>') + '</div>';
+    h += '<p class="note" style="margin:-4px 0 14px">Tip: add your posts to <a href="/stats">My stats</a> and tag them with this campaign to see your potential earnings update as views grow.</p>';
     h += '<div class="cp-box"><h4>Your payout details</h4><p>' + esc(me.name) + ' · ' + esc(me.handle) + '</p><button class="cp-link" type="button" data-act="rejoin-open">Change</button><div data-rejoin hidden><div class="fields"><div class="field"><label>Name</label><input type="text" maxlength="60" value="' + esc(me.name) + '" data-name></div><div class="field"><label>Where the creator pays you</label><input type="text" maxlength="120" value="' + esc(me.handle) + '" data-handle></div></div><div class="cp-acts" style="margin-top:10px"><button class="btn btn-green btn-sm" type="button" data-act="rejoin">Save</button></div></div><p class="cp-msg"></p></div>';
     return h;
   }
@@ -2987,13 +3058,141 @@ if ('IntersectionObserver' in window){
   if (IS_CAMPAIGNS && MEMBER) load();
 })();
 
+/* ---------- My stats (/stats) ---------- */
+(function(){
+  var sec = document.getElementById('stats'); if (!sec) return;
+  var PL = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X', snapchat:'Snapchat', other:'Link' };
+  var D = null, busy = false, syncing = false;
+  function money(c){ return '$' + (c / 100).toFixed(2); }
+  function num(n){ return Number(n || 0).toLocaleString(); }
+  function ago(t){ var s = Date.now() / 1000 - t; if (s < 3600) return Math.max(1, Math.round(s / 60)) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return Math.round(s / 86400) + ' days ago'; }
+  function req(url, opts, retry){
+    return fetch(url, Object.assign({ credentials:'same-origin' }, opts || {})).then(function(r){ return r.text().then(function(t){
+      try { var j = JSON.parse(t); j._status = r.status; return j; } catch(e){}
+      var m = /document\.cookie\s*=\s*["']([A-Za-z0-9_]+=[^"';]*)/.exec(t);
+      if (m) document.cookie = m[1] + '; path=/; SameSite=Lax; Secure';
+      if ((retry || 0) < 2) return new Promise(function(res){ setTimeout(res, 700); }).then(function(){ return req(url, opts, (retry || 0) + 1); });
+      return { ok:false, error:'ClipNow couldn’t reach the server. Please try again.', _status:r.status };
+    }); }, function(){ return { ok:false, error:'You seem to be offline. Please try again.' }; });
+  }
+  function post(body){ return req('api/stats.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) }); }
+
+  function gate(kind){
+    $('#stLoading').hidden = true; $('#stApp').hidden = true; $('#stGate').hidden = false;
+    $('#stGateMsg').innerHTML = kind === 'out' ? 'Sign in to see the views on your clips and what your campaigns could pay.' : 'My stats are included with every ClipNow plan. Pick a plan to start tracking your clips.';
+    $('#stGateBtns').innerHTML = kind === 'out' ? '<button class="btn btn-green" type="button" data-st-signin>Sign in</button><a class="btn btn-ghost" href="/#pricing">See plans</a>' : '<a class="btn btn-green" href="/#pricing">See plans</a>';
+  }
+  sec.addEventListener('click', function(e){ if (e.target.closest('[data-st-signin]') && window.openSignIn) window.openSignIn('Sign in to see your stats.'); });
+
+  function load(){
+    if (!IS_STATS || busy) return;
+    if (!(MEMBER && MEMBER.signedIn)) return gate('out');
+    if (!MEMBER.active) return gate('plan');
+    busy = true;
+    req('api/stats.php').then(function(j){
+      busy = false;
+      if (!j.ok){ if (j._status === 401) return gate('out'); if (j._status === 403) return gate('plan'); $('#stLoading').textContent = j.error || 'Stats couldn’t load.'; return; }
+      show(j); sync();
+    });
+  }
+  // Ask the server to update views a few clips at a time until nothing is due.
+  function sync(rounds){
+    rounds = rounds || 0;
+    if (!D || !D.due || !D.auto_ready || syncing || rounds > 5){ $('#stSync').hidden = true; return; }
+    syncing = true; $('#stSync').hidden = false; $('#stSync').textContent = 'Updating views from your platforms…';
+    post({ action:'refresh' }).then(function(j){
+      syncing = false;
+      if (!j.ok){ $('#stSync').textContent = j.error || 'Couldn’t update views right now.'; return; }
+      show(j);
+      if (j.refreshed > 0) sync(rounds + 1); else $('#stSync').hidden = true;
+    });
+  }
+  function campOptions(sel){
+    var o = '<option value="">No campaign</option>';
+    (D.joined || []).forEach(function(c){ o += '<option value="cn:' + esc(c.id) + '"' + (sel === 'cn:' + c.id ? ' selected' : '') + '>' + esc(c.title) + ' (ClipNow, ' + money(c.rate_cents) + '/1K)</option>'; });
+    var others = {};
+    (D.campaigns || []).forEach(function(g){ if (g.kind === 'other') others['o:' + g.name + '|' + g.rate_cents] = g; });
+    Object.keys(others).forEach(function(k){ var g = others[k]; o += '<option value="' + esc(k) + '"' + (sel === k ? ' selected' : '') + '>' + esc(g.name) + ' (' + money(g.rate_cents) + '/1K)</option>'; });
+    return o + '<option value="new">Other campaign…</option>';
+  }
+  function tagFrom(val, name, rate){
+    if (!val) return null;
+    if (val.indexOf('cn:') === 0) return { kind:'clipnow', id:val.slice(3) };
+    if (val === 'new') return { kind:'other', name:name, rate:rate };
+    var p = val.slice(2).split('|'); return { kind:'other', name:p[0], rate:(p[1] / 100).toFixed(2) };
+  }
+  function tagKey(t){ return !t ? '' : t.kind === 'clipnow' ? 'cn:' + t.id : 'o:' + t.name + '|' + t.rate_cents; }
+
+  function show(j){
+    D = j; $('#stLoading').hidden = true; $('#stGate').hidden = true; $('#stApp').hidden = false;
+    var t = j.totals;
+    $('#stTotals').innerHTML = '<div class="cp-stat"><b>' + num(t.views) + '</b><span>Total views</span></div><div class="cp-stat"><b>' + num(t.week) + '</b><span>Views in the last 7 days</span></div><div class="cp-stat"><b>' + num(t.clips) + '</b><span>Clips tracked</span></div><div class="cp-stat"><b>' + money(t.potential_cents) + '</b><span>Potential earnings</span></div>';
+    $('#stCamps').innerHTML = j.campaigns.length ? j.campaigns.map(function(g){
+      var cn = g.kind === 'clipnow';
+      return '<div class="st-camp"><div class="cp-meta">' + (cn ? '<span class="cp-st me">ClipNow campaign</span>' : '<span class="cp-tag">Other campaign</span>') + '</div><h4>' + esc(g.name) + '</h4>' +
+        '<div class="big">' + money(g.potential_cents) + '</div><span class="st-line">potential from ' + num(g.views) + ' views on ' + g.clips + ' clip' + (g.clips === 1 ? '' : 's') + ' at ' + money(g.rate_cents) + ' per 1,000</span>' +
+        (cn ? '<dl><dt>Approved by creator</dt><dd>' + money(g.approved_cents || 0) + '</dd><dt>Paid to you</dt><dd>' + money(g.paid_cents || 0) + '</dd><dt>Still owed</dt><dd>' + money(Math.max(0, (g.approved_cents || 0) - (g.paid_cents || 0))) + '</dd></dl>' +
+          '<a class="cp-link" style="text-decoration:none;color:var(--green)" href="/campaigns#c=' + esc(g.id) + '">Report views to this campaign →</a>' : '') + '</div>';
+    }).join('') : '<p class="cp-empty">No campaigns yet. Tag a clip with a campaign below to see what it could pay.</p>';
+    $('#saCamp').innerHTML = campOptions('');
+    $('#stClips').innerHTML = j.clips.length ? j.clips.map(function(c){
+      var line;
+      if (c.waiting) line = '<span class="st-line">Waiting for the first stats (posted ' + ago(c.posted) + ')</span>';
+      else if (c.error) line = '<span class="st-line bad">' + esc(c.error) + '</span>';
+      else if (c.auto) line = '<span class="st-line">Updated automatically ' + (c.checked ? ago(c.checked) : '') + (c.likes != null ? ' · ' + num(c.likes) + ' likes' : '') + (c.comments != null ? ' · ' + num(c.comments) + ' comments' : '') + '</span>';
+      else line = '<span class="st-line">Views typed in by you</span>';
+      var title = c.title || (c.url ? c.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60) : 'Clip');
+      return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
+        '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div>' +
+        '<div class="st-views"><b>' + num(c.views) + '</b><span>' + (c.week ? '+' + num(c.week) + ' this week' : 'views') + '</span></div></div>' + line +
+        '<div class="cp-acts">' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
+        '<div class="st-edit" data-edit="views" hidden><div class="cp-acts"><input type="text" inputmode="numeric" placeholder="Views now" data-v><button class="btn btn-green btn-sm" type="button" data-act="views">Save</button></div></div>' +
+        '<div class="st-edit" data-edit="camp" hidden><div class="field"><select data-c>' + campOptions(tagKey(c.campaign)) + '</select></div><div class="cp-2" data-other hidden><div class="field"><input type="text" maxlength="80" placeholder="Campaign name" data-cn></div><div class="field"><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-cr></div></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="camp">Save</button></div></div>' +
+        '<p class="cp-msg"></p></div>';
+    }).join('') : '<p class="cp-empty">No clips yet. Clips you post with ClipNow’s Post now or Schedule show up here by themselves, or tap <b>Add a clip by link</b>.</p>';
+  }
+  function say(el, t, bad){ el.textContent = t; el.className = 'cp-msg' + (bad ? ' bad' : ''); }
+
+  $('#stAddBtn').addEventListener('click', function(){ $('#stAdd').hidden = false; $('#saUrl').focus(); });
+  $('#saCancel').addEventListener('click', function(){ $('#stAdd').hidden = true; });
+  sec.addEventListener('change', function(e){
+    var s = e.target.closest('select'); if (!s) return;
+    var box = s.closest('.cp-box, .st-edit'); var o = box && box.querySelector('[data-other]'); if (o) o.hidden = s.value !== 'new';
+  });
+  $('#saSave').addEventListener('click', function(){
+    var b = this, msg = $('#saMsg');
+    if (!$('#saUrl').value.trim()) return say(msg, 'Paste the link to your post.', true);
+    b.disabled = true; say(msg, 'Adding…');
+    post({ action:'add', url:$('#saUrl').value.trim(), title:$('#saTitle').value, views:$('#saViews').value, campaign:tagFrom($('#saCamp').value, $('#saCName').value, $('#saCRate').value) }).then(function(j){
+      b.disabled = false;
+      if (!j.ok) return say(msg, j.error || 'Couldn’t add it.', true);
+      ['#saUrl', '#saTitle', '#saViews', '#saCName', '#saCRate'].forEach(function(s){ $(s).value = ''; });
+      $('#stAdd').hidden = true; say(msg, ''); show(j); toast('Clip added');
+    });
+  });
+  $('#stClips').addEventListener('click', function(e){
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var row = b.closest('.st-clip'), id = row.dataset.id, msg = row.querySelector('.cp-msg'), act = b.dataset.act;
+    function run(body, ok){ b.disabled = true; return post(body).then(function(j){ b.disabled = false; if (!j.ok) return say(msg, j.error || 'Something went wrong.', true); show(j); if (ok) toast(ok); }); }
+    if (act === 'views-open'){ row.querySelector('[data-edit="views"]').hidden = false; row.querySelector('[data-v]').focus(); return; }
+    if (act === 'camp-open'){ row.querySelector('[data-edit="camp"]').hidden = false; return; }
+    if (act === 'views'){ var v = row.querySelector('[data-v]').value; if (!/\d/.test(v)) return say(msg, 'Enter the views.', true); return run({ action:'views', id:id, views:v }, 'Views saved'); }
+    if (act === 'camp'){ var sel = row.querySelector('[data-c]').value; return run({ action:'campaign', id:id, campaign:tagFrom(sel, row.querySelector('[data-cn]').value, row.querySelector('[data-cr]').value) }, 'Campaign saved'); }
+    if (act === 'refresh'){ say(msg, 'Updating…'); return run({ action:'refresh', id:id }, ''); }
+    if (act === 'remove'){ if (!confirm('Stop tracking this clip? It stays on the platform; it just leaves your stats.')) return; return run({ action:'remove', id:id }, 'Removed'); }
+  });
+
+  window.Stats = { refresh:function(){ busy = false; load(); } };
+  if (IS_STATS && MEMBER) load();
+})();
+
 /* ---------- Studio and Campaigns pages ---------- */
 (function(){
-  var PAGE = IS_STUDIO ? 'studio' : IS_CAMPAIGNS ? 'campaigns' : 'home';
+  var PAGE = IS_STUDIO ? 'studio' : IS_CAMPAIGNS ? 'campaigns' : IS_STATS ? 'stats' : 'home';
   $$('.nav-links [data-page]').forEach(function(a){ a.classList.toggle('on', a.dataset.page === PAGE); });
   if (IS_SUBPAGE) $$('.tabbar [data-page="' + PAGE + '"]').forEach(function(a){ a.classList.add('on'); });
   if (!IS_SUBPAGE) return;
-  document.title = (IS_STUDIO ? 'Studio' : 'Campaigns') + ' · ClipNow';
+  document.title = (IS_STUDIO ? 'Studio' : IS_CAMPAIGNS ? 'Campaigns' : 'My stats') + ' · ClipNow';
   var canon = document.querySelector('link[rel=canonical]'); if (canon) canon.href = 'https://clipnow.vip/' + PAGE;
   // Links to home page sections go to the home page
   $$('a[href^="#"]').forEach(function(a){
