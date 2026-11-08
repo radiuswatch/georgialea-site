@@ -84,6 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flash($ok ? ($do === 'site_live' ? 'ClipNow is live. Everyone sees the full site now.' : 'The coming-soon page is on. Visitors see it instead of the site.') : 'The server wouldn\'t let us change that file. Check the folder permissions.', $ok);
     back('site');
   }
+  if ($do === 'kickstarter_save') {
+    $u = trim((string)($_POST['kickstarter_url'] ?? ''));
+    if ($u !== '' && !preg_match('#^https://(www\.)?kickstarter\.com/projects/[^\s"<>]+$#i', $u)) { flash('Paste the full Kickstarter link, starting with https://www.kickstarter.com/projects/', false); back('site'); }
+    $cfg['kickstarter_url'] = $u; cn_save_config($cfg);
+    flash($u === '' ? 'Kickstarter button removed from the coming-soon page.' : 'Saved. The coming-soon page now shows a "Follow us on Kickstarter" button.');
+    back('site');
+  }
   if ($do === 'preview_newlink') {
     $cfg['preview_key'] = bin2hex(random_bytes(12)); cn_save_config($cfg);
     flash('New tester link made. The old link no longer works for new people (anyone who already opened it keeps access on that browser).');
@@ -557,6 +564,14 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>">
       <?php if ($preview): ?><button class="btn" name="do" value="preview_off">Stop previewing</button> <a class="btn" href="/" target="_blank" rel="noopener">Open the site</a>
       <?php else: ?><button class="btn go" name="do" value="preview_on">Preview the full site on this browser</button><?php endif; ?>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>Kickstarter button</h2>
+    <p>Paste your Kickstarter link (the pre-launch page works too) to show a <b>Follow us on Kickstarter</b> button on the coming-soon page. Leave it empty to hide the button.</p>
+    <form method="post" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+      <input name="kickstarter_url" value="<?= e($cfg['kickstarter_url'] ?? '') ?>" placeholder="https://www.kickstarter.com/projects/…" style="flex:1;min-width:260px" spellcheck="false">
+      <button class="btn go" name="do" value="kickstarter_save">Save</button>
     </form>
   </div>
   <div class="panel">

@@ -59,6 +59,10 @@
   .msg.ok{color:var(--green)} .msg.err{color:#F2A0A2}
   .fine{font-size:13px;color:var(--faint);margin:2px 2px 0}
 
+  .ks{display:inline-flex;align-items:center;gap:10px;margin-top:14px;border:1px solid rgba(49,201,113,.45);background:rgba(15,59,35,.55);color:var(--text);font:600 15px var(--sans);border-radius:12px;padding:11px 16px;transition:border-color .2s,transform .15s}
+  .ks:hover{border-color:var(--green);transform:translateY(-1px)} .ks:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+  .ks .k{width:26px;height:26px;border-radius:7px;background:var(--green);color:#06230F;display:grid;place-items:center;font:800 15px var(--sans)}
+  .ks small{display:block;font:400 12.5px var(--sans);color:var(--muted)}
   .count{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
   .count div{min-width:84px;background:rgba(20,23,20,.8);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:center}
   .count b{display:block;font:400 28px/1.1 var(--mono);font-variant-numeric:tabular-nums}
@@ -167,6 +171,7 @@
         <p class="msg" aria-live="polite"></p>
         <p class="fine">One email when we open. No spam, ever.</p>
       </form>
+      <a class="ks" data-ks hidden target="_blank" rel="noopener"><span class="k" aria-hidden="true">K</span><span>Follow us on Kickstarter<small>Back ClipNow for founder pricing</small></span></a>
 
       <div class="count" id="count" hidden aria-label="Time until launch">
         <div><b data-d>00</b><span>Days</span></div><div><b data-h>00</b><span>Hours</span></div><div><b data-m>00</b><span>Min</span></div><div><b data-s>00</b><span>Sec</span></div>
@@ -249,6 +254,7 @@
       </div>
       <p class="msg" aria-live="polite"></p>
     </form>
+    <a class="ks" data-ks hidden target="_blank" rel="noopener"><span class="k" aria-hidden="true">K</span><span>Follow us on Kickstarter<small>Back ClipNow for founder pricing</small></span></a>
   </div>
 </main>
 
@@ -285,6 +291,16 @@
     var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: .12 });
     els.forEach(function(el){ io.observe(el); });
   } else els.forEach(function(el){ el.classList.add('in'); });
+
+  // Kickstarter button: shown only when the link is set in the admin portal.
+  (function ks(retry){
+    fetch('/api/site-info.php', { credentials:'same-origin' }).then(function(r){ return r.text(); }).then(function(t){
+      var m = !retry && t.match(/document\.cookie\s*=\s*"(humans_\d+=[^";]*)/);
+      if (m){ document.cookie = m[1] + '; path=/'; return ks(true); }
+      var j = {}; try { j = JSON.parse(t); } catch(e){}
+      if (j.kickstarter && /^https:\/\/(www\.)?kickstarter\.com\//i.test(j.kickstarter)) document.querySelectorAll('[data-ks]').forEach(function(a){ a.href = j.kickstarter; a.hidden = false; });
+    }).catch(function(){});
+  })(false);
 
   // Launch list. Bluehost may first answer with a "humans_NNNN" cookie page: set it and send again.
   function send(email, retry){
