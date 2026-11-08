@@ -453,8 +453,10 @@ function cn_up_accounts(?array $profile): array {
   return $out;
 }
 
-/** A link to Upload-Post's connect page for this member (creates their profile first). */
-function cn_up_connect_url(array $member): string {
+/** A link to Upload-Post's connect page for this member (creates their profile first).
+ *  With $platform, the page shows only that platform, so it's one tap to its sign-in.
+ *  $back is the ClipNow page to return to (a path like "/studio"). */
+function cn_up_connect_url(array $member, string $platform = '', string $back = '/studio'): string {
   $u = cn_up_username($member);
   if (!cn_up_profile($u)) {
     try { cn_up('POST', '/uploadposts/users', ['username' => $u]); }
@@ -463,18 +465,29 @@ function cn_up_connect_url(array $member): string {
       throw new RuntimeException('Auto-posting is at capacity right now. We\'ve been notified. Please try again later.');
     }
   }
+  $one = isset(CN_POST_PLATFORMS[$platform]);
+  $name = $one ? explode(' ', CN_POST_PLATFORMS[$platform])[0] : '';
+  if (!preg_match('#^/(studio|stats|campaigns)?$#', $back)) $back = '/studio';
   $j = cn_up('POST', '/uploadposts/users/generate-jwt', [
     'username' => $u,
-    'redirect_url' => CN_SITE . '/studio?connected=1',
+    'redirect_url' => CN_SITE . $back . '?connected=' . ($one ? $platform : 'all'),
     'redirect_button_text' => 'Back to ClipNow',
     'logo_image' => CN_SITE . '/brand/clipnow-mark-512.png',
-    'platforms' => array_keys(CN_POST_PLATFORMS),
-    'connect_title' => 'Connect your accounts to ClipNow',
-    'connect_description' => 'Connect the accounts you want ClipNow to post your clips to. You can disconnect any time.',
+    'platforms' => $one ? [$platform] : array_keys(CN_POST_PLATFORMS),
+    'show_calendar' => false,
+    'connect_title' => $one ? "Connect $name to ClipNow" : 'Connect your accounts to ClipNow',
+    'connect_description' => $one ? "Tap $name below, sign in, and allow access. Then tap Back to ClipNow. ClipNow never sees your password."
+      : 'Tap each platform you want ClipNow to post to, sign in, and allow access. Then tap Back to ClipNow.',
   ]);
   $url = $j['access_url'] ?? '';
   if ($url === '') throw new RuntimeException('The posting service didn\'t return a connect link. Please try again.');
   return $url;
+}
+
+/** Unlinks one platform from the member's posting profile. */
+function cn_up_disconnect(array $member, string $platform): void {
+  if (!isset(CN_POST_PLATFORMS[$platform])) throw new InvalidArgumentException('Unknown platform.');
+  cn_up('DELETE', '/uploadposts/users/social', ['profile_username' => cn_up_username($member), 'social_platform' => $platform]);
 }
 
 /** The member's Facebook Page to post Reels to (Upload-Post needs a Page id). */

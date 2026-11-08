@@ -77,6 +77,17 @@
   .ap-head h4{margin:0;font-size:17px;font-weight:600}
   .ap-sub{color:var(--muted);font-size:14.5px}
   .ap-accts{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+  .ap-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:14px 0 4px}
+  .ap-acct{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card-2);min-width:0}
+  .ap-acct.on{border-color:var(--green-dim);background:linear-gradient(180deg,rgba(15,59,35,.55),var(--card-2))}
+  .ap-logo{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font:700 13px var(--sans);color:#fff}
+  .ap-who{flex:1;min-width:0;line-height:1.3}
+  .ap-who b{display:block;font-size:14.5px;font-weight:600}
+  .ap-who span{display:block;font-size:12.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ap-acct.on .ap-who span{color:var(--green)}
+  .ap-acct .btn{flex:none}
+  .ap-x{flex:none;background:none;border:0;color:var(--faint);font-size:12.5px;cursor:pointer;padding:6px 4px;text-decoration:underline}
+  .ap-x:hover{color:var(--text)}
   .ap-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13.5px;color:var(--faint)}
   .ap-chip.on{color:var(--text);border-color:var(--green-dim);background:var(--green-deep)}
   .ap-chip.on::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
@@ -1166,7 +1177,7 @@
       <details><summary>Will I make money every day?</summary><p>Nobody can honestly promise that. Earnings depend on views, and views take time to build. What we can promise is that you'll spend minutes, not hours, on each batch of clips, so you can keep showing up long enough to find what works.</p></details>
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
       <details><summary>Does my video get uploaded to your servers?</summary><p>No. Finding and cutting clips runs entirely in your browser, so your full video stays on your device. The only time anything is uploaded is when you tap <b>Post now</b> or <b>Schedule</b> on a clip: that one clip is sent through our posting partner, Upload-Post, to the accounts you connected, and nothing else.</p></details>
-      <details><summary>How do I connect my social media accounts?</summary><p>Sign in, then in Studio step 3 tap <b>Connect accounts</b> under Auto-post and sign in to each platform. Set each account up first with the 5-minute guides in <a href="#platforms">Platforms</a>. Snapchat doesn’t allow auto-posting yet, so you post those clips from your phone.</p></details>
+      <details><summary>How do I connect my social media accounts?</summary><p>Sign in, then in Studio step 3 tap <b>Connect</b> next to a platform under Auto-post, sign in to it and tap <b>Allow</b>. That’s it: about a minute each. New to a platform? The 5-minute guides in <a href="#platforms">Platforms</a> walk you through setting the account up first. Snapchat doesn’t allow auto-posting yet, so you post those clips from your phone.</p></details>
       <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just <a href="#contact" data-contact data-reason="Billing or cancelling">send us a message</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
       <details><summary>Where are your privacy policy and terms?</summary><p>Read our <a href="privacy.html">Privacy Policy</a>, <a href="terms.html">Terms of Service</a> and <a href="refunds.html">Refunds &amp; Cancellation Policy</a>. The short version: your videos never leave your device, payments are handled by Stripe, and we don't sell your information.</p></details>
     </div>
@@ -2211,26 +2222,28 @@ function renderGuides(){
     ? '<div><h3>Post your clips</h3><span class="pg-time">Snapchat doesn’t allow auto-posting yet</span>' + li(g.post) + '</div>'
     : '<div><h3>Connect ' + short + ' to ClipNow</h3><span class="pg-time">Once, about 2 minutes. Then every clip posts in one tap</span>' + li([
         '<b>Sign in</b> to ClipNow (top of the page). Auto-posting comes with every plan and the free trial (Silver posts to 3 platforms at a time).',
-        'Go to the <b>Studio</b>, step 3 <b>Post everywhere</b>, and tap <b>Connect accounts</b> under Auto-post.',
-        'On the page that opens, choose <b>' + short + '</b>, sign in to ' + short + ', and tap <b>Allow</b>.' + (g.connectNote ? ' ' + g.connectNote : '') + ' ClipNow never sees your password.',
-        'Come back to ClipNow. ' + short + ' now shows as connected, so tap <b>Post now</b> or <b>Schedule</b> on any clip.'
+        'Tap <b>Connect ' + short + '</b> below (or in the <b>Studio</b>, step 3, under Auto-post).',
+        'Tap <b>' + short + '</b>, sign in, and tap <b>Allow</b>.' + (g.connectNote ? ' ' + g.connectNote : '') + ' ClipNow never sees your password.',
+        'Tap <b>Back to ClipNow</b>. You’ll see “' + short + ' connected ✓”, and <b>Post now</b> and <b>Schedule</b> are ready on every clip.'
       ]) + '</div>';
   $('#pgPanel').innerHTML =
     '<div><h3>Set up ' + g.name + '</h3><span class="pg-time">' + g.time + '</span>' + li(g.setup) + '</div>' +
     connect +
     '<div class="pg-tip"><b>Tip:</b> ' + g.tip + '</div>' +
     (g.id === 'snapchat' ? '' : '<details class="pg-manual"><summary>Rather post it yourself?</summary>' + li(g.post) + '</details>') +
-    '<div class="pg-foot"><span class="soon">' + (g.id === 'snapchat' ? 'Your caption is ready in Studio step 3. Tap <b>Copy caption</b> on the Snapchat card.' : 'Connected accounts can be changed or removed any time from the same <b>Connect accounts</b> button.') + '</span>' +
+    '<div class="pg-foot"><span class="soon">' + (g.id === 'snapchat' ? 'Your caption is ready in Studio step 3. Tap <b>Copy caption</b> on the Snapchat card.' : 'Disconnect any time in the Studio, step 3, under Auto-post.') + '</span>' +
       '<span class="row"><a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + g.open + '">Open ' + short + '</a>' +
-      (g.id === 'snapchat' ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-goconnect>Connect in Studio</button>') +
+      (g.id === 'snapchat' ? '' : '<button type="button" class="btn btn-green btn-sm" data-goconnect="' + ({ tiktok:'tiktok', youtube:'youtube', instagram:'instagram', facebook:'facebook', x:'x' }[g.id] || '') + '">Connect ' + short + '</button>') +
       '<button type="button" class="btn ' + (pgDone[g.id]?'btn-ghost':'btn-green') + ' btn-sm" data-pgdone="' + g.id + '">' + (pgDone[g.id]?'Done ✓ (undo)':'Mark as set up') + '</button></span></div>';
 }
 $('#pgTabs').addEventListener('click', function(e){ var b = e.target.closest('[data-pg]'); if (!b) return; pgCur = b.dataset.pg; renderGuides(); });
 $('#pgPanel').addEventListener('click', function(e){
-  if (e.target.closest('[data-goconnect]')){
-    goStage(3);
-    var ap = document.getElementById('autopost') || document.getElementById('studio');
-    ap.scrollIntoView({ behavior:'smooth', block:'center' });
+  var gc = e.target.closest('[data-goconnect]');
+  if (gc){
+    var pid = gc.dataset.goconnect;
+    if (!(MEMBER && MEMBER.signedIn)){ window.ClipNowAccount && ClipNowAccount.open(); return; }
+    gc.disabled = true; gc.textContent = 'Opening…';
+    ClipNowConnect(pid).catch(function(err){ gc.disabled = false; gc.textContent = 'Connect'; toast(err.message); });
     return;
   }
   var b = e.target.closest('[data-pgdone]'); if (!b) return;
@@ -2459,12 +2472,32 @@ renderTrial();
   window.ClipNowAccount = { open: open, refresh: refresh };
 })();
 
+/* ---------- Server calls that get past Bluehost's cookie check ---------- */
+// Bluehost may answer a first .php request with a tiny "humans_NNNN" cookie page: set the cookie and ask again.
+function cnApi(path, body, retry){
+  var opts = body === undefined ? { credentials:'same-origin' } : { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) };
+  return fetch('api/' + path, opts).then(function(r){ return r.text(); }).then(function(t){
+    var m = !retry && t.match(/document\.cookie\s*=\s*"(humans_\d+=[^";]*)/);
+    if (m){ document.cookie = m[1] + '; path=/'; return cnApi(path, body, true); }
+    try { return JSON.parse(t); } catch(e){ return { ok:false }; }
+  });
+}
+/** Opens the connect page for one platform (or all), and comes back to this page. */
+function ClipNowConnect(platform){
+  var back = /^\/(studio|stats|campaigns)$/.test(location.pathname) ? location.pathname : '/studio';
+  return cnApi('social.php', { action:'connect', platform:platform || '', back:back }).then(function(j){
+    if (j.ok && j.url){ location.href = j.url; return new Promise(function(){}); }
+    throw new Error(j.error || 'Couldn’t open the connect page. Please try again.');
+  }, function(){ throw new Error('You seem to be offline.'); });
+}
+
 /* ---------- Auto-post (via api/social.php + api/post.php) ---------- */
 (function(){
   var info = null, busy = false;
   var NAMES = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
+  var LOGO = { tiktok:['TT','#111;box-shadow:inset 0 0 0 1px #333'], youtube:['▶','#FF0033'], instagram:['IG','linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)'], facebook:['f','#1877F2'], x:['X','#000;box-shadow:inset 0 0 0 1px #333'] };
   var MAX = 60 * 1048576;
-  function get(path){ return fetch('api/' + path, { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return { ok:false }; }); }); }
+  function get(path){ return cnApi(path); }
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function connected(){ return info && info.accounts ? Object.keys(info.accounts).filter(function(k){ return info.accounts[k].connected; }) : []; }
   function ready(){ return !!(info && info.available && info.limit > 0 && connected().length); }
@@ -2473,11 +2506,31 @@ renderTrial();
   function render(){
     var accts = $('#apAccts'), act = $('#apActions'), note = $('#apNote'), sub = $('#apSub');
     accts.innerHTML = ''; act.innerHTML = ''; note.textContent = '';
-    var signed = MEMBER && MEMBER.signedIn;
+    var signed = MEMBER && MEMBER.signedIn, canConnect = signed && info && info.available && info.limit > 0;
+    accts.className = 'ap-list';
     Object.keys(NAMES).forEach(function(k){
-      var a = info && info.accounts && info.accounts[k], c = el('span', 'ap-chip' + (a && a.connected ? ' on' : ''), NAMES[k] + (a && a.connected && a.name ? ' · ' + a.name : ''));
-      if (!(a && a.connected)) c.title = 'Not connected';
-      accts.appendChild(c);
+      var a = info && info.accounts && info.accounts[k], on = !!(a && a.connected);
+      var row = el('div', 'ap-acct' + (on ? ' on' : '')), logo = el('span', 'ap-logo', LOGO[k][0]), who = el('div', 'ap-who');
+      logo.setAttribute('style', 'background:' + LOGO[k][1]);
+      who.appendChild(el('b', '', NAMES[k])); who.appendChild(el('span', '', on ? '✓ Connected' + (a.name ? ' · ' + a.name : '') : 'Not connected'));
+      row.appendChild(logo); row.appendChild(who);
+      if (canConnect && !on){
+        var c = el('button', 'btn btn-green btn-sm', 'Connect'); c.type = 'button';
+        c.addEventListener('click', function(){ c.disabled = true; c.textContent = 'Opening…'; ClipNowConnect(k).catch(function(err){ c.disabled = false; c.textContent = 'Connect'; note.textContent = err.message; }); });
+        row.appendChild(c);
+      } else if (canConnect && on){
+        var x = el('button', 'ap-x', 'Disconnect'); x.type = 'button';
+        x.addEventListener('click', function(){
+          if (!confirm('Disconnect ' + NAMES[k] + '? ClipNow will stop posting to it. Scheduled posts to it may fail.')) return;
+          x.disabled = true; x.textContent = 'Disconnecting…';
+          cnApi('social.php', { action:'disconnect', platform:k }).then(function(j){
+            if (!j.ok){ x.disabled = false; x.textContent = 'Disconnect'; note.textContent = j.error || 'Couldn’t disconnect. Please try again.'; return; }
+            toast(NAMES[k] + ' disconnected'); info.accounts[k].connected = false; info.accounts[k].name = ''; render(); setTimeout(window.AutoPost.refresh, 1500);
+          }, function(){ x.disabled = false; x.textContent = 'Disconnect'; note.textContent = 'You seem to be offline.'; });
+        });
+        row.appendChild(x);
+      }
+      accts.appendChild(row);
     });
     function button(cls, text, fn){ var b = el('button', 'btn btn-sm ' + cls, text); b.type = 'button'; b.addEventListener('click', fn); act.appendChild(b); return b; }
     if (!signed){
@@ -2493,15 +2546,7 @@ renderTrial();
       button('btn-green', 'Start a free trial', goPricing);
     } else {
       var n = connected().length;
-      sub.textContent = n ? 'Use Post now or Schedule on each clip above. It posts to the connected platforms you have switched on below.' : 'Connect the accounts you want ClipNow to post to.';
-      var cb = button(n ? 'btn-ghost' : 'btn-green', n ? 'Add or change accounts' : 'Connect accounts', function(){
-        cb.disabled = true; cb.textContent = 'Opening…';
-        fetch('api/social.php', { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:'{"action":"connect"}' })
-          .then(function(r){ return r.json(); }).then(function(j){
-            if (j.ok && j.url){ location.href = j.url; return; }
-            cb.disabled = false; cb.textContent = n ? 'Add or change accounts' : 'Connect accounts'; note.textContent = j.error || 'Couldn’t open the connect page. Please try again.';
-          }, function(){ cb.disabled = false; cb.textContent = 'Connect accounts'; note.textContent = 'You seem to be offline.'; });
-      });
+      sub.textContent = n ? 'Use Post now or Schedule on each clip above. It posts to the connected platforms you have switched on.' : 'Tap Connect next to a platform, sign in to it, and you’re done. About a minute each.';
       if (info.limit < 5) note.textContent = 'Your ' + (info.plan || 'current') + ' plan posts to up to ' + info.limit + ' platforms at a time. Gold and Platinum post everywhere at once.';
     }
     renderExports();
@@ -2745,8 +2790,25 @@ renderTrial();
       box.appendChild(r1); box.appendChild(picker.el); box.appendChild(msg); row.appendChild(box);
     }
   };
-  var c = /[?&]connected=1/.test(location.search);
-  if (c){ try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} setTimeout(function(){ goStage(3); toast('Accounts updated'); }, 400); }
+  // Back from the connect page (?connected=tiktok or ?connected=all): say how it went.
+  var back = /[?&]connected=([a-z]+)/.exec(location.search);
+  if (back){
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
+    var which = back[1];
+    if (IS_STUDIO) setTimeout(function(){ goStage(3); var ap = $('#autopost'); ap && ap.scrollIntoView({ behavior:'smooth', block:'center' }); }, 400);
+    var check = function(tries){
+      cnApi('social.php').then(function(j){
+        var acc = j && j.accounts || {};
+        if (NAMES[which]){
+          if (acc[which] && acc[which].connected) toast(NAMES[which] + ' connected ✓');
+          else if (tries > 0) return setTimeout(function(){ check(tries - 1); }, 2000);
+          else toast(NAMES[which] + ' isn’t connected yet. Tap Connect to try again.');
+        } else toast('Accounts updated');
+        if (IS_STUDIO) window.AutoPost.refresh();
+      });
+    };
+    check(2);
+  }
   render();
 })();
 
