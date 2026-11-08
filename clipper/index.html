@@ -49,10 +49,12 @@
   .aff-bar .cash{font-size:20px;line-height:1}
   .aff-bar b{font-family:var(--serif);font-weight:400;font-size:18px;color:#fff}
   .aff-bar b em{font-style:normal;color:#F5C451}
+  .aff-bar .big{font-weight:600;color:#fff;white-space:nowrap}
+  .aff-bar .big strong{font-family:var(--serif);font-weight:400;font-size:26px;line-height:1;color:#F5C451;text-shadow:0 0 18px rgba(245,196,81,.45);vertical-align:-2px}
   .aff-bar .go{background:#F5C451;color:#1A1405;font-weight:700;font-size:14px;border-radius:999px;padding:7px 14px;white-space:nowrap;transition:transform .15s}
   .aff-bar a:hover .go{transform:translateX(3px)}
   html.pg-affiliates .aff-bar{display:none}
-  @media (max-width:700px){.aff-bar a{padding:9px 16px;gap:6px 10px}.aff-bar .cash{display:none}.aff-bar b{font-size:16px}.aff-bar .go{font-size:13px;padding:6px 12px}}
+  @media (max-width:700px){.aff-bar a{padding:9px 16px;gap:6px 10px}.aff-bar .cash{display:none}.aff-bar b{font-size:16px}.aff-bar .go{font-size:13px;padding:6px 12px}.aff-bar .big strong{font-size:22px}}
   @media (prefers-reduced-motion:reduce){.aff-bar::after{animation:none;display:none}}
   header{padding-top:env(safe-area-inset-top);position:sticky;top:0;background:rgba(11,13,11,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:20}
   .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1080px;margin:0 auto;gap:16px}
@@ -605,7 +607,8 @@
   <a href="/affiliates">
     <span class="cash" aria-hidden="true">💸</span>
     <b>Influencers: make ClipNow your <em>personal cash drawer</em>.</b>
-    <span class="go">Earn 50% per sale →</span>
+    <span class="big">Earn <strong>50%</strong> on every sale you refer</span>
+    <span class="go">Join free →</span>
   </a>
 </div>
 
