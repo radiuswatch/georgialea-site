@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^\/campaigns\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-campaigns'); else if (/^\/stats\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-stats'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
+<script>if (/^\/studio\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-studio'); else if (/^\/campaigns\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-campaigns'); else if (/^\/stats\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-stats'); else if (/^\/affiliates\/?$/.test(location.pathname)) document.documentElement.classList.add('pg-affiliates'); else if (/^#studio/.test(location.hash)) location.replace('/studio' + location.search);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B0D0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,6 +42,18 @@
   .sub{color:var(--muted);max-width:60ch;margin:0}
   button,input,select,textarea{font:inherit;color:inherit}
 
+  .aff-bar{position:relative;overflow:hidden;padding:env(safe-area-inset-top) 0 0;background:linear-gradient(100deg,#0F3B23 0%,#1E5C38 45%,#3A2C10 100%);border-bottom:1px solid #2E6B45}
+  .aff-bar::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.10) 45%,transparent 60%);transform:translateX(-100%);animation:affShine 6s ease-in-out infinite;pointer-events:none}
+  @keyframes affShine{0%,55%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .aff-bar a{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 14px;max-width:1080px;margin:0 auto;padding:11px 24px;color:#F2F7F2;font-size:15px;line-height:1.35;text-align:center}
+  .aff-bar .cash{font-size:20px;line-height:1}
+  .aff-bar b{font-family:var(--serif);font-weight:400;font-size:18px;color:#fff}
+  .aff-bar b em{font-style:normal;color:#F5C451}
+  .aff-bar .go{background:#F5C451;color:#1A1405;font-weight:700;font-size:14px;border-radius:999px;padding:7px 14px;white-space:nowrap;transition:transform .15s}
+  .aff-bar a:hover .go{transform:translateX(3px)}
+  html.pg-affiliates .aff-bar{display:none}
+  @media (max-width:700px){.aff-bar a{padding:9px 16px;gap:6px 10px}.aff-bar .cash{display:none}.aff-bar b{font-size:16px}.aff-bar .go{font-size:13px;padding:6px 12px}}
+  @media (prefers-reduced-motion:reduce){.aff-bar::after{animation:none;display:none}}
   header{padding-top:env(safe-area-inset-top);position:sticky;top:0;background:rgba(11,13,11,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:20}
   .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1080px;margin:0 auto;gap:16px}
   .brand{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:600;font-size:17px}
@@ -121,7 +133,21 @@
   .cp-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
   .cp-bar .seg button{padding:9px 14px;white-space:nowrap}
   .cp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
-  .cp-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;color:inherit;font:inherit}
+  .cp-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0;display:flex;flex-direction:column;cursor:pointer;text-align:left;color:inherit;font:inherit;overflow:hidden}
+  .cp-item-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px}
+  .cp-cover{aspect-ratio:16/9;width:100%;background:linear-gradient(135deg,#0F3B23,#13283F);display:grid;place-items:center;overflow:hidden;position:relative}
+  .cp-cover img{width:100%;height:100%;object-fit:cover;display:block}
+  .cp-cover b{font-family:var(--serif);font-size:34px;color:rgba(233,237,233,.85)}
+  .cp-cover .cp-ratebadge{position:absolute;left:10px;bottom:10px;background:rgba(11,13,11,.85);color:var(--green);font:600 13px var(--mono);border-radius:8px;padding:5px 9px}
+  .cp-budget{display:flex;flex-direction:column;gap:5px}
+  .cp-bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+  .cp-bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+  .cp-budget span{font-size:12.5px;color:var(--muted)}
+  .cp-banner{aspect-ratio:16/7;border-radius:14px;overflow:hidden;margin-bottom:14px;background:var(--card)}
+  .cp-banner img{width:100%;height:100%;object-fit:cover;display:block}
+  .cf-cover{display:grid;place-items:center;aspect-ratio:16/9;max-width:420px;border:1.5px dashed var(--green-dim);border-radius:12px;cursor:pointer;overflow:hidden;background:var(--bg);text-align:center;color:var(--muted);font-size:14.5px}
+  .cf-cover img{width:100%;height:100%;object-fit:cover}
+  .cf-cover small{color:var(--faint);font-size:12.5px}
   .cp-item:hover{border-color:var(--green-dim)}
   .cp-item h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:0;line-height:1.3}
   .cp-by{font-size:13.5px;color:var(--muted)}
@@ -182,6 +208,12 @@
   .st-line.bad{color:var(--warn)}
   .st-edit{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
   .st-edit[hidden]{display:none}
+  /* Affiliates */
+  .af-steps{margin-bottom:6px}
+  .af-agree{display:flex;gap:8px;align-items:center;font-size:14.5px;color:var(--muted)}
+  .af-agree input{width:auto;accent-color:var(--green)}
+  .af-ref{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:10px 0;font-size:14.5px}
+  .af-ref:first-child{border-top:0;padding-top:0}
   /* Tap-to-pick scheduler */
   .sch{display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
   .sch[hidden]{display:none}
@@ -239,6 +271,9 @@
   html:not(.pg-stats) #stats{display:none}
   html.pg-stats main > section:not(#stats){display:none}
   html.pg-stats #stats{padding-top:28px}
+  html:not(.pg-affiliates) #affiliates{display:none}
+  html.pg-affiliates main > section:not(#affiliates){display:none}
+  html.pg-affiliates #affiliates{padding-top:28px}
   html.pg-studio #studio{padding-top:28px}
   .hero + #studio{padding-top:8px}
   .hero + #studio .sect-head{margin-bottom:16px;gap:6px}
@@ -372,6 +407,9 @@
   .price-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column}
   .price-card.featured{border-color:var(--green)}
   .pop{align-self:flex-start;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);background:var(--green-deep);border-radius:6px;padding:4px 10px;margin-bottom:14px}
+  .price-card.hot{border-color:#E5484D;position:relative;overflow:hidden;padding-top:58px}
+  .pop-red{position:absolute;top:0;left:0;right:0;background:#E5484D;color:#fff;font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase;text-align:center;padding:9px 10px}
+  .price-note{font-size:13px;color:var(--muted);margin:-8px 0 14px}
   .price-name{font-size:21px;font-family:var(--serif)}
   .price-amt{font-family:var(--mono);font-size:40px;color:var(--text);margin:6px 0 2px;font-variant-numeric:tabular-nums}
   .price-amt small{font-size:15px;color:var(--muted)}
@@ -562,6 +600,14 @@
 </style>
 </head>
 <body>
+
+<div class="aff-bar" role="region" aria-label="Affiliate program">
+  <a href="/affiliates">
+    <span class="cash" aria-hidden="true">💸</span>
+    <b>Influencers: make ClipNow your <em>personal cash drawer</em>.</b>
+    <span class="go">Earn 50% per sale →</span>
+  </a>
+</div>
 
 <header>
   <div class="nav">
@@ -759,7 +805,7 @@
 <section id="campaigns">
   <div class="wrap">
     <div class="sect-head">
-      <p class="eyebrow">Campaigns · Platinum</p>
+      <p class="eyebrow">Campaigns · Platinum &amp; Corporate</p>
       <h2>Paid clipping campaigns</h2>
       <p class="sub">Streamers and podcasters post a campaign and pay clippers for the views their clips get. Clippers join, post, and report their views. Creators approve the views and pay clippers directly. ClipNow keeps track of it all and never takes a cut.</p>
     </div>
@@ -819,7 +865,7 @@
           <button type="button" data-tab="joined" role="tab">Joined</button>
           <button type="button" data-tab="mine" role="tab">My campaigns</button>
         </div>
-        <button class="btn btn-green btn-sm" type="button" id="cpNew">Create a campaign</button>
+        <div class="cp-acts"><span class="note" id="cpQuota" style="margin:0"></span><button class="btn btn-green btn-sm" type="button" id="cpNew">Create a campaign</button></div>
       </div>
       <div id="cpList" class="cp-list" aria-live="polite"></div>
       <div id="cpDetail" hidden></div>
@@ -827,6 +873,11 @@
         <button type="button" class="cp-back" data-back>← All campaigns</button>
         <h3 id="cpFormTitle">Create a campaign</h3>
         <div class="fields">
+          <div class="field"><span class="lbl">Cover image (shows on your campaign card)</span>
+            <label class="cf-cover" for="cfImage"><img id="cfImgPrev" alt="" hidden><span id="cfImgHint">Tap to add an image<br><small>JPG, PNG or WebP · wide images look best (16:9)</small></span></label>
+            <input type="file" id="cfImage" accept="image/jpeg,image/png,image/webp" hidden>
+            <button type="button" class="cp-link" id="cfImgRemove" hidden>Remove image</button>
+          </div>
           <div class="field"><label for="cfTitle">Campaign title</label><input type="text" id="cfTitle" name="title" maxlength="100" placeholder="e.g. Best moments from my Friday streams"></div>
           <div class="field"><label for="cfCreator">Your creator name (channel or show)</label><input type="text" id="cfCreator" name="creator" maxlength="60" placeholder="e.g. Wil Hat Live"></div>
           <div class="field"><label for="cfAbout">What clippers should make</label><textarea id="cfAbout" name="about" maxlength="2000" rows="3" placeholder="Which videos to clip, what kind of moments work, anything clippers should know."></textarea></div>
@@ -897,6 +948,61 @@
         <p class="cp-msg" id="saMsg"></p>
       </div>
       <div id="stClips"></div>
+    </div>
+  </div>
+</section>
+
+<section id="affiliates">
+  <div class="wrap">
+    <div class="sect-head">
+      <p class="eyebrow">Affiliate program</p>
+      <h2>Earn 50% of every sale you refer</h2>
+      <p class="sub">Share ClipNow with clippers, streamers and creators. When someone you refer buys a plan, you get 50% of their first payment. Free to join, and you don’t need a ClipNow plan.</p>
+    </div>
+
+    <div class="cp-gate-grid af-steps">
+      <div class="cp-card"><h3>1. Join free</h3><p>Sign up with your email. You get your own link right away.</p></div>
+      <div class="cp-card"><h3>2. Share your link</h3><p>Post it in your bio, videos, Discord or anywhere your audience is. We remember your referral for 60 days.</p></div>
+      <div class="cp-card"><h3>3. Get 50%</h3><p>When they make their first payment, half is yours: about $5 for Silver, $10 for Gold, $20 for Platinum and $150 for Corporate (more on yearly plans).</p></div>
+    </div>
+
+    <p class="note" id="afLoading" style="margin-top:24px">Loading…</p>
+
+    <div class="cp-box af-join" id="afJoin" hidden>
+      <h4>Join the affiliate program, or sign in</h4>
+      <div class="fields">
+        <div class="cp-2">
+          <div class="field"><label for="ajName">Your name</label><input type="text" id="ajName" maxlength="60" autocomplete="name"></div>
+          <div class="field"><label for="ajEmail">Email</label><input type="email" id="ajEmail" maxlength="120" autocomplete="email" inputmode="email"></div>
+        </div>
+        <label class="af-agree"><input type="checkbox" id="ajAgree"> I agree to the <a href="terms.html#affiliates" target="_blank">affiliate terms</a></label>
+      </div>
+      <div class="cp-acts" style="margin-top:12px"><button class="btn btn-green" type="button" id="ajGo">Email me my sign-in link</button></div>
+      <p class="cp-msg" id="ajMsg"></p>
+      <p class="cp-fine">Already an affiliate? Just enter your email and we’ll send a new sign-in link.</p>
+    </div>
+
+    <div id="afDash" hidden>
+      <div class="cp-box">
+        <h4>Your affiliate link</h4>
+        <div class="cp-acts"><input type="text" id="afLink" readonly style="flex:1;min-width:220px"><button class="btn btn-green btn-sm" type="button" id="afCopy">Copy link</button></div>
+        <p class="cp-fine" style="margin:8px 0 0">Tip: any ClipNow page works too. Add <b id="afSuffix"></b> to the end of the address.</p>
+      </div>
+      <div class="cp-stats" id="afStats"></div>
+      <div class="cp-box">
+        <h4>Your referrals</h4>
+        <div id="afRefs"></div>
+        <p class="cp-fine" id="afRule"></p>
+      </div>
+      <div class="cp-box">
+        <h4>Where we send your payouts</h4>
+        <div class="fields"><div class="cp-2">
+          <div class="field"><label for="adName">Name</label><input type="text" id="adName" maxlength="60"></div>
+          <div class="field"><label for="adHandle">PayPal email, Cash App tag or similar</label><input type="text" id="adHandle" maxlength="120" placeholder="PayPal: you@email.com"></div>
+        </div></div>
+        <div class="cp-acts" style="margin-top:12px"><button class="btn btn-green btn-sm" type="button" id="adSave">Save</button><button class="cp-link" type="button" id="afOut">Sign out</button></div>
+        <p class="cp-msg" id="adMsg"></p>
+      </div>
     </div>
   </div>
 </section>
@@ -996,8 +1102,7 @@
         </ul>
         <a class="btn btn-ghost" data-plan="starter" href="#">Start free trial</a>
       </div>
-      <div class="price-card featured reveal">
-        <span class="pop">Most popular</span>
+      <div class="price-card reveal">
         <div class="price-name">Gold</div>
         <div class="price-amt" data-m="19.99" data-y="199.90">$19.99<small>/month</small></div>
         <div class="price-for">For daily clippers chasing payouts</div>
@@ -1010,18 +1115,32 @@
         </ul>
         <a class="btn btn-green" data-plan="pro" href="#">Start free trial</a>
       </div>
-      <div class="price-card reveal">
+      <div class="price-card hot reveal">
+        <span class="pop-red">Most popular</span>
         <div class="price-name">Platinum</div>
         <div class="price-amt" data-m="39.99" data-y="399.90">$39.99<small>/month</small></div>
         <div class="price-for">For teams running many accounts</div>
         <ul class="price-list">
           <li>Everything in Gold</li>
-          <li><b>Campaigns:</b> post paid clipping campaigns for your content, or join other creators’ campaigns</li>
+          <li><b>Campaigns:</b> post up to 3 paid clipping campaigns a month for your content, and join other creators’ campaigns</li>
           <li class="soon">Up to 10 accounts per platform <span class="soon-tag">Coming soon</span></li>
           <li class="soon">3 team seats <span class="soon-tag">Coming soon</span></li>
           <li class="soon">Payout reports per account <span class="soon-tag">Coming soon</span></li>
         </ul>
-        <a class="btn btn-ghost" data-plan="agency" href="#">Start free trial</a>
+        <a class="btn btn-green" data-plan="agency" href="#">Start free trial</a>
+      </div>
+      <div class="price-card reveal">
+        <div class="price-name">Corporate</div>
+        <div class="price-amt" data-m="299.99" data-y="299.99" data-monthly-only>$299.99<small>/month</small></div>
+        <p class="price-note">Monthly billing. Starts right away (no free trial).</p>
+        <div class="price-for">For agencies, networks and brands</div>
+        <ul class="price-list">
+          <li>Everything in Silver, Gold &amp; Platinum</li>
+          <li><b>Unlimited campaigns</b> every month</li>
+          <li>Join any creator’s campaign</li>
+          <li><b>AI Top 10 trending campaigns</b> and My stats</li>
+        </ul>
+        <a class="btn btn-ghost" data-plan="corporate" href="#">Get Corporate</a>
       </div>
     </div>
     <p class="terms reveal">Features marked <b>Coming soon</b> are in development and are included in your plan at no extra cost when they launch. Billed through Stripe. Cancel anytime from the billing portal; you keep access until the end of the period you paid for. ClipNow doesn't take a cut of what you earn. Your payouts go straight from the campaign or platform to you. By starting a trial you agree to our <a href="terms.html">Terms</a>, <a href="privacy.html">Privacy Policy</a> and <a href="refunds.html">Refund Policy</a>.</p>
@@ -1055,7 +1174,7 @@
 <footer>
   <div class="wrap foot">
     <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/">App Planet</a></span>
-    <nav class="foot-legal" aria-label="Help"><b>Help</b><a href="#faq">FAQ</a><a href="#contact" data-contact>Contact us</a><a href="#install" data-install hidden>Get the app</a></nav>
+    <nav class="foot-legal" aria-label="Help"><b>Help</b><a href="#faq">FAQ</a><a href="#contact" data-contact>Contact us</a><a href="/affiliates">Affiliates: earn 50%</a><a href="#install" data-install hidden>Get the app</a></nav>
     <nav class="foot-legal" aria-label="Policies"><b>Policies</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
   </div>
 </footer>
@@ -1211,7 +1330,8 @@ function $(s, r){ return (r||document).querySelector(s); }
 var IS_STUDIO = document.documentElement.classList.contains('pg-studio');
 var IS_CAMPAIGNS = document.documentElement.classList.contains('pg-campaigns');
 var IS_STATS = document.documentElement.classList.contains('pg-stats');
-var IS_SUBPAGE = IS_STUDIO || IS_CAMPAIGNS || IS_STATS;
+var IS_AFFILIATES = document.documentElement.classList.contains('pg-affiliates');
+var IS_SUBPAGE = IS_STUDIO || IS_CAMPAIGNS || IS_STATS || IS_AFFILIATES;
 function goPricing(){ if (IS_SUBPAGE) location.href = '/#pricing'; else document.getElementById('pricing').scrollIntoView({ behavior:'smooth' }); }
 function $$(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
 function fmt(t){ t = Math.max(0, t); var m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + (s<10?'0':'') + s; }
@@ -2629,13 +2749,27 @@ $('#billing').addEventListener('click', function(e){
   var b = e.target.closest('button'); if (!b) return;
   $$('#billing button').forEach(function(x){ x.classList.toggle('on', x===b); });
   bill = b.dataset.v;
-  $$('.price-amt').forEach(function(el){ el.innerHTML = '$' + el.dataset[bill] + '<small>/' + (bill==='m'?'month':'year') + '</small>'; });
+  $$('.price-amt').forEach(function(el){ var mo = el.hasAttribute('data-monthly-only'); el.innerHTML = '$' + el.dataset[mo ? 'm' : bill] + '<small>/' + (bill==='m' || mo ?'month':'year') + '</small>'; });
 });
+/** Adds the affiliate who referred this visitor (if any) to a Stripe checkout link. */
+function withRef(url){
+  var ref = ''; try { ref = localStorage.getItem('cn_ref') || ''; var t = +localStorage.getItem('cn_ref_t') || 0; if (Date.now() - t > 60 * 864e5) ref = ''; } catch(e){}
+  if (!/^[a-z0-9_-]{3,40}$/i.test(ref)) return url;
+  return url + (url.indexOf('?') > -1 ? '&' : '?') + 'client_reference_id=' + encodeURIComponent('aff_' + ref);
+}
 $$('[data-plan]').forEach(function(a){
   a.addEventListener('click', function(e){
-    var link = CONFIG.stripe[a.dataset.plan][bill];
     e.preventDefault();
-    if (link) location.href = link;
+    if (a.dataset.plan === 'corporate'){
+      // The Corporate checkout link is created from the admin portal and served by the site.
+      fetch('api/plan-link.php?plan=corporate').then(function(r){ return r.json(); }).then(function(j){
+        if (j.ok && j.url) location.href = withRef(j.url);
+        else openContact('Question about plans', 'Corporate', 'I’d like to start the Corporate plan ($299.99/month).');
+      }, function(){ openContact('Question about plans', 'Corporate', 'I’d like to start the Corporate plan ($299.99/month).'); });
+      return;
+    }
+    var link = CONFIG.stripe[a.dataset.plan][bill];
+    if (link) location.href = withRef(link);
     else {
       var label = a.dataset.plan.charAt(0).toUpperCase() + a.dataset.plan.slice(1) + ' (' + (bill==='m'?'monthly':'yearly') + ')';
       openContact('Start a free trial', label, 'I’d like to start the 7-day free trial of the ' + label + ' plan.');
@@ -2756,7 +2890,12 @@ if ('IntersectionObserver' in window){
 (function(){
   var sec = document.getElementById('campaigns'); if (!sec) return;
   var PLATS = { tiktok:'TikTok', youtube:'YouTube Shorts', instagram:'Instagram Reels', facebook:'Facebook Reels', snapchat:'Snapchat', x:'X' };
-  var LIST = [], TAB = 'all', loaded = false, busy = false, CUR = null;
+  var LIST = [], TAB = 'all', loaded = false, busy = false, CUR = null, QUOTA = null;
+  function showQuota(){
+    var q = QUOTA, el = $('#cpQuota');
+    if (!q || q.limit === null){ el.textContent = q ? 'Unlimited campaigns (Corporate)' : ''; return; }
+    el.textContent = q.left + ' of ' + q.limit + ' new campaigns left this month';
+  }
   function money(c){ return '$' + (c / 100).toFixed(2); }
   function num(n){ return Number(n || 0).toLocaleString(); }
   function day(t){ return t ? new Date(t * 1000).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) : ''; }
@@ -2776,6 +2915,15 @@ if ('IntersectionObserver' in window){
   function statusTag(c){
     var t = { open:['Open',''], closed:['Closed','off'], ended:['Ended','off'], full:['Budget used','warn'], hidden:['Hidden by ClipNow','warn'] }[c.status] || [c.status, 'off'];
     return '<span class="cp-st ' + t[1] + '">' + esc(t[0]) + '</span>' + (c.mine ? ' <span class="cp-st me">Yours</span>' : c.joined ? ' <span class="cp-st me">Joined</span>' : '');
+  }
+  function cover(c){
+    var inner = c.image ? '<img loading="lazy" alt="" src="' + esc(c.image) + '">' : '<b>' + esc((c.creator || c.title || '?').trim().charAt(0).toUpperCase()) + '</b>';
+    return '<div class="cp-cover">' + inner + '<span class="cp-ratebadge">' + money(c.rate_cents) + ' / 1K views</span></div>';
+  }
+  function budgetBar(c){
+    if (!c.budget_cents) return '<div class="cp-budget"><span>No budget cap</span></div>';
+    var used = Math.max(0, Math.min(100, Math.round((c.budget_cents - c.budget_left_cents) / c.budget_cents * 100)));
+    return '<div class="cp-budget"><div class="cp-bar"><i style="width:' + used + '%"></i></div><span>' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' left · ' + used + '% paid out</span></div>';
   }
   function platTags(list){ return list.map(function(p){ return '<span class="cp-tag">' + esc(PLATS[p] || p) + '</span>'; }).join(''); }
 
@@ -2805,7 +2953,7 @@ if ('IntersectionObserver' in window){
   function loadTrending(){
     if (!IS_CAMPAIGNS || TRBUSY) return;
     if (!(MEMBER && MEMBER.signedIn)) return trLocked('out');
-    if (!MEMBER.active || (MEMBER.planKey !== 'pro' && MEMBER.planKey !== 'agency')) return trLocked('plan');
+    if (!MEMBER.active || ['pro', 'agency', 'corporate'].indexOf(MEMBER.planKey) < 0) return trLocked('plan');
     TRBUSY = true;
     req('api/trending.php').then(function(j){
       TRBUSY = false;
@@ -2825,7 +2973,7 @@ if ('IntersectionObserver' in window){
   }
   // Platinum members see ClipNow's own campaigns first, everyone else sees the Top 10 first.
   function placeTrending(){
-    var tr = $('#cpTrend'), plat = MEMBER && MEMBER.active && MEMBER.planKey === 'agency';
+    var tr = $('#cpTrend'), plat = MEMBER && MEMBER.active && (MEMBER.planKey === 'agency' || MEMBER.planKey === 'corporate');
     if (plat) $('#cpApp').after(tr); else $('#cpLoading').before(tr);
   }
 
@@ -2835,13 +2983,13 @@ if ('IntersectionObserver' in window){
     placeTrending(); loadTrending();
     if (busy) return;
     if (!(MEMBER && MEMBER.signedIn)) return gate('out');
-    if (MEMBER.planKey !== 'agency' || !MEMBER.active) return gate('plan');
+    if ((MEMBER.planKey !== 'agency' && MEMBER.planKey !== 'corporate') || !MEMBER.active) return gate('plan');
     busy = true;
     req('api/campaigns.php?list=1').then(function(j){
       busy = false;
       if (!j.ok){ if (j._status === 401) return gate('out'); if (j._status === 403) return gate('plan'); $('#cpList').innerHTML = '<p class="cp-empty">' + esc(j.error || 'Campaigns couldn’t load.') + '</p>'; return; }
       $('#cpLoading').hidden = true; $('#cpGate').hidden = true; $('#cpApp').hidden = false;
-      LIST = j.campaigns || []; loaded = true; route();
+      LIST = j.campaigns || []; loaded = true; QUOTA = j.quota || null; showQuota(); route();
     });
   }
   function route(){
@@ -2866,12 +3014,12 @@ if ('IntersectionObserver' in window){
       return;
     }
     box.innerHTML = rows.map(function(c){
-      return '<button type="button" class="cp-item" data-open="' + esc(c.id) + '">' +
-        '<div class="cp-meta">' + statusTag(c) + '</div>' +
+      return '<button type="button" class="cp-item" data-open="' + esc(c.id) + '">' + cover(c) +
+        '<div class="cp-item-body"><div class="cp-meta">' + statusTag(c) + '</div>' +
         '<h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · ' + num(c.clippers) + ' clipper' + (c.clippers === 1 ? '' : 's') + '</div>' +
-        '<div class="cp-rate">' + money(c.rate_cents) + ' per 1,000 views' + (c.budget_cents ? ' · ' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' left' : '') + '</div>' +
+        budgetBar(c) +
         (c.about ? '<p class="cp-about">' + esc(c.about) + '</p>' : '') +
-        '<div class="cp-meta">' + platTags(c.platforms) + (c.ends ? '<span class="cp-tag">Ends ' + esc(day(c.ends)) + '</span>' : '') + '</div></button>';
+        '<div class="cp-meta">' + platTags(c.platforms) + (c.ends ? '<span class="cp-tag">Ends ' + esc(day(c.ends)) + '</span>' : '') + '</div></div></button>';
     }).join('');
   }
   $('#cpTabs').addEventListener('click', function(e){
@@ -2880,7 +3028,10 @@ if ('IntersectionObserver' in window){
     renderList();
   });
   $('#cpList').addEventListener('click', function(e){ var b = e.target.closest('[data-open]'); if (b) go('#c=' + b.dataset.open); });
-  $('#cpNew').addEventListener('click', function(){ go('#new'); });
+  $('#cpNew').addEventListener('click', function(){
+    if (QUOTA && QUOTA.limit !== null && QUOTA.left < 1){ toast('You’ve used this month’s ' + QUOTA.limit + ' campaigns. Corporate has unlimited.'); return; }
+    go('#new');
+  });
 
   /* ----- One campaign ----- */
   function openCamp(id, editing){
@@ -2896,6 +3047,7 @@ if ('IntersectionObserver' in window){
   function renderCamp(){
     var c = CUR, box = $('#cpDetail'), h = '';
     h += '<button type="button" class="cp-back" data-back>← All campaigns</button>';
+    if (c.image) h += '<div class="cp-banner"><img alt="" src="' + esc(c.image) + '"></div>';
     h += '<div class="cp-head"><div class="cp-meta">' + statusTag(c) + '</div><h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · started ' + esc(day(c.created)) + (c.ends ? ' · ends ' + esc(day(c.ends)) : '') + '</div>' +
       '<div class="cp-rate">' + money(c.rate_cents) + ' per 1,000 views' + (c.budget_cents ? ' · ' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' budget left' : ' · no budget cap') + '</div>' +
       '<div class="cp-meta">' + platTags(c.platforms) + (c.tags ? '<span class="cp-tag">Tags: ' + esc(c.tags) + '</span>' : '') + '</div></div>';
@@ -3022,8 +3174,17 @@ if ('IntersectionObserver' in window){
 
   /* ----- Create / edit form ----- */
   $('#cfPlats').innerHTML = Object.keys(PLATS).map(function(p){ return '<label><input type="checkbox" value="' + p + '"' + (p !== 'snapchat' && p !== 'x' ? ' checked' : '') + '> ' + esc(PLATS[p]) + '</label>'; }).join('');
+  var IMG = { file:null, remove:false };
+  function setPreview(src){ var im = $('#cfImgPrev'); im.hidden = !src; if (src) im.src = src; $('#cfImgHint').hidden = !!src; $('#cfImgRemove').hidden = !src; }
+  $('#cfImage').addEventListener('change', function(){
+    var f = this.files[0]; if (!f) return;
+    if (f.size > 8 * 1048576){ $('#cfErr').textContent = 'That image is too big (8 MB max).'; this.value = ''; return; }
+    IMG.file = f; IMG.remove = false; setPreview(URL.createObjectURL(f));
+  });
+  $('#cfImgRemove').addEventListener('click', function(){ IMG.file = null; IMG.remove = true; $('#cfImage').value = ''; setPreview(''); });
   function showForm(c){
     var f = $('#cpForm'); f.hidden = false; f.dataset.id = c ? c.id : '';
+    IMG = { file:null, remove:false }; $('#cfImage').value = ''; setPreview(c && c.image ? c.image : '');
     $('#cpFormTitle').textContent = c ? 'Edit campaign' : 'Create a campaign';
     $('#cfSave').textContent = c ? 'Save changes' : 'Publish campaign';
     $('#cfErr').textContent = '';
@@ -3045,8 +3206,16 @@ if ('IntersectionObserver' in window){
     post(body).then(function(j){
       btn.disabled = false;
       if (!j.ok){ $('#cfErr').textContent = j.error || 'Something went wrong. Please try again.'; return; }
-      mergeList(j.campaign); toast(id ? 'Campaign saved' : 'Your campaign is live');
-      go('#c=' + j.campaign.id);
+      var cid = j.campaign.id;
+      var after = IMG.file ? (function(){ var fd = new FormData(); fd.append('action', 'image'); fd.append('id', cid); fd.append('image', IMG.file); return postForm(fd); })()
+        : IMG.remove && id ? post({ action:'image_remove', id:cid }) : Promise.resolve(j);
+      after.then(function(k){
+        if (k && !k.ok){ toast(k.error || 'The image didn’t upload.'); }
+        mergeList(k && k.ok ? k.campaign : j.campaign);
+        if (!id && QUOTA && QUOTA.limit !== null){ QUOTA.left = Math.max(0, QUOTA.left - 1); showQuota(); }
+        toast(id ? 'Campaign saved' : 'Your campaign is live');
+        go('#c=' + cid);
+      });
     });
   });
 
@@ -3186,13 +3355,83 @@ if ('IntersectionObserver' in window){
   if (IS_STATS && MEMBER) load();
 })();
 
+/* ---------- Affiliates (/affiliates) ---------- */
+(function(){
+  var sec = document.getElementById('affiliates'); if (!sec) return;
+  function money(c){ return '$' + (c / 100).toFixed(2); }
+  function day(t){ return new Date(t * 1000).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }); }
+  function req(url, opts, retry){
+    return fetch(url, Object.assign({ credentials:'same-origin' }, opts || {})).then(function(r){ return r.text().then(function(t){
+      try { var j = JSON.parse(t); j._status = r.status; return j; } catch(e){}
+      var m = /document\.cookie\s*=\s*["']([A-Za-z0-9_]+=[^"';]*)/.exec(t);
+      if (m) document.cookie = m[1] + '; path=/; SameSite=Lax; Secure';
+      if ((retry || 0) < 2) return new Promise(function(res){ setTimeout(res, 700); }).then(function(){ return req(url, opts, (retry || 0) + 1); });
+      return { ok:false, error:'ClipNow couldn’t reach the server. Please try again.', _status:r.status };
+    }); }, function(){ return { ok:false, error:'You seem to be offline. Please try again.' }; });
+  }
+  function post(b){ return req('api/affiliate.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(b) }); }
+  function say(el, t, bad){ el.textContent = t; el.className = 'cp-msg' + (bad ? ' bad' : ''); }
+
+  function load(){
+    req('api/affiliate.php').then(function(j){
+      $('#afLoading').hidden = true;
+      if (!j.ok){ $('#afJoin').hidden = false; $('#afDash').hidden = true; return; }
+      $('#afJoin').hidden = true; $('#afDash').hidden = false;
+      var me = j.me, s = j.stats;
+      $('#afLink').value = me.link; $('#afSuffix').textContent = '?ref=' + me.code;
+      $('#adName').value = me.name || ''; $('#adHandle').value = me.handle || '';
+      $('#afStats').innerHTML = [[me.clicks, 'Visits through your link'], [s.signups, 'Sign-ups'], [s.sales, 'Paid sales'], [money(s.earned_cents), 'Earned'], [money(s.pending_cents), 'In the ' + j.hold_days + '-day hold'], [money(s.balance_cents), 'Ready to be paid'], [money(s.paid_cents), 'Paid to you']]
+        .map(function(x){ return '<div class="cp-stat"><b>' + (typeof x[0] === 'number' ? x[0].toLocaleString() : x[0]) + '</b><span>' + x[1] + '</span></div>'; }).join('');
+      $('#afRefs').innerHTML = j.referrals.length ? j.referrals.map(function(r){
+        var st = r.status === 'earned' ? (r.payable_at * 1000 <= Date.now() ? '<span class="cp-st">Earned ' + money(r.commission_cents) + '</span>' : '<span class="cp-st warn">Earned ' + money(r.commission_cents) + ', payable ' + day(r.payable_at) + '</span>')
+          : r.status === 'void' ? '<span class="cp-st off">No commission' + (r.why ? ': ' + esc(r.why) : '') + '</span>' : '<span class="cp-st me">Signed up, waiting for first payment</span>';
+        return '<div class="af-ref"><span>' + esc(day(r.date)) + ' · ' + esc(r.who) + (r.plan ? ' · ' + esc(r.plan) : '') + '</span>' + st + '</div>';
+      }).join('') : '<p class="note" style="margin:0">No referrals yet. Share your link to get started.</p>';
+      $('#afRule').textContent = 'You earn ' + Math.round(j.rate * 100) + '% of each new customer’s first payment (after any free trial, before tax), one time per customer. It becomes payable ' + j.hold_days + ' days later if it wasn’t refunded. New sales show up within a day.' + (me.handle ? '' : ' Add your payout details below so we can pay you.');
+    });
+  }
+  $('#ajGo').addEventListener('click', function(){
+    var b = this, msg = $('#ajMsg');
+    b.disabled = true; say(msg, 'Sending…');
+    post({ action:'join', name:$('#ajName').value, email:$('#ajEmail').value, agree:$('#ajAgree').checked }).then(function(j){
+      b.disabled = false;
+      if (!j.ok) return say(msg, j.error || 'Something went wrong.', true);
+      say(msg, (j.new ? 'Welcome! ' : '') + 'Check your email for your sign-in link (and your spam folder). It works for ' + 20 + ' minutes.');
+    });
+  });
+  $('#afCopy').addEventListener('click', function(){
+    var v = $('#afLink').value;
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function(){ toast('Link copied'); }, function(){ $('#afLink').select(); document.execCommand('copy'); toast('Link copied'); });
+  });
+  $('#adSave').addEventListener('click', function(){
+    var b = this; b.disabled = true;
+    post({ action:'details', name:$('#adName').value, handle:$('#adHandle').value }).then(function(j){ b.disabled = false; if (!j.ok) return say($('#adMsg'), j.error || 'Couldn’t save.', true); say($('#adMsg'), ''); toast('Saved'); load(); });
+  });
+  $('#afOut').addEventListener('click', function(){ post({ action:'logout' }).then(function(){ toast('Signed out'); load(); }); });
+
+  if (IS_AFFILIATES){
+    var m = /[?&]aff=(\w+)/.exec(location.search);
+    if (m){ try { history.replaceState(null, '', location.pathname); } catch(e){} if (m[1] === 'ok') toast('You’re signed in'); else setTimeout(function(){ say($('#ajMsg'), 'That sign-in link expired or was already used. Enter your email for a new one.', true); }, 600); }
+    load();
+  }
+})();
+
+/* Affiliate links (?ref=code on any page): remember the code for 60 days and count the visit. */
+(function(){
+  var m = /[?&]ref=([A-Za-z0-9_-]{3,40})(?:&|$)/.exec(location.search); if (!m) return;
+  var code = m[1].toLowerCase();
+  try { localStorage.setItem('cn_ref', code); localStorage.setItem('cn_ref_t', String(Date.now())); } catch(e){}
+  fetch('api/affiliate.php?click=' + encodeURIComponent(code), { credentials:'same-origin' }).catch(function(){});
+  try { var q = location.search.replace(/([?&])ref=[^&]*&?/, '$1').replace(/[?&]$/, ''); history.replaceState(null, '', location.pathname + q + location.hash); } catch(e){}
+})();
+
 /* ---------- Studio and Campaigns pages ---------- */
 (function(){
-  var PAGE = IS_STUDIO ? 'studio' : IS_CAMPAIGNS ? 'campaigns' : IS_STATS ? 'stats' : 'home';
+  var PAGE = IS_STUDIO ? 'studio' : IS_CAMPAIGNS ? 'campaigns' : IS_STATS ? 'stats' : IS_AFFILIATES ? 'affiliates' : 'home';
   $$('.nav-links [data-page]').forEach(function(a){ a.classList.toggle('on', a.dataset.page === PAGE); });
   if (IS_SUBPAGE) $$('.tabbar [data-page="' + PAGE + '"]').forEach(function(a){ a.classList.add('on'); });
   if (!IS_SUBPAGE) return;
-  document.title = (IS_STUDIO ? 'Studio' : IS_CAMPAIGNS ? 'Campaigns' : 'My stats') + ' · ClipNow';
+  document.title = (IS_STUDIO ? 'Studio' : IS_CAMPAIGNS ? 'Campaigns' : IS_STATS ? 'My stats' : 'Affiliates') + ' · ClipNow';
   var canon = document.querySelector('link[rel=canonical]'); if (canon) canon.href = 'https://clipnow.vip/' + PAGE;
   // Links to home page sections go to the home page
   $$('a[href^="#"]').forEach(function(a){

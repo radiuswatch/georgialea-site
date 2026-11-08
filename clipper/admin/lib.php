@@ -21,6 +21,7 @@ const CN_PLANS = [
   'starter' => ['name' => 'Silver',   'cents' => [999, 9990]],
   'pro'     => ['name' => 'Gold',     'cents' => [1999, 19990]],
   'agency'  => ['name' => 'Platinum', 'cents' => [3999, 39990, 9999, 99990]], // 99.99 was the launch price
+  'corporate' => ['name' => 'Corporate', 'cents' => [29999]],                // monthly only, no trial
 ];
 const CN_LATE = ['past_due', 'unpaid'];
 
@@ -156,7 +157,7 @@ function cn_shape(array $s): array {
   ];
 }
 
-/** 'starter' | 'pro' | 'agency' | '' for a subscription's price. */
+/** 'starter' | 'pro' | 'agency' | 'corporate' | '' for a subscription's price. */
 function cn_plan_key(string $key, int $unitCents): string {
   if (isset(CN_PLANS[$key])) return $key;
   foreach (CN_PLANS as $k => $p) if (in_array($unitCents, $p['cents'], true)) return $k;
@@ -608,7 +609,31 @@ function cn_run_auto(array $subs, bool $force = false): array {
 const CN_CAMP_PLATFORMS = ['tiktok' => 'TikTok', 'youtube' => 'YouTube Shorts', 'instagram' => 'Instagram Reels', 'facebook' => 'Facebook Reels', 'snapchat' => 'Snapchat', 'x' => 'X'];
 const CN_CAMP_SHOT_BYTES = 6 * 1048576;
 
-function cn_is_platinum(?array $m): bool { return $m !== null && !empty($m['active']) && ($m['plan_key'] ?? '') === 'agency'; }
+/** Campaigns are for Platinum and Corporate (Corporate includes everything in Platinum). */
+function cn_is_platinum(?array $m): bool { return $m !== null && !empty($m['active']) && in_array($m['plan_key'] ?? '', ['agency', 'corporate'], true); }
+
+/** New campaigns a member may still create this calendar month: null = unlimited (Corporate), else 0-3 (Platinum). */
+const CN_PLATINUM_CAMPAIGNS_PER_MONTH = 3;
+function cn_camp_quota(array $m): array {
+  if (($m['plan_key'] ?? '') === 'corporate') return ['limit' => null, 'used' => 0, 'left' => null, 'resets' => 0];
+  $me = strtolower((string)$m['email']);
+  $start = mktime(0, 0, 0, (int)date('n'), 1, (int)date('Y'));
+  $used = 0;
+  foreach (cn_camp_all() as $c) if ($c['owner'] === $me && (int)$c['created'] >= $start) $used++;
+  // Campaigns deleted since still count, so deleting doesn't free up a slot.
+  $log = cn_read('campaign-starts.json', []);
+  $mine = array_values(array_filter($log[$me] ?? [], fn($t) => $t >= $start));
+  $used = max($used, count($mine));
+  return ['limit' => CN_PLATINUM_CAMPAIGNS_PER_MONTH, 'used' => $used, 'left' => max(0, CN_PLATINUM_CAMPAIGNS_PER_MONTH - $used),
+    'resets' => mktime(0, 0, 0, (int)date('n') + 1, 1, (int)date('Y'))];
+}
+function cn_camp_note_start(string $email): void {
+  $log = cn_read('campaign-starts.json', []);
+  $cut = time() - 62 * 86400;
+  $log[$email] = array_values(array_filter($log[$email] ?? [], fn($t) => $t > $cut));
+  $log[$email][] = time();
+  cn_write('campaign-starts.json', $log);
+}
 function cn_camp_id_ok($id): bool { return is_string($id) && (bool)preg_match('/^c[a-z0-9]{12}$/', $id); }
 function cn_camp_new_id(): string { return 'c' . substr(bin2hex(random_bytes(8)), 0, 12); }
 function cn_camp_file(string $id): string { return cn_dir('campaigns') . '/' . $id . '.json'; }
@@ -661,6 +686,31 @@ function cn_camp_paid(array $c, string $email = ''): int {
   $paid = $c['paid'] ?? [];
   return $email === '' ? (int)array_sum($paid) : (int)($paid[$email] ?? 0);
 }
+/** Save a campaign cover image: resized to 1280px wide and re-saved as JPEG (strips anything hidden in the file). */
+const CN_CAMP_IMG_BYTES = 8 * 1048576;
+function cn_camp_save_image(string $id, string $tmp): string {
+  $info = @getimagesize($tmp);
+  if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) throw new InvalidArgumentException('The cover must be a JPG, PNG or WebP image.');
+  [$w, $h] = $info;
+  if ($w < 300 || $h < 150) throw new InvalidArgumentException('That image is too small. Use one at least 300 pixels wide (1280 × 720 looks best).');
+  $dest = cn_dir('campaign-images') . '/' . $id . '.jpg';
+  if (function_exists('imagecreatetruecolor')) {
+    $src = match ($info[2]) { IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp), IMAGETYPE_PNG => @imagecreatefrompng($tmp), IMAGETYPE_WEBP => @imagecreatefromwebp($tmp), default => false };
+    if (!$src) throw new InvalidArgumentException('That image couldn\'t be read. Try another file.');
+    $nw = min(1280, $w); $nh = (int)round($h * $nw / $w);
+    $out = imagecreatetruecolor($nw, $nh);
+    imagefill($out, 0, 0, imagecolorallocate($out, 11, 13, 11));
+    imagecopyresampled($out, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+    imagejpeg($out, $dest, 84);
+    imagedestroy($src); imagedestroy($out);
+  } else {
+    if ($info[2] !== IMAGETYPE_JPEG) throw new InvalidArgumentException('Please upload a JPG image.');
+    copy($tmp, $dest);
+  }
+  @chmod($dest, 0600);
+  return basename($dest);
+}
+
 function cn_camp_log(array $entry): void {
   if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
   file_put_contents(CN_DATA . '/campaign-log.jsonl', json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
@@ -675,7 +725,7 @@ const CN_AI_MODEL = 'claude-opus-5-5';
 const CN_AI_MAX_SEARCHES = 8;
 
 function cn_trending(): array { return cn_read('trending-campaigns.json', ['updated' => 0, 'items' => [], 'last_try' => 0, 'error' => '']); }
-function cn_can_see_trending(?array $m): bool { return $m !== null && !empty($m['active']) && in_array($m['plan_key'] ?? '', ['pro', 'agency'], true); }
+function cn_can_see_trending(?array $m): bool { return $m !== null && !empty($m['active']) && in_array($m['plan_key'] ?? '', ['pro', 'agency', 'corporate'], true); }
 
 /** One Messages API call. Returns the decoded response or throws with Anthropic's error message. */
 function cn_claude(array $body, array $betas = []): array {
@@ -919,4 +969,165 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
     }
   }
   return $calls;
+}
+
+/* ---------- Affiliate program ----------
+ * Anyone can sign up (email link sign-in, separate from member accounts) and gets a link
+ * clipnow.vip/?ref=CODE. The site remembers the code for 60 days and passes it to Stripe
+ * checkout as client_reference_id "aff_CODE". Once a day cn_aff_sync() matches completed
+ * checkouts to affiliates and pays 50% of each new customer's first real payment (after any
+ * trial, before tax), one time per sale, payable after a 14-day hold if not refunded.
+ * Payouts are made by the owner (PayPal etc.) and recorded in the admin portal.
+ * Data: ~/clipnow-data/affiliates.json and referrals.json.
+ */
+const CN_AFF_RATE = 0.50;
+const CN_AFF_HOLD_DAYS = 14;
+const CN_AFF_COOKIE = 'cn_aff';
+
+/** Read-modify-write a JSON file in ~/clipnow-data under a lock. $fn gets the data by reference. */
+function cn_locked(string $file, callable $fn) {
+  if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
+  $h = fopen(CN_DATA . '/' . $file, 'c+');
+  if (!$h || !flock($h, LOCK_EX)) throw new RuntimeException('Busy, please try again.');
+  try {
+    $d = json_decode((string)stream_get_contents($h), true) ?: [];
+    $r = $fn($d);
+    ftruncate($h, 0); rewind($h); fwrite($h, json_encode($d, JSON_UNESCAPED_SLASHES)); fflush($h);
+    @chmod(CN_DATA . '/' . $file, 0600);
+    return $r;
+  } finally { flock($h, LOCK_UN); fclose($h); }
+}
+function cn_affs(): array { $d = cn_read('affiliates.json', []); return $d + ['by_id' => [], 'codes' => [], 'emails' => []]; }
+function cn_refs(): array { return cn_read('referrals.json', []); }
+
+/** Find or create an affiliate for this email. */
+function cn_aff_join(string $email, string $name): array {
+  $email = strtolower(trim($email));
+  return cn_locked('affiliates.json', function (&$d) use ($email, $name) {
+    $d += ['by_id' => [], 'codes' => [], 'emails' => []];
+    if (isset($d['emails'][$email])) return $d['by_id'][$d['emails'][$email]];
+    $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower($name !== '' ? $name : explode('@', $email)[0])), 0, 14) ?: 'clip';
+    do { $code = $base . random_int(10, 999); } while (isset($d['codes'][$code]));
+    $id = 'a' . bin2hex(random_bytes(6));
+    $d['by_id'][$id] = ['id' => $id, 'email' => $email, 'name' => $name, 'code' => $code, 'handle' => '', 'created' => time(), 'status' => 'active', 'clicks' => 0, 'paid_cents' => 0, 'payouts' => []];
+    $d['codes'][$code] = $id; $d['emails'][$email] = $id;
+    return $d['by_id'][$id];
+  });
+}
+function cn_aff_send_link(array $a): bool {
+  $token = cn_token();
+  file_put_contents(cn_token_file('aff-logins', $token), json_encode(['id' => $a['id'], 'exp' => time() + CN_LINK_MINUTES * 60]), LOCK_EX);
+  $link = CN_SITE . '/api/affiliate.php?t=' . $token;
+  $hi = trim(explode(' ', (string)$a['name'])[0] ?? '') ?: 'there';
+  return cn_send_mail($a['email'], 'Your ' . CN_BRAND . ' affiliate sign-in link',
+    "Hi $hi,\n\nTap the link below to open your " . CN_BRAND . " affiliate dashboard:\n$link\n\nIt works once and expires in " . CN_LINK_MINUTES . " minutes. If you didn't ask for it, you can ignore this email.\n\nThanks,\nThe " . CN_BRAND . " team\n" . CN_SITE . "\n");
+}
+function cn_aff_use_link(string $token): ?string {
+  if (!preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) return null;
+  $f = cn_token_file('aff-logins', $token); $j = cn_json_file($f, null);
+  if (is_file($f)) unlink($f);
+  return ($j && ($j['exp'] ?? 0) >= time()) ? $j['id'] : null;
+}
+function cn_aff_start_session(string $id): void {
+  $token = cn_token(); $exp = time() + CN_SESSION_DAYS * 86400;
+  file_put_contents(cn_token_file('aff-sessions', $token), json_encode(['id' => $id, 'exp' => $exp]), LOCK_EX);
+  setcookie(CN_AFF_COOKIE, $token, ['expires' => $exp, 'path' => '/', 'secure' => str_starts_with(CN_SITE, 'https://'), 'httponly' => true, 'samesite' => 'Lax']);
+}
+function cn_aff_current(): ?array {
+  $token = (string)($_COOKIE[CN_AFF_COOKIE] ?? '');
+  if (!preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) return null;
+  $s = cn_json_file(cn_token_file('aff-sessions', $token), null);
+  if (!$s || ($s['exp'] ?? 0) < time()) return null;
+  $a = cn_affs()['by_id'][$s['id']] ?? null;
+  return ($a && $a['status'] === 'active') ? $a : null;
+}
+function cn_aff_end_session(): void {
+  $token = (string)($_COOKIE[CN_AFF_COOKIE] ?? '');
+  if (preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) { $f = cn_token_file('aff-sessions', $token); if (is_file($f)) unlink($f); }
+  setcookie(CN_AFF_COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'secure' => str_starts_with(CN_SITE, 'https://'), 'httponly' => true, 'samesite' => 'Lax']);
+}
+
+/** Money and counts for one affiliate. */
+function cn_aff_summary(array $a, ?array $refs = null): array {
+  $refs = $refs ?? cn_refs(); $now = time();
+  $o = ['signups' => 0, 'sales' => 0, 'earned_cents' => 0, 'pending_cents' => 0, 'payable_cents' => 0, 'list' => []];
+  foreach ($refs as $r) {
+    if ($r['aff'] !== $a['id']) continue;
+    $o['signups']++;
+    if ($r['status'] === 'earned') {
+      $o['sales']++; $o['earned_cents'] += $r['commission_cents'];
+      if ($r['payable_at'] <= $now) $o['payable_cents'] += $r['commission_cents']; else $o['pending_cents'] += $r['commission_cents'];
+    }
+    $o['list'][] = $r;
+  }
+  usort($o['list'], fn($x, $y) => $y['created'] <=> $x['created']);
+  $o['paid_cents'] = (int)($a['paid_cents'] ?? 0);
+  $o['balance_cents'] = max(0, $o['payable_cents'] - $o['paid_cents']);
+  return $o;
+}
+
+/** Match new Stripe checkouts to affiliates and work out commissions. Returns a short report. */
+function cn_aff_sync(): array {
+  $rep = ['new' => 0, 'earned' => 0, 'void' => 0];
+  $affs = cn_affs(); if (!$affs['by_id']) return $rep;
+  $state = cn_read('aff-sync.json', ['last' => 0]);
+  $since = max(0, (int)$state['last'] - 3600) ?: time() - 90 * 86400;
+  $found = []; $after = null;
+  for ($page = 0; $page < 10; $page++) {
+    $q = ['limit' => 100, 'status' => 'complete', 'created' => ['gte' => $since]];
+    if ($after) $q['starting_after'] = $after;
+    $r = cn_stripe('GET', '/v1/checkout/sessions', $q);
+    foreach ($r['data'] ?? [] as $cs) {
+      $ref = (string)($cs['client_reference_id'] ?? '');
+      if (!str_starts_with($ref, 'aff_') || empty($cs['subscription'])) continue;
+      $aid = $affs['codes'][substr($ref, 4)] ?? null; if (!$aid) continue;
+      $a = $affs['by_id'][$aid];
+      $email = strtolower((string)($cs['customer_details']['email'] ?? ''));
+      if ($email !== '' && $email === $a['email']) continue;   // no self-referrals
+      $found[$cs['id']] = ['aff' => $aid, 'session' => $cs['id'], 'customer' => (string)($cs['customer'] ?? ''), 'subscription' => (string)$cs['subscription'],
+        'who' => $email !== '' ? substr($email, 0, 2) . '•••@' . (explode('@', $email)[1] ?? '') : 'customer', 'email' => $email,
+        'created' => (int)$cs['created'], 'status' => 'signed_up', 'plan' => '', 'commission_cents' => 0, 'payable_at' => 0, 'charge' => ''];
+    }
+    if (empty($r['has_more']) || empty($r['data'])) break;
+    $after = end($r['data'])['id'];
+  }
+  $refs = cn_refs();
+  // One commission per customer: skip a checkout from a customer who was already referred.
+  $seen = []; foreach ($refs as $r) { if ($r['customer'] !== '') $seen['c:' . $r['customer']] = true; if ($r['email'] !== '') $seen['e:' . $r['email']] = true; }
+  foreach ($found as $sid => $r) {
+    if (isset($refs[$sid]) || ($r['customer'] !== '' && isset($seen['c:' . $r['customer']])) || ($r['email'] !== '' && isset($seen['e:' . $r['email']]))) continue;
+    $refs[$sid] = $r; $seen['c:' . $r['customer']] = true; $seen['e:' . $r['email']] = true; $rep['new']++;
+  }
+  $now = time();
+  foreach ($refs as $sid => &$r) {
+    try {
+      if ($r['status'] === 'signed_up') {
+        $inv = cn_stripe('GET', '/v1/invoices', ['subscription' => $r['subscription'], 'status' => 'paid', 'limit' => 10]);
+        $paid = array_values(array_filter($inv['data'] ?? [], fn($i) => (int)($i['amount_paid'] ?? 0) > 0));
+        usort($paid, fn($x, $y) => $x['created'] <=> $y['created']);
+        if ($paid) {
+          $i = $paid[0];
+          $base = (int)$i['amount_paid'] - (int)($i['tax'] ?? 0);
+          $r['commission_cents'] = (int)round($base * CN_AFF_RATE);
+          $r['sale_cents'] = $base;
+          $r['plan'] = cn_plan_name('', (int)($i['lines']['data'][0]['price']['unit_amount'] ?? 0), '');
+          $r['charge'] = (string)($i['charge'] ?? '');
+          $r['earned_at'] = (int)($i['status_transitions']['paid_at'] ?? $i['created']);
+          $r['payable_at'] = $r['earned_at'] + CN_AFF_HOLD_DAYS * 86400;
+          $r['status'] = 'earned'; $rep['earned']++;
+        } elseif ($r['created'] < $now - 45 * 86400) {
+          $r['status'] = 'void'; $r['why'] = 'No payment (trial ended or canceled)'; $rep['void']++;
+        }
+      } elseif ($r['status'] === 'earned' && $r['payable_at'] > $now - 86400 && $r['charge'] !== '') {
+        $ch = cn_stripe('GET', '/v1/charges/' . rawurlencode($r['charge']));
+        if (!empty($ch['refunded']) || (int)($ch['amount_refunded'] ?? 0) > 0 || !empty($ch['disputed'])) {
+          $r['status'] = 'void'; $r['why'] = 'Payment refunded or disputed'; $rep['void']++;
+        }
+      }
+    } catch (Throwable $e) { $r['last_error'] = $e->getMessage(); }
+  }
+  unset($r);
+  cn_write('referrals.json', $refs);
+  cn_write('aff-sync.json', ['last' => $now, 'report' => $rep]);
+  return $rep;
 }

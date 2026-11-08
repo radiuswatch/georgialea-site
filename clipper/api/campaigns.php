@@ -34,6 +34,7 @@ function camp_public(array $c, string $me): array {
     'status' => camp_status($c), 'created' => $c['created'],
     'clippers' => count($c['clippers']), 'approved_views' => $approvedViews,
     'mine' => $mine, 'joined' => $joined,
+    'image' => !empty($c['image']) ? 'api/campaigns.php?img=' . $c['id'] . '&v=' . (int)($c['image_at'] ?? 0) : '',
   ];
   if ($mine || $joined) $out['source'] = $c['source'];
   if ($joined) {
@@ -117,6 +118,14 @@ try {
     if (!$m) cn_json_out(['ok' => false, 'signedIn' => false, 'error' => 'Please sign in first.'], 401);
     if (!$plat) cn_json_out(['ok' => false, 'signedIn' => true, 'platinum' => false, 'error' => 'Campaigns are part of the Platinum plan.'], 403);
 
+    if (isset($_GET['img'])) {
+      $c = cn_camp_load((string)$_GET['img']);
+      if (!$c || empty($c['image']) || (!empty($c['hidden']) && $c['owner'] !== $me)) { http_response_code(404); exit; }
+      $file = cn_dir('campaign-images') . '/' . basename($c['image']);
+      if (!is_file($file)) { http_response_code(404); exit; }
+      header('Content-Type: image/jpeg'); header('Cache-Control: private, max-age=604800'); header('X-Content-Type-Options: nosniff');
+      readfile($file); exit;
+    }
     if (isset($_GET['shot'])) {
       $c = cn_camp_load((string)($_GET['id'] ?? ''));
       $sid = (string)$_GET['shot'];
@@ -142,12 +151,12 @@ try {
       $p['about'] = mb_substr($p['about'], 0, 220);
       $list[] = $p;
     }
-    cn_json_out(['ok' => true, 'platinum' => true, 'me' => $me, 'campaigns' => $list]);
+    cn_json_out(['ok' => true, 'platinum' => true, 'me' => $me, 'campaigns' => $list, 'quota' => cn_camp_quota($m)]);
   }
 
   /* ---------- Changes ---------- */
   if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
-  if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) cn_json_out(['ok' => false, 'error' => 'That screenshot is too big (6 MB max).'], 413);
+  if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) cn_json_out(['ok' => false, 'error' => 'That file is too big (8 MB max for images, 6 MB for screenshots).'], 413);
   if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
   if (!$plat) cn_json_out(['ok' => false, 'error' => 'Campaigns are part of the Platinum plan.'], 403);
   $in = camp_body();
@@ -158,10 +167,11 @@ try {
   if ($act === 'create') {
     $f = camp_fields($in, false);
     if (is_string($f)) cn_json_out(['ok' => false, 'error' => $f], 422);
-    $mine = count(array_filter(cn_camp_all(), fn($c) => $c['owner'] === $me && camp_status($c) === 'open'));
-    if ($mine >= 10) cn_json_out(['ok' => false, 'error' => 'You have 10 open campaigns. Close one before starting another.'], 422);
+    $q = cn_camp_quota($m);
+    if ($q['limit'] !== null && $q['left'] < 1) cn_json_out(['ok' => false, 'error' => 'Platinum includes ' . $q['limit'] . ' new campaigns a month, and you’ve used them all. You can start more on ' . date('F j', $q['resets']) . ', or upgrade to Corporate for unlimited campaigns.'], 422);
     $c = cn_camp_create($f + ['owner' => $me, 'status' => 'open', 'hidden' => false, 'created' => time(), 'updated' => time(),
       'clippers' => (object)[], 'submissions' => [], 'paid' => (object)[], 'reports' => []]);
+    cn_camp_note_start($me);
     cn_camp_log(['event' => 'created', 'id' => $c['id'], 'title' => $c['title'], 'email' => $me]);
     $c = cn_camp_load($c['id']);
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
@@ -181,6 +191,21 @@ try {
       if (is_string($f)) cn_json_out(['ok' => false, 'error' => $f], 422);
       $c = cn_camp_update($id, function (&$c) use ($f) { $c = array_merge($c, $f); });
     }
+    cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
+  }
+
+  if ($act === 'image' || $act === 'image_remove') {
+    if (!$owner) cn_json_out(['ok' => false, 'error' => 'Only the campaign\'s creator can change its image.'], 403);
+    if ($act === 'image_remove') {
+      if (!empty($c['image'])) @unlink(cn_dir('campaign-images') . '/' . basename($c['image']));
+      $c = cn_camp_update($id, function (&$c) { $c['image'] = ''; $c['image_at'] = time(); });
+      cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
+    }
+    $f = $_FILES['image'] ?? null;
+    if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'The image didn\'t upload. Please try again.'], 422);
+    if ($f['size'] > CN_CAMP_IMG_BYTES) cn_json_out(['ok' => false, 'error' => 'That image is too big (8 MB max).'], 413);
+    $name = cn_camp_save_image($id, $f['tmp_name']);
+    $c = cn_camp_update($id, function (&$c) use ($name) { $c['image'] = $name; $c['image_at'] = time(); });
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
   }
 

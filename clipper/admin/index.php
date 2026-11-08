@@ -64,6 +64,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($do === 'logout') { $_SESSION = []; session_destroy(); header('Location: ./'); exit; }
 
+  if ($do === 'corporate_create') {
+    try {
+      $live = str_starts_with((string)$cfg['stripe_key'], 'sk_live') || str_starts_with((string)$cfg['stripe_key'], 'rk_live');
+      $prod = cn_stripe('POST', '/v1/products', ['name' => 'ClipNow Corporate', 'description' => 'Everything in Silver, Gold and Platinum, with unlimited campaigns.', 'metadata' => ['plan' => 'corporate']]);
+      $price = cn_stripe('POST', '/v1/prices', ['product' => $prod['id'], 'unit_amount' => 29999, 'currency' => 'usd', 'recurring' => ['interval' => 'month'], 'nickname' => 'Corporate monthly', 'metadata' => ['plan' => 'corporate']]);
+      $pl = cn_stripe('POST', '/v1/payment_links', ['line_items' => [['price' => $price['id'], 'quantity' => 1]], 'allow_promotion_codes' => 'true',
+        'subscription_data' => ['metadata' => ['plan' => 'corporate']], 'metadata' => ['plan' => 'corporate'],
+        'after_completion' => ['type' => 'redirect', 'redirect' => ['url' => CN_SITE . '/api/welcome.php?session_id={CHECKOUT_SESSION_ID}']]]);
+      $cfg['corporate_link'] = (string)$pl['url']; $cfg['corporate_price'] = $price['id']; $cfg['corporate_mode'] = $live ? 'live' : 'test';
+      cn_save_config($cfg);
+      flash('Corporate plan created in Stripe (' . ($live ? 'live' : 'test') . ' mode). The Corporate button on the pricing page now opens its checkout.');
+    } catch (Throwable $ex) { flash('Stripe said: ' . $ex->getMessage(), false); }
+    back('settings');
+  }
+
+  if ($do === 'aff_sync') {
+    try { $r = cn_aff_sync(); flash("Checked Stripe: {$r['new']} new referrals, {$r['earned']} commissions earned, {$r['void']} voided."); }
+    catch (Throwable $ex) { flash('Stripe said: ' . $ex->getMessage(), false); }
+    back('affiliates');
+  }
+  if (in_array($do, ['aff_payout', 'aff_disable', 'aff_enable'], true)) {
+    $aid = (string)($_POST['aff'] ?? '');
+    $amt = (int)round((float)str_replace([',', '$'], '', (string)($_POST['amount'] ?? '0')) * 100);
+    if ($do === 'aff_payout' && $amt < 1) { flash('Enter the amount you paid.', false); back('affiliates'); }
+    $ok = cn_locked('affiliates.json', function (&$d) use ($aid, $do, $amt) {
+      if (!isset($d['by_id'][$aid])) return false;
+      if ($do === 'aff_payout') { $d['by_id'][$aid]['paid_cents'] = (int)($d['by_id'][$aid]['paid_cents'] ?? 0) + $amt; $d['by_id'][$aid]['payouts'][] = ['cents' => $amt, 'at' => time()]; }
+      else $d['by_id'][$aid]['status'] = $do === 'aff_disable' ? 'disabled' : 'active';
+      return true;
+    });
+    flash($ok ? ['aff_payout' => 'Payout recorded.', 'aff_disable' => 'Affiliate closed. Their link stops earning.', 'aff_enable' => 'Affiliate reopened.'][$do] : 'That affiliate wasn\'t found.', $ok);
+    back('affiliates');
+  }
+
   if ($do === 'trending_run') {
     if ((string)($cfg['anthropic_key'] ?? '') === '') { flash('Add your Anthropic API key in Settings first.', false); back('settings'); }
     $t = cn_trending_run();
@@ -77,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$c) { flash('That campaign no longer exists.', false); back('campaigns'); }
     if ($do === 'camp_delete') {
       foreach ($c['submissions'] as $sub) if (($sub['shot'] ?? '') !== '') @unlink(cn_dir('campaign-shots') . '/' . basename($sub['shot']));
+      if (!empty($c['image'])) @unlink(cn_dir('campaign-images') . '/' . basename($c['image']));
       @unlink(cn_camp_file($cid));
       cn_camp_log(['event' => 'deleted by admin', 'id' => $cid, 'title' => $c['title'], 'email' => $c['owner']]);
       flash('Deleted "' . $c['title'] . '" and its screenshots.');
@@ -309,6 +344,7 @@ $view = $_GET['view'] ?? 'subs';
       <a href="./" class="<?= $view === 'subs' ? 'on' : '' ?>">Subscriptions</a>
       <a href="?view=codes" class="<?= $view === 'codes' ? 'on' : '' ?>">Family codes</a>
       <a href="?view=campaigns" class="<?= $view === 'campaigns' ? 'on' : '' ?>">Campaigns</a>
+      <a href="?view=affiliates" class="<?= $view === 'affiliates' ? 'on' : '' ?>">Affiliates</a>
       <a href="?view=log" class="<?= $view === 'log' ? 'on' : '' ?>">Notice log</a>
       <a href="?view=settings" class="<?= $view === 'settings' ? 'on' : '' ?>">Settings</a>
       <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="logout">Sign out</button></form>
@@ -476,6 +512,59 @@ $view = $_GET['view'] ?? 'subs';
     setTimeout(function(){ b.textContent=b.dataset.copy==='newCode'?'Copy code':'Copy message'; },1500); }); });
   </script>
 
+<?php elseif ($view === 'affiliates'):
+  $affs = cn_affs()['by_id']; $refs = cn_refs(); $sync = cn_read('aff-sync.json', ['last' => 0]);
+  $money = fn($c) => '$' . number_format($c / 100, 2);
+  $rows = []; $tot = ['earned' => 0, 'balance' => 0, 'paid' => 0, 'sales' => 0];
+  foreach ($affs as $a) { $s = cn_aff_summary($a, $refs); $rows[] = [$a, $s]; $tot['earned'] += $s['earned_cents']; $tot['balance'] += $s['balance_cents']; $tot['paid'] += $s['paid_cents']; $tot['sales'] += $s['sales']; }
+  usort($rows, fn($x, $y) => $y[1]['balance_cents'] <=> $x[1]['balance_cents'] ?: $y[1]['earned_cents'] <=> $x[1]['earned_cents']);
+?>
+  <div class="panel">
+    <h2>Affiliates</h2>
+    <p>Anyone can join at clipnow.vip/affiliates. They earn <?= (int)(CN_AFF_RATE * 100) ?>% of each new customer's first payment (after any trial, before tax), one time per sale. A commission becomes payable <?= CN_AFF_HOLD_DAYS ?> days after the payment if it wasn't refunded. You pay affiliates yourself, then record it here.
+      Stripe is checked once a day by the cron job<?= $sync['last'] ? '; last check ' . e(date('M j, Y g:i a', (int)$sync['last'])) : '' ?>.</p>
+    <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="aff_sync" <?= $cfg['stripe_key'] === '' ? 'disabled' : '' ?>>Check Stripe for new referrals now</button></form>
+  </div>
+  <div class="stats">
+    <div class="stat"><b><?= count($affs) ?></b><span>Affiliates</span></div>
+    <div class="stat"><b><?= $tot['sales'] ?></b><span>Sales referred</span></div>
+    <div class="stat"><b><?= $money($tot['earned']) ?></b><span>Commissions earned</span></div>
+    <div class="stat"><b><?= $money($tot['balance']) ?></b><span>Ready to pay now</span></div>
+    <div class="stat"><b><?= $money($tot['paid']) ?></b><span>Paid out</span></div>
+  </div>
+  <div class="card"><div class="scroll">
+  <?php if (!$rows): ?><div class="empty">No affiliates yet. Share clipnow.vip/affiliates.</div><?php else: ?>
+  <table class="members"><thead><tr><th>Affiliate</th><th>Pay to</th><th>Clicks · sign-ups · sales</th><th>Earned · waiting</th><th>Ready to pay</th><th></th></tr></thead><tbody>
+  <?php foreach ($rows as [$a, $s]): ?>
+    <tr>
+      <td class="who"><b><?= e($a['name'] ?: $a['email']) ?></b><span><?= e($a['email']) ?> · code <?= e($a['code']) ?><?= $a['status'] !== 'active' ? ' · <b style="color:var(--warn)">closed</b>' : '' ?></span></td>
+      <td><?= e($a['handle'] ?: 'Not set yet') ?></td>
+      <td class="num"><?= (int)($a['clicks'] ?? 0) ?> · <?= $s['signups'] ?> · <?= $s['sales'] ?></td>
+      <td class="num"><?= $money($s['earned_cents']) ?><div class="sub"><?= $money($s['pending_cents']) ?> in the <?= CN_AFF_HOLD_DAYS ?>-day hold · <?= $money($s['paid_cents']) ?> paid</div></td>
+      <td class="num"><b><?= $money($s['balance_cents']) ?></b></td>
+      <td class="acts" style="white-space:nowrap">
+        <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="aff" value="<?= e($a['id']) ?>">
+          <input name="amount" inputmode="decimal" placeholder="Amount" value="<?= $s['balance_cents'] ? number_format($s['balance_cents'] / 100, 2, '.', '') : '' ?>" style="width:90px">
+          <button class="btn go" name="do" value="aff_payout">Record payout</button>
+          <?php if ($a['status'] === 'active'): ?><button class="btn warn" name="do" value="aff_disable" onclick="return confirm('Close this affiliate? Their link stops earning; what they already earned stays.')">Close</button><?php else: ?><button class="btn" name="do" value="aff_enable">Reopen</button><?php endif; ?>
+        </form>
+      </td>
+    </tr>
+  <?php endforeach; ?>
+  </tbody></table>
+  <?php endif; ?>
+  </div></div>
+  <?php if ($refs): uasort($refs, fn($x, $y) => $y['created'] <=> $x['created']); ?>
+  <div class="panel" style="margin-top:18px"><h2>Latest referrals</h2>
+    <table class="members"><thead><tr><th>Date</th><th>Affiliate</th><th>Customer</th><th>Status</th><th>Commission</th></tr></thead><tbody>
+    <?php foreach (array_slice($refs, 0, 50) as $r): $a = $affs[$r['aff']] ?? ['name' => '?', 'email' => '']; ?>
+      <tr><td class="num"><?= e(date('M j, Y', (int)$r['created'])) ?></td><td><?= e($a['name'] ?: $a['email']) ?></td><td><?= e($r['email'] ?: $r['who']) ?><div class="sub"><?= e($r['plan']) ?></div></td>
+        <td><?= ['signed_up' => 'Signed up, no payment yet', 'earned' => ($r['payable_at'] <= time() ? 'Earned, payable' : 'Earned, payable ' . date('M j', (int)$r['payable_at'])), 'void' => 'Void: ' . e($r['why'] ?? '')][$r['status']] ?? e($r['status']) ?></td>
+        <td class="num"><?= $r['status'] === 'earned' ? $money($r['commission_cents']) : '—' ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table></div>
+  <?php endif; ?>
+
 <?php elseif ($view === 'campaigns'):
   $camps = cn_camp_all();
   $reported = count(array_filter($camps, fn($c) => !empty($c['reports'])));
@@ -565,6 +654,12 @@ $view = $_GET['view'] ?? 'subs';
       <p>Lets members connect TikTok, YouTube, Instagram, Facebook and X and post clips straight from ClipNow. Paste your API key from Upload-Post → API Keys. Current key: <b><?= e($u === '' ? 'Not set' : substr($u, 0, 6) . '…' . substr($u, -4)) ?></b></p>
       <label for="upk">New key (leave blank to keep the current one)</label>
       <input id="upk" name="uploadpost_key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Upload-Post API key">
+    </div>
+    <div class="panel">
+      <h2>Corporate plan ($299.99/month)</h2>
+      <?php $cl = (string)($cfg['corporate_link'] ?? ''); $keyMode = str_contains((string)$cfg['stripe_key'], '_live_') ? 'live' : 'test'; ?>
+      <p><?php if ($cl === ''): ?>Not created in Stripe yet. The button below makes the product, the $299.99 monthly price (no free trial) and its checkout link using your Stripe key.<?php else: ?>Created in Stripe (<?= e($cfg['corporate_mode'] ?? '') ?> mode). Checkout link: <a href="<?= e($cl) ?>" target="_blank" rel="noopener" style="overflow-wrap:anywhere"><?= e($cl) ?></a><?php if (($cfg['corporate_mode'] ?? '') !== $keyMode): ?><br><b>Your Stripe key is now in <?= e($keyMode) ?> mode:</b> create it again so live customers can buy it.<?php endif; ?><?php endif; ?></p>
+      <button class="btn<?= $cl === '' ? ' go' : '' ?>" type="submit" name="do" value="corporate_create" formnovalidate onclick="return confirm('Create the Corporate plan in Stripe now?')"><?= $cl === '' ? 'Create Corporate plan in Stripe' : 'Create it again' ?></button>
     </div>
     <div class="panel">
       <h2>Anthropic (AI trending campaigns)</h2>

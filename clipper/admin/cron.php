@@ -17,6 +17,12 @@ if ((string)(cn_config()['anthropic_key'] ?? '') !== '') {
   }
 }
 
+// Affiliate referrals: match new checkouts and work out commissions
+if (cn_config()['stripe_key'] !== '') {
+  try { $a = cn_aff_sync(); echo "Affiliates: {$a['new']} new referrals, {$a['earned']} commissions earned, {$a['void']} voided\n"; }
+  catch (Throwable $e) { echo 'Affiliates: ' . $e->getMessage() . "\n"; }
+}
+
 if (cn_config()['stripe_key'] === '') { echo "Waiting for a Stripe key (admin portal → Settings).\n"; exit(0); }
 
 try {

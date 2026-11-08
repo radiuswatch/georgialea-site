@@ -12,6 +12,8 @@ RewriteRule ^campaigns/$ /campaigns [L,R=301]
 RewriteRule ^campaigns$ index.html [L]
 RewriteRule ^stats/$ /stats [L,R=301]
 RewriteRule ^stats$ index.html [L]
+RewriteRule ^affiliates/$ /affiliates [L,R=301]
+RewriteRule ^affiliates$ index.html [L]
 
 # Serve the app manifest with the right type
 AddType application/manifest+json .webmanifest
