@@ -84,6 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flash($ok ? ($do === 'site_live' ? 'ClipNow is live. Everyone sees the full site now.' : 'The coming-soon page is on. Visitors see it instead of the site.') : 'The server wouldn\'t let us change that file. Check the folder permissions.', $ok);
     back('site');
   }
+  if ($do === 'preview_newlink') {
+    $cfg['preview_key'] = bin2hex(random_bytes(12)); cn_save_config($cfg);
+    flash('New tester link made. The old link no longer works for new people (anyone who already opened it keeps access on that browser).');
+    back('site');
+  }
   if (in_array($do, ['preview_on', 'preview_off'], true)) {
     $on = $do === 'preview_on';
     setcookie('cn_preview', $on ? '1' : '', ['expires' => $on ? time() + 365 * 86400 : time() - 3600, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
@@ -535,6 +540,8 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
 
 <?php elseif ($view === 'site'):
   $live = cn_site_live(); $wl = cn_waitlist(); $preview = ($_COOKIE['cn_preview'] ?? '') === '1';
+  if (empty($cfg['preview_key'])) { $cfg['preview_key'] = bin2hex(random_bytes(12)); cn_save_config($cfg); }
+  $tlink = CN_SITE . '/api/preview.php?k=' . $cfg['preview_key'];
 ?>
   <div class="panel">
     <h2>Site status: <?= $live ? '<span style="color:var(--green)">Live</span>' : '<span style="color:var(--warn)">Coming soon</span>' ?></h2>
@@ -551,6 +558,16 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
       <?php if ($preview): ?><button class="btn" name="do" value="preview_off">Stop previewing</button> <a class="btn" href="/" target="_blank" rel="noopener">Open the site</a>
       <?php else: ?><button class="btn go" name="do" value="preview_on">Preview the full site on this browser</button><?php endif; ?>
     </form>
+  </div>
+  <div class="panel">
+    <h2>Tester link (for family and testers)</h2>
+    <p>Send this link to anyone who should keep testing the full site while visitors see the coming-soon page. Opening it once unlocks the full site on that phone or computer for 6 months. Keep it private: anyone with the link gets in.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="tlink" readonly value="<?= e($tlink) ?>" style="flex:1;min-width:260px" onclick="this.select()">
+      <button class="btn go" type="button" onclick="var i=document.getElementById('tlink');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>{this.textContent='Copied!'},()=>{document.execCommand('copy');this.textContent='Copied!'})">Copy link</button>
+    </div>
+    <p class="sub" style="margin-top:10px">To go back to what visitors see on a device, open <a href="<?= e(CN_SITE . '/api/preview.php?off=1') ?>"><?= e(CN_SITE . '/api/preview.php?off=1') ?></a>. Shared the link with the wrong person? Make a new one (the old link stops unlocking new devices).</p>
+    <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="preview_newlink" onclick="return confirm('Make a new tester link? The current link will stop working for new devices.')">Make a new link</button></form>
   </div>
   <div class="panel">
     <h2>Launch list (<?= count($wl) ?>)</h2>

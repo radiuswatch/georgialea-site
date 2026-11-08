@@ -3518,6 +3518,12 @@ if ('IntersectionObserver' in window){
   }
 })();
 
+/* Tester link (api/preview.php) lands here with ?preview=on. */
+if (/[?&]preview=on/.test(location.search)){
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
+  setTimeout(function(){ toast('Tester access is on for this device'); }, 600);
+}
+
 /* Affiliate links (?ref=code on any page): remember the code for 60 days and count the visit. */
 (function(){
   var m = /[?&]ref=([A-Za-z0-9_-]{3,40})(?:&|$)/.exec(location.search); if (!m) return;
