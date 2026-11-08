@@ -5,6 +5,15 @@ RewriteEngine On
 RewriteCond %{HTTPS} !=on
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Coming-soon mode: while there's no "site-live.on" file in this folder, the public pages show
+# coming-soon.html instead. Switch it in the admin portal (Site status). The admin portal, the API,
+# images and the policy pages are not affected. A browser with the cn_preview=1 cookie (set from the
+# admin portal) sees the real site.
+RewriteCond %{REQUEST_FILENAME} ^(.*/)[^/]*$
+RewriteCond %1site-live.on !-f
+RewriteCond %{HTTP_COOKIE} !(^|;\s*)cn_preview=1(;|$)
+RewriteRule ^(index\.html|studio/?|campaigns/?|stats/?|affiliates/?)?$ coming-soon.html [L]
+
 # The Studio page: clipnow.vip/studio is the same app file, showing only the Studio
 RewriteRule ^studio/$ /studio [L,R=301]
 RewriteRule ^studio$ index.html [L]

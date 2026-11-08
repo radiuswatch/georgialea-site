@@ -997,6 +997,15 @@ function cn_locked(string $file, callable $fn) {
     return $r;
   } finally { flock($h, LOCK_UN); fclose($h); }
 }
+/* ---------- Coming-soon mode ----------
+ * The site is live only while the file "site-live.on" sits next to index.html. Without it,
+ * .htaccess shows coming-soon.html on the public pages (admin, API and policy pages keep working).
+ * The file isn't part of the code, so deploying never switches the site on or off.
+ * Browsers with the cn_preview=1 cookie (set from the admin portal) still see the real site. */
+function cn_site_flag(): string { return dirname(__DIR__) . '/site-live.on'; }
+function cn_site_live(): bool { return is_file(cn_site_flag()); }
+function cn_waitlist(): array { $d = cn_read('waitlist.json', []); arsort($d); return $d; }
+
 function cn_affs(): array { $d = cn_read('affiliates.json', []); return $d + ['by_id' => [], 'codes' => [], 'emails' => []]; }
 function cn_refs(): array { return cn_read('referrals.json', []); }
 

@@ -79,6 +79,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     back('settings');
   }
 
+  if (in_array($do, ['site_live', 'site_soon'], true)) {
+    $ok = $do === 'site_live' ? @file_put_contents(cn_site_flag(), 'ClipNow is live since ' . date('c') . "\n") !== false : (!is_file(cn_site_flag()) || @unlink(cn_site_flag()));
+    flash($ok ? ($do === 'site_live' ? 'ClipNow is live. Everyone sees the full site now.' : 'The coming-soon page is on. Visitors see it instead of the site.') : 'The server wouldn\'t let us change that file. Check the folder permissions.', $ok);
+    back('site');
+  }
+  if (in_array($do, ['preview_on', 'preview_off'], true)) {
+    $on = $do === 'preview_on';
+    setcookie('cn_preview', $on ? '1' : '', ['expires' => $on ? time() + 365 * 86400 : time() - 3600, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
+    flash($on ? 'This browser now sees the full site, even while the coming-soon page is on.' : 'This browser now sees what visitors see.');
+    back('site');
+  }
+
   if ($do === 'aff_sync') {
     try { $r = cn_aff_sync(); flash("Checked Stripe: {$r['new']} new referrals, {$r['earned']} commissions earned, {$r['void']} voided."); }
     catch (Throwable $ex) { flash('Stripe said: ' . $ex->getMessage(), false); }
@@ -244,6 +256,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $view = $_GET['view'] ?? 'subs';
+if ($authed && $view === 'site' && isset($_GET['export'])) {
+  header('Content-Type: text/csv; charset=utf-8');
+  header('Content-Disposition: attachment; filename="clipnow-launch-list-' . date('Y-m-d') . '.csv"');
+  echo "email,joined\n";
+  foreach (cn_waitlist() as $em => $t) echo '"' . str_replace('"', '""', (string)$em) . '",' . date('Y-m-d H:i', (int)$t) . "\n";
+  exit;
+}
 ?><!doctype html>
 <html lang="en">
 <head>
@@ -345,12 +364,14 @@ $view = $_GET['view'] ?? 'subs';
       <a href="?view=codes" class="<?= $view === 'codes' ? 'on' : '' ?>">Family codes</a>
       <a href="?view=campaigns" class="<?= $view === 'campaigns' ? 'on' : '' ?>">Campaigns</a>
       <a href="?view=affiliates" class="<?= $view === 'affiliates' ? 'on' : '' ?>">Affiliates</a>
+      <a href="?view=site" class="<?= $view === 'site' ? 'on' : '' ?>">Site status</a>
       <a href="?view=log" class="<?= $view === 'log' ? 'on' : '' ?>">Notice log</a>
       <a href="?view=settings" class="<?= $view === 'settings' ? 'on' : '' ?>">Settings</a>
       <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="logout">Sign out</button></form>
     </nav>
   </header>
   <?php if ($flash): ?><div class="flash <?= $flash[1] ? '' : 'bad' ?>"><?= e($flash[0]) ?></div><?php endif; ?>
+  <?php if (!cn_site_live() && $view !== 'site'): ?><div class="flash bad">The site is in coming-soon mode: visitors see the coming-soon page. <a href="?view=site">Site status</a></div><?php endif; ?>
 
 <?php if ($view === 'subs'):
   $subs = []; $error = '';
@@ -511,6 +532,37 @@ $view = $_GET['view'] ?? 'subs';
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; }, function(){ if(el.select){el.select();} document.execCommand('copy'); b.textContent='Copied'; });
     setTimeout(function(){ b.textContent=b.dataset.copy==='newCode'?'Copy code':'Copy message'; },1500); }); });
   </script>
+
+<?php elseif ($view === 'site'):
+  $live = cn_site_live(); $wl = cn_waitlist(); $preview = ($_COOKIE['cn_preview'] ?? '') === '1';
+?>
+  <div class="panel">
+    <h2>Site status: <?= $live ? '<span style="color:var(--green)">Live</span>' : '<span style="color:var(--warn)">Coming soon</span>' ?></h2>
+    <p><?= $live ? 'Everyone sees the full ClipNow site.' : 'Visitors to clipnow.vip, /studio, /campaigns, /stats and /affiliates see the <a href="../coming-soon.html" target="_blank" rel="noopener">coming-soon page</a>, where they can join the launch list. This admin portal, sign-in links, Stripe checkout and the Terms, Privacy and Refunds pages keep working.' ?></p>
+    <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+      <?php if ($live): ?><button class="btn warn" name="do" value="site_soon" onclick="return confirm('Show the coming-soon page to visitors instead of the site?')">Switch to coming soon</button>
+      <?php else: ?><button class="btn go" name="do" value="site_live" onclick="return confirm('Open ClipNow to everyone now?')">Go live now</button><?php endif; ?>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>Preview the real site</h2>
+    <p>While the coming-soon page is on, you can still use the full site on this browser to test it. <?= $preview ? '<b>This browser is previewing the full site.</b>' : 'This browser sees what visitors see.' ?></p>
+    <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+      <?php if ($preview): ?><button class="btn" name="do" value="preview_off">Stop previewing</button> <a class="btn" href="/" target="_blank" rel="noopener">Open the site</a>
+      <?php else: ?><button class="btn go" name="do" value="preview_on">Preview the full site on this browser</button><?php endif; ?>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>Launch list (<?= count($wl) ?>)</h2>
+    <p>People who asked to be emailed when ClipNow opens. Download the list to email them on launch day.</p>
+    <?php if ($wl): ?>
+      <p><a class="btn" href="?view=site&amp;export=1">Download as a spreadsheet (CSV)</a></p>
+      <table class="members"><thead><tr><th>Email</th><th>Joined</th></tr></thead><tbody>
+      <?php foreach (array_slice($wl, 0, 200, true) as $em => $t): ?><tr><td><?= e($em) ?></td><td class="num"><?= e(date('M j, Y g:i a', (int)$t)) ?></td></tr><?php endforeach; ?>
+      </tbody></table>
+      <?php if (count($wl) > 200): ?><p class="sub">Showing the newest 200. The download has everyone.</p><?php endif; ?>
+    <?php else: ?><div class="empty">No one yet.</div><?php endif; ?>
+  </div>
 
 <?php elseif ($view === 'affiliates'):
   $affs = cn_affs()['by_id']; $refs = cn_refs(); $sync = cn_read('aff-sync.json', ['last' => 0]);
