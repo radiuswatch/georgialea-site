@@ -103,6 +103,17 @@
   .xp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .xp-row input[type=datetime-local]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;color:var(--text);color-scheme:dark}
   /* How-to video for scheduling */
+  .vid-row{display:grid;grid-template-columns:3.16fr 1fr;gap:16px;margin:24px 0 28px;align-items:start}
+  .vid-card{margin:0;min-width:0}
+  .vid-card video{display:block;width:100%;border-radius:14px;border:1px solid var(--line);background:#000}
+  .vid-card.wide video{aspect-ratio:16/9} .vid-card.tall video{aspect-ratio:9/16}
+  .vid-card figcaption{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-top:8px;font-size:14px;color:var(--text);font-weight:600}
+  .vid-card figcaption small{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap}
+  .vid-row.camp{grid-template-columns:230px 1fr;align-items:center;gap:26px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+  .vid-side h3{font-family:var(--sans);font-weight:600;font-size:21px;margin:0 0 8px}
+  .vid-side p{color:var(--muted);margin:0 0 12px}
+  .vid-side ol{margin:0;padding-left:20px;color:#CFD6CF} .vid-side li{margin:4px 0}
+  @media (max-width:700px){.vid-row,.vid-row.camp{grid-template-columns:1fr}.vid-card.tall{max-width:270px;width:100%;margin:0 auto}}
   .ap-howto{margin:4px 0 14px}
   .ap-howto summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:8px 14px 8px 8px;border:1px solid var(--green-dim);border-radius:999px;background:var(--green-deep);color:var(--text);font-size:14.5px;font-weight:600}
   .ap-howto summary::-webkit-details-marker{display:none}
@@ -586,9 +597,10 @@
   .tabbar .tab-daily{display:none!important}
   @media (max-width:700px){
     .tabbar{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,17,14,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
-    .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--faint);font-size:10.5px;padding:6px 0;min-height:48px;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap}
-    .tabbar a.on{color:var(--green)}
-    .tabbar svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9C4B9;font-size:10.5px;font-weight:500;padding:5px 0;min-height:50px;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap}
+    .tabbar svg{width:24px;height:24px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;box-sizing:content-box;padding:3px 14px;border-radius:999px;transition:background .2s}
+    .tabbar a.on{color:var(--green);font-weight:700}
+    .tabbar a.on svg{background:rgba(49,201,113,.2);stroke:#4BE38A}
     body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
     .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
     .search .btn{padding:12px 16px}
@@ -690,6 +702,21 @@
       <h2>Clip it right here, in your browser.</h2>
       <p class="sub">Every plan starts with a 7-day free trial. Your trial starts with your first export. Your video stays on your device; only clips you choose to auto-post are uploaded.</p>
       <div class="trial-bar" id="trialBar" hidden></div>
+    </div>
+
+    <div class="vid-row">
+      <figure class="vid-card wide">
+        <video controls playsinline preload="none" poster="explainer-poster.jpg" aria-label="ClipNow explainer video: how to turn one long video into short clips">
+          <source src="explainer.mp4" type="video/mp4"><a href="explainer.mp4">Watch the ClipNow explainer video</a>
+        </video>
+        <figcaption>How ClipNow works <small>Under a minute · sound on</small></figcaption>
+      </figure>
+      <figure class="vid-card tall">
+        <video controls playsinline preload="none" poster="schedule-explainer-poster.jpg" aria-label="Video: how to schedule a clip in ClipNow. Tap Schedule, pick a day, pick a time, check the summary and tap Schedule post.">
+          <source src="schedule-explainer.mp4" type="video/mp4"><a href="schedule-explainer.mp4">Watch how to schedule a post</a>
+        </video>
+        <figcaption>How to schedule a post <small>48 sec</small></figcaption>
+      </figure>
     </div>
 
     <div class="studio reveal">
@@ -797,13 +824,6 @@
 
         <div class="autopost" id="autopost">
           <div class="ap-head"><h4>Auto-post</h4><span class="ap-sub" id="apSub">Connect your accounts once, then post or schedule each clip in one tap.</span></div>
-          <details class="ap-howto" id="schHowto">
-            <summary><span class="play" aria-hidden="true">▶</span> Watch: how to schedule a post <small>48 sec</small></summary>
-            <video controls playsinline preload="none" poster="schedule-explainer-poster.jpg" aria-label="Video: how to schedule a clip in ClipNow. Tap Schedule, pick a day, pick a time, check the summary and tap Schedule post.">
-              <source src="schedule-explainer.mp4" type="video/mp4">
-              <a href="schedule-explainer.mp4">Watch how to schedule a post</a>
-            </video>
-          </details>
           <div class="ap-accts" id="apAccts"></div>
           <div class="ap-actions" id="apActions"></div>
           <p class="ap-note" id="apNote"></p>
@@ -829,13 +849,18 @@
     </div>
 
     <div class="cp-help">
-      <details class="ap-howto" id="cpHowto">
-        <summary><span class="play" aria-hidden="true">▶</span> Watch: how to create a campaign <small id="cpHowtoLen">60 sec</small></summary>
-        <video controls playsinline preload="none" poster="campaign-explainer-poster.jpg" aria-label="Video: how to create a paid clipping campaign in ClipNow, step by step.">
-          <source src="campaign-explainer.mp4" type="video/mp4">
-          <a href="campaign-explainer.mp4">Watch how to create a campaign</a>
-        </video>
-      </details>
+      <div class="vid-row camp">
+        <figure class="vid-card tall">
+          <video controls playsinline preload="none" poster="campaign-explainer-poster.jpg" aria-label="Video: how to create a paid clipping campaign in ClipNow, step by step.">
+            <source src="campaign-explainer.mp4" type="video/mp4"><a href="campaign-explainer.mp4">Watch how to create a campaign</a>
+          </video>
+        </figure>
+        <div class="vid-side">
+          <h3>Watch: how to create a campaign</h3>
+          <p>60 seconds, sound on. Then follow the step-by-step guides below.</p>
+          <ol><li>Tap <b>Create a campaign</b> and add a cover image.</li><li>Set your pay per 1,000 views, budget and rules.</li><li>Publish. Clippers join, post and report their views.</li></ol>
+        </div>
+      </div>
       <div class="cp-guides">
         <details class="cp-guide" id="cpGuideCreate">
           <summary>How to create a campaign <small>for streamers &amp; podcasters</small></summary>
@@ -3297,7 +3322,7 @@ if ('IntersectionObserver' in window){
   });
 
   (function(){
-    var d = $('#cpHowto'), v = $('video', d);
+    var d = $('#cpHowto'); if (!d) return; var v = $('video', d);
     d.addEventListener('toggle', function(){ if (d.open){ var pr = v.play(); if (pr && pr.catch) pr.catch(function(){}); } else v.pause(); });
   })();
   window.Campaigns = { refresh:function(){ busy = false; TRBUSY = false; load(); } };

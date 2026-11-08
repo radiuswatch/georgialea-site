@@ -320,7 +320,7 @@ function cn_send_login_link(string $email): bool {
   $body = "Hi $name,\n\nTap the link below to sign in to " . CN_BRAND . ":\n$link\n\n"
     . "The link works once and expires in " . CN_LINK_MINUTES . " minutes. If you didn't ask to sign in, you can ignore this email.\n\n"
     . "Thanks,\nThe " . CN_BRAND . " team\n" . CN_SITE . "\n";
-  return cn_send_mail($m['email'], 'Your ' . CN_BRAND . ' sign-in link', $body);
+  return cn_send_mail($m['email'], 'Your ' . CN_BRAND . ' sign-in link', $body, 'Sign in to ' . CN_BRAND);
 }
 
 /** Use a sign-in link once. Returns the email, or null if invalid/expired. */
@@ -541,22 +541,62 @@ function cn_notice_email(array $sub): array {
   return [$subject, $body];
 }
 
-function cn_send_mail(string $to, string $subject, string $body): bool {
+/** The HTML version of an email: the ClipNow logo on top, the text as paragraphs, and the
+ *  first link that sits on a line of its own shown as a green button labelled $button. */
+function cn_mail_html(string $subject, string $body, string $button = 'Open link'): string {
+  $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+  $logo = CN_SITE . '/brand/clipnow-logo-on-light.png';
+  $paras = preg_split("/\n\s*\n/", trim($body)); $html = ''; $buttoned = false;
+  foreach ($paras as $p) {
+    $lines = explode("\n", $p); $out = [];
+    foreach ($lines as $ln) {
+      $ln = trim($ln);
+      if (!$buttoned && preg_match('#^https?://\S+$#', $ln)) {
+        $buttoned = true;
+        if ($out) { $html .= '<p style="margin:0 0 16px">' . implode('<br>', $out) . '</p>'; $out = []; }
+        $html .= '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 10px"><tr><td style="border-radius:10px;background:#31C971">'
+          . '<a href="' . $e($ln) . '" style="display:inline-block;padding:13px 26px;font:700 16px -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#06230F;text-decoration:none;border-radius:10px">' . $e($button) . '</a></td></tr></table>'
+          . '<p style="margin:0 0 18px;font-size:12.5px;color:#7A857A;word-break:break-all">Or copy this link: <a href="' . $e($ln) . '" style="color:#1E9E55">' . $e($ln) . '</a></p>';
+        continue;
+      }
+      $out[] = preg_replace_callback('#https?://[^\s<]+#', fn($m) => '<a href="' . $m[0] . '" style="color:#1E9E55">' . $m[0] . '</a>', $e($ln));
+    }
+    if ($out) $html .= '<p style="margin:0 0 16px">' . implode('<br>', $out) . '</p>';
+  }
+  return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $e($subject) . '</title></head>'
+    . '<body style="margin:0;padding:0;background:#F2F5F2">'
+    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2F5F2"><tr><td align="center" style="padding:28px 14px">'
+    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;border:1px solid #E1E7E1">'
+    . '<tr><td style="padding:26px 30px 8px"><a href="' . $e(CN_SITE) . '"><img src="' . $e($logo) . '" width="150" height="41" alt="ClipNow" style="display:block;border:0;width:150px;height:auto"></a></td></tr>'
+    . '<tr><td style="padding:14px 30px 12px;font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1B211B">' . $html . '</td></tr>'
+    . '</table>'
+    . '<p style="margin:16px 0 0;font:12px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#8A948A">ClipNow · <a href="' . $e(CN_SITE) . '" style="color:#8A948A">clipnow.vip</a></p>'
+    . '</td></tr></table></body></html>';
+}
+
+/** Sends an email as plain text plus an HTML version with the ClipNow logo. */
+function cn_send_mail(string $to, string $subject, string $body, string $button = 'Open link'): bool {
   $c = cn_config();
+  $html = cn_mail_html($subject, $body, $button);
   if (getenv('CLIPNOW_MAIL_FILE')) { // local testing: write instead of sending
     file_put_contents(getenv('CLIPNOW_MAIL_FILE'), "To: $to\nSubject: $subject\n\n$body\n-----\n", FILE_APPEND);
+    file_put_contents(getenv('CLIPNOW_MAIL_FILE') . '.html', $html);
     return true;
   }
   $from = $c['from_email'];
+  $b = 'cn-' . bin2hex(random_bytes(12));
   $headers = [
     'From' => sprintf('%s <%s>', $c['from_name'], $from),
     'Reply-To' => $c['reply_to'] ?: $from,
     'MIME-Version' => '1.0',
-    'Content-Type' => 'text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding' => '8bit',
+    'Content-Type' => 'multipart/alternative; boundary="' . $b . '"',
   ];
+  $msg = "This is a multi-part message in MIME format.\r\n\r\n"
+    . "--$b\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($body)) . "\r\n"
+    . "--$b\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html)) . "\r\n"
+    . "--$b--\r\n";
   $enc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-  return mail($to, $enc, $body, $headers, '-f' . $from);
+  return mail($to, $enc, $msg, $headers, '-f' . $from);
 }
 
 /** Send one late-payment notice and record it. $how is 'auto' or 'manual'. */
@@ -566,7 +606,7 @@ function cn_send_notice(array $sub, string $how): array {
     return [false, 'This customer has no email address in Stripe.'];
   }
   [$subject, $body] = cn_notice_email($sub);
-  $ok = cn_send_mail($sub['email'], $subject, $body);
+  $ok = cn_send_mail($sub['email'], $subject, $body, 'Update my payment');
   $state = cn_read('notices.json', []);
   $st = $state[$sub['id']] ?? ['first_seen' => time(), 'sent' => []];
   if ($ok) $st['sent'][] = time();
@@ -1042,7 +1082,7 @@ function cn_aff_send_link(array $a): bool {
   $link = CN_SITE . '/api/affiliate.php?t=' . $token;
   $hi = trim(explode(' ', (string)$a['name'])[0] ?? '') ?: 'there';
   return cn_send_mail($a['email'], 'Your ' . CN_BRAND . ' affiliate sign-in link',
-    "Hi $hi,\n\nTap the link below to open your " . CN_BRAND . " affiliate dashboard:\n$link\n\nIt works once and expires in " . CN_LINK_MINUTES . " minutes. If you didn't ask for it, you can ignore this email.\n\nThanks,\nThe " . CN_BRAND . " team\n" . CN_SITE . "\n");
+    "Hi $hi,\n\nTap the link below to open your " . CN_BRAND . " affiliate dashboard:\n$link\n\nIt works once and expires in " . CN_LINK_MINUTES . " minutes. If you didn't ask for it, you can ignore this email.\n\nThanks,\nThe " . CN_BRAND . " team\n" . CN_SITE . "\n", 'Open my affiliate dashboard');
 }
 function cn_aff_use_link(string $token): ?string {
   if (!preg_match('/^[A-Za-z0-9_-]{30,}$/', $token)) return null;
