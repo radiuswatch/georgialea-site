@@ -405,7 +405,8 @@
   @media (max-width:480px){.result{grid-template-columns:1fr}.calc{grid-template-columns:1fr}}
 
   /* Pricing */
-  .price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;align-items:stretch}
+  .price-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+  @media (max-width:640px){.price-grid{grid-template-columns:1fr}}
   .price-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column}
   .price-card.featured{border-color:var(--green)}
   .pop{align-self:flex-start;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);background:var(--green-deep);border-radius:6px;padding:4px 10px;margin-bottom:14px}
@@ -1086,7 +1087,7 @@
     <div class="sect-head reveal">
       <p class="eyebrow">Pricing</p>
       <h2>Monthly plans. Cancel anytime.</h2>
-      <p class="sub">Every plan starts with a 7-day free trial with full access. Cancel before day 7 and you pay nothing.</p>
+      <p class="sub">Silver, Gold and Platinum start with a 7-day free trial with full access. Cancel before day 7 and you pay nothing.</p>
     </div>
     <div class="seg bill-toggle reveal" id="billing">
       <button data-v="m" class="on">Monthly</button><button data-v="y">Yearly (2 months free)</button>
