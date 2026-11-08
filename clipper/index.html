@@ -2765,7 +2765,15 @@ $$('[data-plan]').forEach(function(a){
     e.preventDefault();
     if (a.dataset.plan === 'corporate'){
       // The Corporate checkout link is created from the admin portal and served by the site.
-      fetch('api/plan-link.php?plan=corporate').then(function(r){ return r.json(); }).then(function(j){
+      // Bluehost may answer a first .php request with a "humans_NNNN" cookie page: set the cookie and ask again.
+      function getLink(retry){
+        return fetch('api/plan-link.php?plan=corporate', { credentials:'same-origin' }).then(function(r){ return r.text(); }).then(function(t){
+          var m = !retry && t.match(/document\.cookie\s*=\s*"(humans_\d+=[^";]*)/);
+          if (m){ document.cookie = m[1] + '; path=/'; return getLink(true); }
+          return JSON.parse(t);
+        });
+      }
+      getLink(false).then(function(j){
         if (j.ok && j.url) location.href = withRef(j.url);
         else openContact('Question about plans', 'Corporate', 'I’d like to start the Corporate plan ($299.99/month).');
       }, function(){ openContact('Question about plans', 'Corporate', 'I’d like to start the Corporate plan ($299.99/month).'); });
@@ -3424,7 +3432,12 @@ if ('IntersectionObserver' in window){
   var m = /[?&]ref=([A-Za-z0-9_-]{3,40})(?:&|$)/.exec(location.search); if (!m) return;
   var code = m[1].toLowerCase();
   try { localStorage.setItem('cn_ref', code); localStorage.setItem('cn_ref_t', String(Date.now())); } catch(e){}
-  fetch('api/affiliate.php?click=' + encodeURIComponent(code), { credentials:'same-origin' }).catch(function(){});
+  (function count(retry){
+    fetch('api/affiliate.php?click=' + encodeURIComponent(code), { credentials:'same-origin' }).then(function(r){ return r.text(); }).then(function(t){
+      var h = !retry && t.match(/document\.cookie\s*=\s*"(humans_\d+=[^";]*)/);   // Bluehost cookie check: set it and count again
+      if (h){ document.cookie = h[1] + '; path=/'; count(true); }
+    }).catch(function(){});
+  })(false);
   try { var q = location.search.replace(/([?&])ref=[^&]*&?/, '$1').replace(/[?&]$/, ''); history.replaceState(null, '', location.pathname + q + location.hash); } catch(e){}
 })();
 
