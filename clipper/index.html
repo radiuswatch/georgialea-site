@@ -405,7 +405,10 @@
   @media (max-width:480px){.result{grid-template-columns:1fr}.calc{grid-template-columns:1fr}}
 
   /* Pricing */
-  .price-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+  .price-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:stretch}
+  #pricing .wrap{max-width:1280px}
+  @media (min-width:1101px){.price-card{padding:24px 22px}.price-card.hot{padding-top:56px}.price-amt{font-size:34px}.price-amt small{font-size:13px}.price-list{font-size:14.5px}}
+  @media (max-width:1100px){.price-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}#pricing .wrap{max-width:1080px}}
   @media (max-width:640px){.price-grid{grid-template-columns:1fr}}
   .price-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column}
   .price-card.featured{border-color:var(--green)}
