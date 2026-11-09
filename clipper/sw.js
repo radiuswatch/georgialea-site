@@ -8,7 +8,7 @@
  *
  * Bump VERSION when this file changes so phones drop the old saved copies.
  */
-const VERSION = 'clipnow-v10';
+const VERSION = 'clipnow-v11';
 const PAGES = ['./', 'studio', 'campaigns', 'stats', 'affiliates', 'privacy.html', 'terms.html', 'refunds.html'];
 const ASSETS = ['manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'explainer-poster.jpg'];
 
@@ -35,6 +35,7 @@ function skip(req, url) {
     || /\.php$/i.test(url.pathname)
     || /\/(api|admin)\//.test(url.pathname)
     || /\.(mp4|webm|mov|m4v)$/i.test(url.pathname)
+    || /^\/clipper-u(\.html)?\/?$/.test(url.pathname)
     || req.headers.has('range');
 }
 
@@ -47,7 +48,9 @@ function page(e, url) {
     if (isOk(res)) { const copy = res.clone(); e.waitUntil(caches.open(VERSION).then((c) => c.put(key, copy))); }
     return res;
   });
-  const fromCache = () => caches.match(key, { ignoreSearch: true }).then((hit) => hit || caches.match('./'));
+  // Only the app's own pages may fall back to the saved home page; any other page uses its own copy.
+  const appPage = key === './' || /^(studio|campaigns|stats|affiliates|index\.html)$/.test(key);
+  const fromCache = () => caches.match(key, { ignoreSearch: true }).then((hit) => hit || (appPage ? caches.match('./') : undefined));
   return new Promise((resolve) => {
     let done = false;
     const finish = (res) => { if (res && !done) { done = true; resolve(res); } };

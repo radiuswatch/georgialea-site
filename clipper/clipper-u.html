@@ -50,6 +50,15 @@
   .ok{font-size:14px;color:var(--green);min-height:20px}
   .cast{margin:28px 0 0;padding:18px 0 0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px;font-size:14.5px;color:var(--muted)}
   .cast b{color:var(--text);font-weight:600}
+  .more{padding:0 0 56px}
+  .more h2{font:400 clamp(26px,3vw,34px)/1.15 var(--serif);margin:0 0 18px}
+  .vids{display:grid;grid-template-columns:3.16fr 1fr 1fr;gap:16px;align-items:start}
+  .vids figure{margin:0;min-width:0}
+  .vids video{aspect-ratio:9/16;border-radius:14px;box-shadow:none}
+  .vids .wide video{aspect-ratio:16/9}
+  .vids figcaption{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:14px;font-weight:600}
+  .vids figcaption small{font:12px var(--mono);color:var(--muted);white-space:nowrap}
+  @media (max-width:760px){.vids{grid-template-columns:1fr 1fr}.vids .wide{grid-column:1/-1}}
   footer{border-top:1px solid var(--line);padding:22px 0 calc(22px + env(safe-area-inset-bottom));font-size:13px;color:var(--faint)}
   @media (max-width:760px){main{grid-template-columns:1fr;gap:26px;padding-top:22px}.vid{max-width:380px;width:100%;margin:0 auto}}
 </style>
@@ -82,6 +91,24 @@
       </div>
     </div>
   </main>
+  <section class="more">
+    <p class="eyebrow">See ClipNow in action</p>
+    <h2>How ClipNow works</h2>
+    <div class="vids">
+      <figure class="wide">
+        <video controls playsinline preload="none" poster="/explainer-poster.jpg" aria-label="ClipNow explainer video: how to turn one long video into short clips"><source src="/explainer.mp4" type="video/mp4"></video>
+        <figcaption>How ClipNow works <small>0:52</small></figcaption>
+      </figure>
+      <figure>
+        <video controls playsinline preload="none" poster="/schedule-explainer-poster.jpg" aria-label="Video: how to schedule a clip in ClipNow"><source src="/schedule-explainer.mp4" type="video/mp4"></video>
+        <figcaption>Schedule a post <small>0:48</small></figcaption>
+      </figure>
+      <figure>
+        <video controls playsinline preload="none" poster="/campaign-explainer-poster.jpg" aria-label="Video: how to create a paid clipping campaign in ClipNow"><source src="/campaign-explainer.mp4" type="video/mp4"></video>
+        <figcaption>Create a campaign <small>1:00</small></figcaption>
+      </figure>
+    </div>
+  </section>
 </div>
 
 <footer><div class="wrap">© <span id="yr">2026</span> ClipNow · An animated story for illustration. Earnings vary and aren’t guaranteed.</div></footer>
@@ -89,6 +116,9 @@
 <script>
 (function(){
   document.getElementById('yr').textContent = new Date().getFullYear();
+  document.querySelectorAll('video').forEach(function(v, i, all){
+    v.addEventListener('play', function(){ all.forEach(function(o){ if (o !== v) o.pause(); }); });
+  });
   var url = 'https://clipnow.vip/clipper-u', ok = document.getElementById('ok');
   function say(t){ ok.textContent = t; setTimeout(function(){ ok.textContent = ''; }, 3000); }
   document.getElementById('share').addEventListener('click', function(){
