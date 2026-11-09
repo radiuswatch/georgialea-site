@@ -32,8 +32,15 @@ AddType application/manifest+json .webmanifest
 
 # Don't cache the page itself so updates show up right away; cache icons for a week
 <IfModule mod_headers.c>
+  # Pages are never stored and never answered with "not modified": the same address shows the
+  # coming-soon page or the full site depending on mode and the preview pass, so a saved copy
+  # (and a date check against it) would show the wrong one.
   <FilesMatch "\.html$">
-    Header set Cache-Control "no-cache"
+    Header set Cache-Control "no-store"
+    Header unset Last-Modified
+    Header unset ETag
+    RequestHeader unset If-Modified-Since
+    RequestHeader unset If-None-Match
   </FilesMatch>
   # The offline helper must be re-checked on every visit so app updates reach phones
   <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
