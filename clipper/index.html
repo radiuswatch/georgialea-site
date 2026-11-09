@@ -42,6 +42,9 @@
   .sub{color:var(--muted);max-width:60ch;margin:0}
   button,input,select,textarea{font:inherit;color:inherit}
 
+  .pv-bar{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;padding:calc(8px + env(safe-area-inset-top)) 16px 8px;background:#F5C451;color:#1A1405;font-size:14px;font-weight:600;text-align:center}
+  .pv-bar a{color:#1A1405;text-decoration:underline;font-weight:700}
+  .pv-bar + .aff-bar{padding-top:0}
   .aff-bar{position:relative;overflow:hidden;padding:env(safe-area-inset-top) 0 0;background:linear-gradient(100deg,#0F3B23 0%,#1E5C38 45%,#3A2C10 100%);border-bottom:1px solid #2E6B45}
   .aff-bar::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.10) 45%,transparent 60%);transform:translateX(-100%);animation:affShine 6s ease-in-out infinite;pointer-events:none}
   @keyframes affShine{0%,55%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
@@ -648,6 +651,7 @@
 </head>
 <body>
 
+<div class="pv-bar" id="pvBar" role="status" hidden>Preview mode: visitors still see the coming-soon page. <a href="/api/preview.php?off=1">Exit preview</a></div>
 <div class="aff-bar" role="region" aria-label="Affiliate program">
   <a href="/affiliates">
     <span class="cash" aria-hidden="true">💸</span>
@@ -3598,6 +3602,16 @@ if ('IntersectionObserver' in window){
     if (m){ try { history.replaceState(null, '', location.pathname); } catch(e){} if (m[1] === 'ok') toast('You’re signed in'); else setTimeout(function(){ say($('#ajMsg'), 'That sign-in link expired or was already used. Enter your email for a new one.', true); }, 600); }
     load();
   }
+})();
+
+/* Preview mode: while the site is in coming-soon mode, only browsers with the preview pass see this page. Say so. */
+(function info(retry){
+  fetch('/api/site-info.php', { credentials:'same-origin' }).then(function(r){ return r.text(); }).then(function(t){
+    var m = !retry && t.match(/document\.cookie\s*=\s*"(humans_\d+=[^";]*)/);
+    if (m){ document.cookie = m[1] + '; path=/'; return info(true); }
+    var j = {}; try { j = JSON.parse(t); } catch(e){}
+    if (j.ok && j.live === false) document.getElementById('pvBar').hidden = false;
+  }).catch(function(){});
 })();
 
 /* Tester link (api/preview.php) lands here with ?preview=on. */
