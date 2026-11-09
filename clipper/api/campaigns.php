@@ -156,7 +156,7 @@ try {
 
   /* ---------- Changes ---------- */
   if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
-  if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) cn_json_out(['ok' => false, 'error' => 'That file is too big (8 MB max for images, 6 MB for screenshots).'], 413);
+  if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) cn_json_out(['ok' => false, 'error' => 'That photo is too large. Try a smaller one.'], 413);
   if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
   if (!$plat) cn_json_out(['ok' => false, 'error' => 'Campaigns are part of the Platinum plan.'], 403);
   $in = camp_body();
@@ -202,7 +202,9 @@ try {
       cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
     }
     $f = $_FILES['image'] ?? null;
-    if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'The image didn\'t upload. Please try again.'], 422);
+    $err = $f['error'] ?? null;
+    if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) cn_json_out(['ok' => false, 'error' => 'That photo is too large. Try a smaller one.'], 413);
+    if (!$f || $err !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'The image didn\'t upload. Please try again.'], 422);
     if ($f['size'] > CN_CAMP_IMG_BYTES) cn_json_out(['ok' => false, 'error' => 'That image is too big (8 MB max).'], 413);
     $name = cn_camp_save_image($id, $f['tmp_name']);
     $c = cn_camp_update($id, function (&$c) use ($name) { $c['image'] = $name; $c['image_at'] = time(); });

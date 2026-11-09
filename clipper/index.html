@@ -3280,9 +3280,34 @@ if ('IntersectionObserver' in window){
   function setPreview(src){ var im = $('#cfImgPrev'); im.hidden = !src; if (src) im.src = src; $('#cfImgHint').hidden = !!src; $('#cfImgRemove').hidden = !src; }
   $('#cfImage').addEventListener('change', function(){
     var f = this.files[0]; if (!f) return;
-    if (f.size > 8 * 1048576){ $('#cfErr').textContent = 'That image is too big (8 MB max).'; this.value = ''; return; }
+    if (!/^image\//.test(f.type || 'image/')){ $('#cfErr').textContent = 'The cover must be a JPG, PNG or WebP image.'; this.value = ''; return; }
+    if (f.size > 40 * 1048576){ $('#cfErr').textContent = 'That image is too big. Try a smaller one.'; this.value = ''; return; }
+    $('#cfErr').textContent = '';
     IMG.file = f; IMG.remove = false; setPreview(URL.createObjectURL(f));
   });
+  /* Shrink big photos in the browser (max 1600px wide, JPEG) so they fit under the host's upload limit. */
+  function shrinkCover(f){
+    return new Promise(function(done){
+      if (f.size < 700 * 1024 || !window.FormData || !document.createElement('canvas').getContext) return done(f);
+      var url = URL.createObjectURL(f), im = new Image();
+      im.onload = function(){
+        try {
+          var w = im.naturalWidth, h = im.naturalHeight;
+          if (w < 300 || h < 150) { URL.revokeObjectURL(url); return done(f); }
+          var nw = Math.min(1600, w), nh = Math.round(h * nw / w);
+          var cv = document.createElement('canvas'); cv.width = nw; cv.height = nh;
+          var cx = cv.getContext('2d'); cx.fillStyle = '#0b0d0b'; cx.fillRect(0, 0, nw, nh); cx.drawImage(im, 0, 0, nw, nh);
+          URL.revokeObjectURL(url);
+          cv.toBlob(function(b){
+            if (!b || b.size >= f.size) return done(f);
+            done(new File([b], (f.name || 'cover').replace(/\.[^.]*$/, '') + '.jpg', { type:'image/jpeg' }));
+          }, 'image/jpeg', 0.85);
+        } catch (e) { done(f); }
+      };
+      im.onerror = function(){ URL.revokeObjectURL(url); done(f); };
+      im.src = url;
+    });
+  }
   $('#cfImgRemove').addEventListener('click', function(){ IMG.file = null; IMG.remove = true; $('#cfImage').value = ''; setPreview(''); });
   function showForm(c){
     var f = $('#cpForm'); f.hidden = false; f.dataset.id = c ? c.id : '';
@@ -3309,7 +3334,7 @@ if ('IntersectionObserver' in window){
       btn.disabled = false;
       if (!j.ok){ $('#cfErr').textContent = j.error || 'Something went wrong. Please try again.'; return; }
       var cid = j.campaign.id;
-      var after = IMG.file ? (function(){ var fd = new FormData(); fd.append('action', 'image'); fd.append('id', cid); fd.append('image', IMG.file); return postForm(fd); })()
+      var after = IMG.file ? shrinkCover(IMG.file).then(function(img){ var fd = new FormData(); fd.append('action', 'image'); fd.append('id', cid); fd.append('image', img, img.name || 'cover.jpg'); return postForm(fd); })
         : IMG.remove && id ? post({ action:'image_remove', id:cid }) : Promise.resolve(j);
       after.then(function(k){
         if (k && !k.ok){ toast(k.error || 'The image didn’t upload.'); }
