@@ -17,7 +17,8 @@
  *
  * Run: npx tsx scripts/deploy-clipnow.ts
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 // Settings come from environment variables (cloud sessions) or, on Joseph's PC, the env file.
@@ -32,6 +33,10 @@ const HOST = `https://${/:\d+$/.test(hostSetting) ? hostSetting : `${hostSetting
 const AUTH = { Authorization: `cpanel ${get('CPANEL_USER')}:${get('CPANEL_TOKEN')}` };
 const REMOTE_ROOT = get('CLIPNOW_DOCROOT') || '/home1/thrypjmy/public_html/website_05f463c5';
 const LOCAL_ROOT = path.resolve(__dirname, '..', 'clipper');
+// Remembers what was last uploaded so unchanged files (like the big videos) are skipped next time.
+// Delete this file, or run with CLIPNOW_FULL=1, to upload everything again.
+const CACHE_FILE = path.resolve(__dirname, '..', '.clipnow-deploy-cache.json');
+const hashOf = (rel: string) => createHash('sha256').update(readFileSync(path.join(LOCAL_ROOT, rel))).digest('hex');
 
 /** Every file to publish, as paths relative to clipper/ (skips names starting with "_"). */
 function listFiles(dir = ''): string[] {
@@ -83,12 +88,24 @@ async function main() {
   const files = listFiles();
   console.log(`publishing ${files.length} files to ${REMOTE_ROOT} via ${HOST} ...`);
   for (const d of new Set(files.map((f) => path.posix.dirname(f)).filter((d) => d !== '.'))) await ensureDir(d);
+  const cacheKey = `${HOST}|${REMOTE_ROOT}`;
+  let cache: Record<string, Record<string, string>> = {};
+  try { cache = JSON.parse(readFileSync(CACHE_FILE, 'utf-8')); } catch {}
+  const done: Record<string, string> = process.env.CLIPNOW_FULL ? {} : { ...(cache[cacheKey] || {}) };
   const failures: string[] = [];
+  let skipped = 0;
   for (const f of files) {
+    const h = hashOf(f);
+    if (done[f] === h) { skipped++; continue; }
     const ok = await upload(f);
     console.log(` ${ok ? 'ok' : 'FAILED'}: ${f}`);
-    if (!ok) failures.push(f);
+    if (ok) {
+      done[f] = h;
+      cache[cacheKey] = done;
+      writeFileSync(CACHE_FILE, JSON.stringify(cache));
+    } else failures.push(f);
   }
+  if (skipped) console.log(` (${skipped} unchanged file(s) skipped)`);
   if (failures.length) {
     console.log(`Done with ${failures.length} failure(s): ${failures.join(', ')}`);
     process.exitCode = 1;

@@ -14,6 +14,9 @@ RewriteCond %1site-live.on !-f
 RewriteCond %{HTTP_COOKIE} !(^|;\s*)cn_preview=1(;|$)
 RewriteRule ^(index\.html|studio/?|campaigns/?|stats/?|affiliates/?)?$ coming-soon.html [L]
 
+# Clipper U episode share page: clipnow.vip/clipper-u (always public, even in coming-soon mode)
+RewriteRule ^clipper-u/?$ clipper-u.html [L]
+
 # The Studio page: clipnow.vip/studio is the same app file, showing only the Studio
 RewriteRule ^studio/$ /studio [L,R=301]
 RewriteRule ^studio$ index.html [L]
@@ -36,7 +39,7 @@ AddType application/manifest+json .webmanifest
   <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
-  <FilesMatch "\.png$">
+  <FilesMatch "\.(png|jpg|mp4)$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
 </IfModule>
