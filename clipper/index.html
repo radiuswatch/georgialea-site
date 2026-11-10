@@ -419,6 +419,9 @@
   .count.over{color:var(--warn)}
   .plat-actions{display:flex;gap:8px}
   .plat-actions .btn{flex:1}
+  .ai-note{margin:8px 0 0;font-size:13.5px;color:var(--muted);min-height:0}
+  .ai-note:empty{display:none}
+  .ai-note.ok{color:var(--green)} .ai-note.bad{color:#F0706A}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -835,9 +838,11 @@
                 <option value="1080">1080 × 1920 (HD)</option>
               </select>
             </div>
+            <button class="btn btn-ghost btn-sm" id="aiHooksBtn" type="button" title="Writes a title for each clip from a few still frames">✨ Write titles with AI</button>
             <button class="btn btn-green btn-sm" id="exportBtn" disabled>Export selected (0)</button>
           </div>
         </div>
+        <p class="ai-note" id="aiHooksMsg" aria-live="polite"></p>
         <div class="progress" id="exProg"><i></i></div>
         <div class="status" id="exStatus"></div>
         <div class="clips" id="clips"></div>
@@ -1272,7 +1277,7 @@
       <details><summary>How do clippers actually make money?</summary><p>Mostly three ways: paid clipping campaigns, where a creator or brand pays you per 1,000 views on clips of their content; platform programs that pay for views, which have follower and region requirements; and affiliate or referral links in your bio. ClipNow doesn't pay you. It makes the posting fast enough that you can do it daily.</p></details>
       <details><summary>Will I make money every day?</summary><p>Nobody can honestly promise that. Earnings depend on views, and views take time to build. What we can promise is that you'll spend minutes, not hours, on each batch of clips, so you can keep showing up long enough to find what works.</p></details>
       <details><summary>Can I clip anyone's videos?</summary><p>No. Clip your own content, or content from creators who give permission, which every paid clipping campaign does. Posting someone else's video without permission can get your account struck and your payouts refused.</p></details>
-      <details><summary>Does my video get uploaded to your servers?</summary><p>No. Finding and cutting clips runs entirely in your browser, so your full video stays on your device. The only time anything is uploaded is when you tap <b>Post now</b> or <b>Schedule</b> on a clip: that one clip is sent through our posting partner, Upload-Post, to the accounts you connected, and nothing else.</p></details>
+      <details><summary>Does my video get uploaded to your servers?</summary><p>No. Finding and cutting clips runs entirely in your browser, so your full video stays on your device. Something is only sent when you ask for it: when you tap <b>Post now</b> or <b>Schedule</b> on a clip, that one clip goes through our posting partner, Upload-Post, to the accounts you connected; and if you tap <b>Write titles with AI</b>, three small still pictures from each clip are sent to write the titles. They’re used once and not kept.</p></details>
       <details><summary>How do I connect my social media accounts?</summary><p>Sign in, then in Studio step 3 tap <b>Connect</b> next to a platform under Auto-post, sign in to it and tap <b>Allow</b>. That’s it: about a minute each. New to a platform? The 5-minute guides in <a href="#platforms">Platforms</a> walk you through setting the account up first. Snapchat doesn’t allow auto-posting yet, so you post those clips from your phone.</p></details>
       <details><summary>How do I cancel?</summary><p>Any time, from the billing portal linked in your ClipNow billing emails, or just <a href="#contact" data-contact data-reason="Billing or cancelling">send us a message</a> and we'll do it for you. No calls, no "are you sure" mazes. You keep access until the end of the period you paid for. See our <a href="refunds.html">Refund Policy</a>.</p></details>
       <details><summary>Where are your privacy policy and terms?</summary><p>Read our <a href="privacy.html">Privacy Policy</a>, <a href="terms.html">Terms of Service</a> and <a href="refunds.html">Refunds &amp; Cancellation Policy</a>. The short version: your videos never leave your device, payments are handled by Stripe, and we don't sell your information.</p></details>
@@ -1698,6 +1703,47 @@ function suggestHook(topic, i){
   var h = HOOKS[i % HOOKS.length];
   return (i % 3 === 1 && topic) ? topic + ': ' + h.toLowerCase() : h;
 }
+
+/* ---------- AI titles: a few stills per clip → Claude → one accurate hook per clip ---------- */
+function clipStills(c){
+  var pts = [0.15, 0.5, 0.85].map(function(f){ return c.start + (c.end - c.start) * f; });
+  var out = [];
+  var job = thumbQueue.then(function(){
+    if (thumbV.src !== S.url){ thumbV.src = S.url; return new Promise(function(r){ thumbV.onloadeddata = r; thumbV.onerror = r; }); }
+  });
+  pts.forEach(function(t){
+    job = job.then(function(){ return seekSafe(thumbV, t); }).then(function(){
+      var w = 384, h = Math.round(w * (thumbV.videoHeight || 9) / (thumbV.videoWidth || 16));
+      if (h > 384){ h = 384; w = Math.round(h * (thumbV.videoWidth || 9) / (thumbV.videoHeight || 16)); }
+      var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(thumbV, 0, 0, w, h);
+      out.push(cv.toDataURL('image/jpeg', 0.7).split(',')[1]);
+    });
+  });
+  thumbQueue = job.catch(function(){});
+  return job.then(function(){ return out; });
+}
+$('#aiHooksBtn').addEventListener('click', function(){
+  var btn = this, msg = $('#aiHooksMsg');
+  function say(t, cls){ msg.textContent = t; msg.className = 'ai-note' + (cls ? ' ' + cls : ''); }
+  if (!S.clips.length) return say('Find the best moments first.', 'bad');
+  if (!(MEMBER && MEMBER.signedIn)) return say('Sign in to write titles with AI. It’s included with every ClipNow plan.', 'bad');
+  var list = S.clips.slice(0, 10);
+  btn.disabled = true; say('Looking at your clips…');
+  list.reduce(function(p, c){ return p.then(function(acc){ return clipStills(c).then(function(f){ acc.push({ dur:c.end - c.start, frames:f }); return acc; }); }); }, Promise.resolve([]))
+    .then(function(clips){
+      say('Writing titles…');
+      return cnApi('hooks.php', { topic:$('#topic').value.trim(), clips:clips });
+    })
+    .then(function(j){
+      btn.disabled = false;
+      if (!j || !j.ok) return say((j && j.error) || 'AI titles aren’t available right now. Please try again shortly.', 'bad');
+      var n = 0;
+      list.forEach(function(c, i){ var h = (j.hooks || [])[i]; if (h){ c.hook = h; c.made = 0; n++; } });
+      renderClips();
+      say('✓ Wrote ' + n + ' title' + (n === 1 ? '' : 's') + ' from what’s in each clip. Edit any of them before you export.', 'ok');
+    }, function(){ btn.disabled = false; say('Couldn’t reach ClipNow. Check your connection and try again.', 'bad'); });
+});
 
 /* ---------- Preview ---------- */
 var pv = { v:null, clip:null, raf:0, done:null };
