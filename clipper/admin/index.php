@@ -234,6 +234,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cfg['anthropic_key'] = $ak;
     }
     if (!empty($_POST['anthropic_key_remove'])) $cfg['anthropic_key'] = '';
+    $rk = trim((string)($_POST['resend_key'] ?? ''));
+    if ($rk !== '') {
+      if (!str_starts_with($rk, 're_') || strlen($rk) > 200 || preg_match('/\s/', $rk)) { flash('That doesn\'t look like a Resend API key. It starts with re_. Copy it again from Resend → API Keys.', false); back('settings'); }
+      $cfg['resend_key'] = $rk;
+    }
+    if (!empty($_POST['resend_key_remove'])) $cfg['resend_key'] = '';
     foreach (['from_email', 'reply_to'] as $f) {
       $v = trim((string)($_POST[$f] ?? ''));
       if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) { flash("“$v” isn't a valid email address.", false); back('settings'); }
@@ -754,6 +760,14 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
       <?php if ($ak !== ''): ?><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" name="anthropic_key_remove" value="1" style="width:auto"> Remove the key (stops the daily search)</label><?php endif; ?>
     </div>
     <div class="panel">
+      <h2>Fast email delivery</h2>
+      <?php $rk = (string)($cfg['resend_key'] ?? ''); ?>
+      <p>Sign-in links and notices arrive in seconds when they're sent through Resend (free for up to 3,000 emails a month). Without it they go through the web host's mail queue, which can take several minutes. In Resend: add and verify the domain <b>clipnow.vip</b>, then create an API key with "Sending access". Status: <b style="color:<?= $rk === '' ? '#F5C451' : 'var(--green, #31C971)' ?>"><?= e($rk === '' ? 'Not set: using the web host\'s mail queue' : 'On (' . substr($rk, 0, 6) . '…' . substr($rk, -4) . ')') ?></b></p>
+      <label for="rsk">Resend API key (leave blank to keep the current one)</label>
+      <input id="rsk" name="resend_key" type="password" autocomplete="off" spellcheck="false" placeholder="re_…">
+      <?php if ($rk !== ''): ?><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" name="resend_key_remove" value="1" style="width:auto"> Remove the key (go back to the web host's mail queue)</label><?php endif; ?>
+    </div>
+    <div class="panel">
       <h2>Late-payment notices</h2>
       <p>A membership is late when Stripe can't charge the card (status Past due or Unpaid). Each notice links to a secure page where the member updates their card.</p>
       <div class="grid2">
@@ -780,6 +794,18 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
       <input name="to" type="email" placeholder="you@example.com" style="max-width:300px" required>
       <button class="btn">Send me a test</button>
     </form>
+  </div>
+  <div class="panel">
+    <h2>Recent emails</h2>
+    <?php $ml = cn_mail_recent(15); ?>
+    <?php if (!$ml): ?><p>No emails sent yet.</p><?php else: ?>
+    <p>"Sent" means the email left ClipNow. Through Resend it reaches the inbox within seconds; through the web host's queue it can take minutes.</p>
+    <table class="members"><thead><tr><th>When</th><th>To</th><th>Email</th><th>Sent by</th><th>Time</th><th>Result</th></tr></thead><tbody>
+    <?php foreach ($ml as $m): ?>
+      <tr><td><?= e(date('M j, g:i:s a', (int)$m['at'])) ?></td><td><?= e($m['to']) ?></td><td><?= e($m['subject']) ?></td><td><?= e($m['via'] === 'resend' ? 'Resend' : 'Web host queue') ?></td><td><?= e(number_format($m['ms'] / 1000, 1)) ?>s</td><td><?= $m['ok'] ? 'Sent' : e('Failed: ' . ($m['error'] ?? '')) ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table>
+    <?php endif; ?>
   </div>
 <?php endif; ?>
 <?php endif; ?>
