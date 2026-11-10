@@ -8,7 +8,7 @@
  *
  * Bump VERSION when this file changes so phones drop the old saved copies.
  */
-const VERSION = 'clipnow-v13';
+const VERSION = 'clipnow-v14';
 const PAGES = ['./', 'studio', 'campaigns', 'stats', 'affiliates', 'privacy.html', 'terms.html', 'refunds.html'];
 const ASSETS = ['manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'explainer-poster.jpg'];
 
@@ -41,7 +41,7 @@ function skip(req, url) {
 
 function isOk(res) { return res && res.ok && res.type === 'basic'; }
 
-/** Pages: try the network (up to 3.5 s), save what comes back, else use the saved copy. */
+/** Pages: always from the network, saving what comes back; the saved copy is used only offline. */
 function page(e, url) {
   const key = url.pathname.endsWith('/') ? './' : url.pathname.split('/').pop() || './';
   const fromNet = fetch(e.request).then((res) => {
@@ -54,9 +54,10 @@ function page(e, url) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (res) => { if (res && !done) { done = true; resolve(res); } };
+    // The saved copy is only for when the phone is offline. A slow network still waits for the
+    // real page: the same address shows the coming-soon page or the full site depending on the
+    // preview pass, so a saved copy could be the wrong one.
     fromNet.then(finish, () => fromCache().then((hit) => finish(hit || offline())));
-    // Slow network: show the saved copy (if there is none, keep waiting for the network).
-    setTimeout(() => fromCache().then(finish), 3500);
   });
 }
 

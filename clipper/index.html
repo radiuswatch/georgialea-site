@@ -3615,7 +3615,7 @@ if ('IntersectionObserver' in window){
 })();
 
 /* Tester link (api/preview.php) lands here with ?preview=on. */
-if (/[?&]preview=on/.test(location.search)){
+if (/[?&]preview=(on|retry)/.test(location.search)){
   try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
   setTimeout(function(){ toast('Tester access is on for this device'); }, 600);
 }
