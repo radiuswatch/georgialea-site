@@ -422,6 +422,16 @@
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
+  .ex-sent{margin-top:16px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:4px 14px 12px}
+  .ex-sent summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;font-size:15px}
+  .ex-sent summary::-webkit-details-marker{display:none}
+  .ex-sent summary .ct{font-family:var(--mono);font-size:12px;color:var(--green);border:1px solid var(--green-dim);background:var(--green-deep);border-radius:999px;padding:2px 9px}
+  .ex-sent summary .chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+  .ex-sent[open] summary .chev{transform:rotate(180deg)}
+  .ex-sent .note{margin:2px 0 10px}
+  .ex-sent .exports{margin-top:0}
+  .export-item.sent{opacity:.92}
+  .export-item.sent .sent-st{display:block;margin-top:3px;color:var(--green);font-family:var(--mono);font-size:12.5px}
   .trial-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--green-deep);border:1px solid var(--green-dim);border-radius:12px;padding:12px 16px;font-size:14.5px;color:#BFE9CF;max-width:680px}
   .trial-bar b{color:var(--text)}
   .trial-bar.ended{background:var(--warn-deep);border-color:#5A4418;color:#F1D9A6}
@@ -1441,7 +1451,7 @@ function $$(s, r){ return Array.prototype.slice.call((r||document).querySelector
 function fmt(t){ t = Math.max(0, t); var m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + (s<10?'0':'') + s; }
 function store(k, v){ try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch(e){ return null; } }
 var toastT;
-function toast(msg){ var t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove('on');},1800); }
+function toast(msg){ var t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove('on');},Math.min(6000,Math.max(1800,msg.length*55))); }
 function copy(text){
   if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(function(){toast('Caption copied');}, fallback);
   fallback();
@@ -1889,7 +1899,9 @@ function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|
 function renderExports(){
   var box = $('#exports'); box.innerHTML = '';
   if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here.</p>'; return; }
-  S.exports.forEach(function(x){
+  var ready = S.exports.filter(function(x){ return !x.sent; }), sent = S.exports.filter(function(x){ return x.sent; });
+  if (!ready.length) box.innerHTML = '<p class="note">Every clip here has been sent. Export more in step 2, or find them under Sent below.</p>';
+  ready.forEach(function(x){
     var row = document.createElement('div'); row.className = 'export-item';
     row.innerHTML = '<div><div class="n"></div><span>' + fmt(x.dur) + ' · ' + (x.size/1048576).toFixed(1) + ' MB</span></div><a class="btn btn-green btn-sm" download>Download</a>';
     $('.n', row).textContent = x.name;
@@ -1906,6 +1918,33 @@ function renderExports(){
     if (window.AutoPost) AutoPost.decorate(row, x);
     box.appendChild(row);
   });
+  if (sent.length) box.appendChild(sentBox(sent));
+}
+/* Clips that were posted or scheduled move here, without Post buttons, so they can't be sent twice by accident. */
+var sentOpen = false;
+function sentBox(list){
+  var d = document.createElement('details'); d.className = 'ex-sent'; d.open = sentOpen;
+  d.addEventListener('toggle', function(){ sentOpen = d.open; });
+  d.innerHTML = '<summary>Sent <span class="ct"></span><span class="chev" aria-hidden="true">▾</span></summary>'
+    + '<p class="note">Posted and scheduled clips move here so they don’t get posted twice. Scheduled ones are also under Upcoming posts below.</p><div class="exports"></div>';
+  $('.ct', d).textContent = list.length;
+  var wrap = $('.exports', d);
+  list.slice().sort(function(a, b){ return b.sent.at - a.sent.at; }).forEach(function(x){
+    var row = document.createElement('div'); row.className = 'export-item sent';
+    row.innerHTML = '<div><div class="n"></div><span class="sent-st"></span></div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn btn-ghost btn-sm" type="button">Post again</button></div>';
+    $('.n', row).textContent = x.name;
+    var w = new Date(x.sent.scheduled ? x.sent.scheduled * 1000 : x.sent.at);
+    $('.sent-st', row).textContent = (x.sent.scheduled ? '✓ Scheduled for ' + w.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) + ', ' : '✓ Sent ')
+      + w.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + ' · ' + x.sent.names;
+    var a = $('a', row); a.href = x.url; a.download = x.name;
+    $('button', row).addEventListener('click', function(){
+      if (!confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
+      x.sent = null; x.postKey = null; renderExports();
+    });
+    wrap.appendChild(row);
+  });
+  return d;
 }
 
 function tagify(s){ return (s||'').split(/[\s,]+/).filter(Boolean).map(function(t){ return /^[#@]/.test(t) ? t : '#'+t.replace(/[^\w]/g,''); }).filter(function(t){ return t.length>1; }); }
@@ -2847,8 +2886,12 @@ function ClipNowConnect(platform){
       if (j.ok){
         var names = t.map(function(p){ return NAMES[p]; }).join(', ');
         var skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
-        say((j.scheduled ? 'Scheduled for ' + dayName(new Date(j.scheduled * 1000)) + ' at ' + timeName(new Date(j.scheduled * 1000)) + ' on ' + names + '. It’s listed under Upcoming posts below.' : 'Sent to ' + names + '. It can take a few minutes to appear.')
-          + (skipped.length ? ' Skipped ' + skipped.join(', ') + ' (not connected).' : ''), 'ok');
+        var done = (j.scheduled ? 'Scheduled for ' + dayName(new Date(j.scheduled * 1000)) + ' at ' + timeName(new Date(j.scheduled * 1000)) + ' on ' + names + '.' : 'Sent to ' + names + '. It can take a few minutes to appear.')
+          + (skipped.length ? ' Skipped ' + skipped.join(', ') + ' (not connected).' : '');
+        // Move the clip to the Sent section so it can't be posted again by accident.
+        x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:names };
+        renderExports();
+        toast(done + ' Moved to Sent.');
         setTimeout(recent, 1500);
       } else say(j.error || 'Posting failed. Please try again.', 'bad');
     };
