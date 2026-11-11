@@ -31,14 +31,14 @@ try {
     $id = $rid !== '' ? $rid : ('t' . $p['at'] . '-' . substr(md5((string)($p['title'] ?? '')), 0, 8));
     if (isset($hidden[$id])) continue;
     $sched = (int)($p['scheduled'] ?? 0);
-    $row = ['id' => $id, 'at' => $p['at'], 'title' => $p['title'] ?? '', 'platforms' => $p['platforms'] ?? [], 'scheduled' => $sched, 'status' => $sched > $now ? 'scheduled' : 'sent', 'results' => []];
+    $row = ['id' => $id, 'draft' => (array)($p['draft'] ?? []), 'at' => $p['at'], 'title' => $p['title'] ?? '', 'platforms' => $p['platforms'] ?? [], 'scheduled' => $sched, 'status' => $sched > $now ? 'scheduled' : 'sent', 'results' => []];
     $c = $rid !== '' ? ($cache[$rid] ?? null) : null;
     $due = $sched === 0 || $sched <= $now;
     if (($rid !== '' || $jid !== '') && $due && !($c['final'] ?? false) && $asked < 15 && ($c['checked'] ?? 0) < $now - 20) {
       $asked++;
       try {
         $s = cn_up('GET', '/uploadposts/status', $rid !== '' ? ['request_id' => $rid] : ['job_id' => $jid]);
-        $res = cn_post_results($s);
+        $res = cn_post_results($s, empty($p['draft']));   // a drafts refusal mustn't be read as the posting limit
         $status = strtolower((string)($s['status'] ?? 'sent'));
         $final = in_array($status, ['completed', 'failed', 'error', 'success'], true) && count($res) >= count($row['platforms']);
         $c = ['status' => $status, 'results' => $res, 'final' => $final, 'checked' => $now];

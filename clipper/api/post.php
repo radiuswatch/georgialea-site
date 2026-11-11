@@ -6,6 +6,8 @@
 //   schedule     optional local date-time "2026-11-06T18:30" + tz (IANA name, e.g. America/New_York)
 //   key          a random id from the browser so a retry doesn't post twice
 //   set          optional account set to post from (otherwise ClipNow picks a connected account with room)
+//   tiktok_mode  "draft" sends the clip to the member's TikTok drafts/inbox to finish posting in the app
+//                (used when TikTok's daily posting limit is reached; captions can't be passed to a draft)
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
 @set_time_limit(300);
@@ -32,6 +34,7 @@ try {
   if ($isWebm && array_intersect($want, ['instagram', 'facebook'])) cn_json_out(['ok' => false, 'error' => 'Instagram and Facebook need an MP4 clip. Your browser saved this one as WebM. Export it again in Chrome, Edge or Safari.'], 422);
 
   $sets = cn_up_sets($m);   // [set => [platform => ['connected', 'name']]]
+  $draftTk = ($_POST['tiktok_mode'] ?? '') === 'draft' && in_array('tiktok', $want, true);
   $pin = (int)($_POST['set'] ?? 0);
   if ($pin > 0 && !isset($sets[$pin])) $pin = 0;
 
@@ -60,10 +63,15 @@ try {
     if (!$cands) cn_json_out(['ok' => false, 'error' => 'Connect ' . CN_POST_PLATFORMS[$p] . ' first.'], 422);
     $best = 0; $bestN = PHP_INT_MAX; $soonest = 0;
     foreach ($cands as $i) {
-      [$fits, $next] = cn_post_cap_check($m, $p, $scheduled, $i);
+      $asDraft = $draftTk && $p === 'tiktok';
+      [$fits, $next] = cn_post_cap_check($m, $p, $scheduled, $i, $asDraft);
       if (!$fits) { $soonest = $soonest ? min($soonest, $next) : $next; continue; }
       $n = cn_post_recent_count($m, $p, $i, $scheduled);
       if ($n < $bestN) { $best = $i; $bestN = $n; }
+    }
+    if (!$best && $draftTk && $p === 'tiktok') {
+      cn_json_out(['ok' => false, 'cap' => $p, 'draft' => true, 'next_slot' => $soonest,
+        'error' => 'TikTok drafts are full for now (TikTok allows about ' . CN_DRAFT_CAPS['tiktok'] . ' clips waiting in drafts per account in 24 hours).'], 429);
     }
     if (!$best) {
       $nAcc = count($cands); $max = cn_account_sets($m);
@@ -100,7 +108,10 @@ try {
         $fields[$p . '_title'] = $c;
       }
     }
-    if (in_array('tiktok', $plats, true)) $fields['privacy_level'] = 'PUBLIC_TO_EVERYONE';
+    if (in_array('tiktok', $plats, true)) {
+      if ($draftTk) $fields['post_mode'] = 'MEDIA_UPLOAD';   // to the member's TikTok drafts/inbox
+      else $fields['privacy_level'] = 'PUBLIC_TO_EVERYONE';
+    }
     if (in_array('instagram', $plats, true)) $fields['media_type'] = 'REELS';
     if (in_array('facebook', $plats, true)) {
       $page = cn_up_facebook_page($user);
@@ -117,14 +128,15 @@ try {
     $r = cn_up('POST', '/upload', $multipart, true, $idem);
 
     $entry = ['platforms' => $plats, 'title' => $title, 'scheduled' => $scheduled, 'set' => $set,
+              'draft' => $draftTk && in_array('tiktok', $plats, true) ? ['tiktok'] : [],
               'request_id' => (string)($r['request_id'] ?? ''), 'job_id' => (string)($r['job_id'] ?? '')];
     cn_post_log($m, $entry);
     $rids[] = $entry['request_id']; $jobs[] = $entry['job_id'];
   }
-  cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $rids[0] ?? '', 'requestIds' => $rids, 'jobId' => $jobs[0] ?? '', 'used' => $used]);
+  cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $rids[0] ?? '', 'requestIds' => $rids, 'jobId' => $jobs[0] ?? '', 'used' => $used, 'drafted' => $draftTk ? ['tiktok'] : []]);
 } catch (Throwable $e) {
   $msg = $e->getMessage();
-  cn_learn_cap($msg);
+  if (($_POST['tiktok_mode'] ?? '') !== 'draft') cn_learn_cap($msg);
   if (stripos($msg, 'daily posting cap') !== false) cn_json_out(['ok' => false, 'error' => $msg], 429);
   if (stripos($msg, 'rate limit') !== false) cn_json_out(['ok' => false, 'retry' => 30, 'error' => 'The posting service is busy. Wait about 30 seconds and try again.'], 429);
   cn_json_out(['ok' => false, 'error' => $msg], 502);

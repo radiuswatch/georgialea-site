@@ -468,6 +468,14 @@
   .st-bar select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font:inherit;max-width:100%}
   .st-clip .st-top{gap:12px}
   .st-clip .st-pick{display:flex;gap:10px;align-items:flex-start;min-width:0}
+  .ex-manual{margin-top:16px;border:1px solid #5A4418;border-radius:12px;background:var(--warn-deep);padding:10px 14px 12px}
+  .ex-manual h4{margin:2px 0 4px;font-size:15px;font-weight:600;display:flex;gap:8px;align-items:center;color:#FFE7B5}
+  .ex-manual .ct{font-family:var(--mono);font-size:12px;border:1px solid #5A4418;border-radius:999px;padding:2px 9px}
+  .ex-manual .note{color:#F1D9A6;margin:0 0 10px}
+  .export-item.manual{flex-wrap:wrap}
+  .export-item.manual .sent-st{display:block;margin-top:3px;color:#F1D9A6;font-family:var(--mono);font-size:12.5px}
+  .m-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .bulk-auto{flex-basis:100%;font-weight:400!important;font-size:13.5px!important;color:var(--muted)}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -2014,7 +2022,7 @@ var Keep = (function(){
       t.oncomplete = function(){ res(req && req.result); }; t.onerror = t.onabort = function(){ rej(t.error); };
     }); });
   }
-  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, postKey:x.postKey || null, at:x.at || Date.now() }; }
+  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, manual:x.manual || null, postKey:x.postKey || null, at:x.at || Date.now() }; }
   var kept = {};
   return {
     sync: function(){
@@ -2054,7 +2062,7 @@ function renderExports(){
   $('#saveAllBtn').textContent = S.exports.length > 1 ? 'Save all ' + S.exports.length + ' clips' : 'Save this clip';
   if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here, or tap <b>+ Add clips from your device</b> to post clips you already have.</p>'; Keep.sync(); return; }
   S.exports.forEach(function(x){ x.id = x.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); });
-  var ready = S.exports.filter(function(x){ return !x.sent; }), sent = S.exports.filter(function(x){ return x.sent; });
+  var ready = S.exports.filter(function(x){ return !x.sent && !x.manual; }), sent = S.exports.filter(function(x){ return x.sent; }), manual = S.exports.filter(function(x){ return x.manual && !x.sent; });
   if (!ready.length) box.innerHTML = '<p class="note">Every clip here has been sent. Export more in step 2, or find them under Sent below.</p>';
   if (window.AutoPost && ready.length > 1) AutoPost.bulk(box, ready);
   ready.forEach(function(x){
@@ -2074,14 +2082,59 @@ function renderExports(){
     if (window.AutoPost) AutoPost.decorate(row, x);
     box.appendChild(row);
   });
+  if (manual.length) box.appendChild(manualBox(manual));
   if (sent.length) box.appendChild(sentBox(sent));
   Keep.sync();
+}
+/* Clips that hit a platform's daily limit and didn't fit in its drafts: post them by hand in the app. */
+var MANUAL_NAMES = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
+var MANUAL_UPLOAD = { tiktok:'https://www.tiktok.com/tiktokstudio/upload', youtube:'https://studio.youtube.com/', instagram:'https://www.instagram.com/', facebook:'https://www.facebook.com/', x:'https://x.com/compose/post' };
+function captionText(platform, x){ return clipCaption(platform, x); }
+function manualBox(list){
+  var d = document.createElement('div'); d.className = 'ex-manual';
+  var pl = MANUAL_NAMES[list[0].manual.platform] || 'the app';
+  d.innerHTML = '<h4>Post by hand <span class="ct"></span></h4><p class="note">These reached ' + pl + '’s daily limit for automatic posting. Posting them yourself in the app works any time: tap <b>Open in ' + pl + '</b>, paste the caption, and post. Then tap <b>I posted it</b>.</p><div class="exports"></div>';
+  $('.ct', d).textContent = list.length;
+  var wrap = $('.exports', d);
+  list.forEach(function(x){
+    var p = x.manual.platform, nm = MANUAL_NAMES[p] || p;
+    var row = document.createElement('div'); row.className = 'export-item manual';
+    row.innerHTML = '<div><div class="n"></div><span class="sent-st"></span></div><div class="m-acts"><button class="btn btn-green btn-sm" type="button" data-m="open"></button><button class="btn btn-ghost btn-sm" type="button" data-m="cap">Copy caption</button><button class="btn btn-ghost btn-sm" type="button" data-m="done">I posted it</button><button class="btn btn-ghost btn-sm" type="button" data-m="auto">Try automatic again</button></div>';
+    $('.n', row).textContent = x.name;
+    $('.sent-st', row).textContent = nm + '’s daily limit was reached ' + new Date(x.manual.at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '.';
+    $('[data-m="open"]', row).textContent = 'Open in ' + nm;
+    $('[data-m="open"]', row).addEventListener('click', function(){
+      var file = window.File ? new File([x.blob], x.name, { type:x.blob.type || 'video/mp4' }) : null;
+      var cap = captionText(p, x);
+      if (cap && navigator.clipboard) navigator.clipboard.writeText(cap).catch(function(){});
+      if (MOBILE && file && navigator.canShare && navigator.canShare({ files:[file] })){
+        navigator.share({ files:[file] }).catch(function(){});
+        toast('Caption copied. Pick ' + nm + ' in the share menu, then paste the caption.');
+        return;
+      }
+      var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove();
+      window.open(MANUAL_UPLOAD[p] || '/', '_blank', 'noopener');
+      toast('Clip downloaded and caption copied. Upload it on the ' + nm + ' page that just opened.');
+    });
+    $('[data-m="cap"]', row).addEventListener('click', function(){
+      var cap = captionText(p, x);
+      if (navigator.clipboard) navigator.clipboard.writeText(cap).then(function(){ toast('Caption copied'); }, function(){ prompt('Copy the caption:', cap); });
+      else prompt('Copy the caption:', cap);
+    });
+    $('[data-m="done"]', row).addEventListener('click', function(){
+      x.sent = { at:Date.now(), scheduled:0, names:nm + ' (posted by hand)', byHand:true }; x.manual = null; renderExports(); toast('Moved to Sent');
+    });
+    $('[data-m="auto"]', row).addEventListener('click', function(){ x.manual = null; x.postKey = null; renderExports(); toast('Back in Your clips. Post or schedule it from there.'); });
+    wrap.appendChild(row);
+  });
+  return d;
 }
 /* Clips that were posted or scheduled move here, without Post buttons, so they can't be sent twice by accident. */
 var sentOpen = false;
 /** What really happened to a sent clip, from Recent posts: null (not known yet), or {failed, ok, text}. */
 function sentResult(x){
   if (!x.sent) return null;
+  if (x.sent.byHand) return { ok:true, text:'✓ Posted by hand' };
   var ids = (x.sent.rids && x.sent.rids.length) ? x.sent.rids : (x.sent.rid ? [x.sent.rid] : []), merged = [], known = 0;
   ids.forEach(function(id){ var q = window.POSTSTAT && window.POSTSTAT[id]; if (q && (q.results || []).length){ known++; merged = merged.concat(q.results); } });
   var p = known && known === ids.length ? { results:merged } : null;
@@ -2092,6 +2145,7 @@ function sentResult(x){
   var bad = p.results.filter(function(r){ return !r.ok; }), names = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
   if (bad.length) return { failed:true, text:'⚠ Didn’t post on ' + bad.map(function(r){ return names[r.platform] || r.platform; }).join(', ') + (bad[0].error ? ': ' + bad[0].error : '.') };
   var link = p.results.filter(function(r){ return r.url; })[0];
+  if (x.sent.draft) return { ok:true, text:'✓ In your TikTok drafts. Open TikTok to finish posting it.' };
   return { ok:true, text:'✓ Posted on ' + p.results.map(function(r){ return names[r.platform] || r.platform; }).join(', '), url:link && link.url };
 }
 function removeClips(list){
@@ -2147,6 +2201,18 @@ function sentBox(list){
 }
 
 function tagify(s){ return (s||'').split(/[\s,]+/).filter(Boolean).map(function(t){ return /^[#@]/.test(t) ? t : '#'+t.replace(/[^\w]/g,''); }).filter(function(t){ return t.length>1; }); }
+/** The caption for one clip on one platform: built from that clip's own title. If the member edited the
+ *  caption box, their edits are kept and the first clip's title in it is swapped for this clip's. */
+function clipCaption(platform, x){
+  var ta = document.querySelector('#plats .plat[data-p="' + platform + '"] textarea');
+  var P = PLATFORMS.filter(function(q){ return q.id === platform; })[0];
+  var hook = x.hook || '';
+  if (!ta) return P ? captionFor(P, hook) : hook;
+  var first = ta.dataset.hook || '';
+  if (P && ta.value === captionFor(P, first)) return captionFor(P, hook);
+  if (first && hook && ta.value.indexOf(first) > -1) return ta.value.split(first).join(hook);
+  return ta.value;
+}
 function captionFor(p, hook){
   var topic = $('#topic').value.trim();
   var camp = tagify($('#campTags').value), extra = tagify($('#extraTags').value);
@@ -2177,7 +2243,7 @@ function renderPlatforms(){
       '<div class="plat-actions"><button class="btn btn-ghost btn-sm" data-a="copy">Copy caption</button><a class="btn btn-green btn-sm" target="_blank" rel="noopener">Open ' + p.name.split(' ')[0] + '</a></div>';
     var cb = $('input', el), ta = $('textarea', el), cnt = $('.count', el);
     cb.checked = !!platOn[p.id];
-    ta.value = captionFor(p, hook);
+    ta.value = captionFor(p, hook); ta.dataset.hook = hook;
     function count(){ var n = Array.from(ta.value).length; cnt.textContent = n + ' / ' + p.limit; cnt.classList.toggle('over', n > p.limit); }
     count(); ta.addEventListener('input', count);
     cb.addEventListener('change', function(){ platOn[p.id] = cb.checked ? 1 : 0; el.classList.toggle('off', !cb.checked); store('cp_plats', platOn); });
@@ -3163,6 +3229,7 @@ function ClipNowConnect(platform, set){
   }
 
   var busy = 0;          // uploads in progress (warn before leaving the page)
+  function autoDraft(){ try { return localStorage.getItem('cn_autodraft') !== '0'; } catch(e){ return true; } }
   var queueRunning = false;
   function pad2(n){ return String(n).padStart(2, '0'); }
   function localStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
@@ -3170,7 +3237,7 @@ function ClipNowConnect(platform, set){
   function slotText(ts){ var d = new Date(ts * 1000); return dayName(d) + ' at ' + timeName(d); }
 
   /** Upload one clip to the connected platforms, now (when = '') or scheduled ('YYYY-MM-DDTHH:MM'). Resolves with the server's answer. */
-  function postOne(x, when, onProgress){
+  function postOne(x, when, onProgress, draft){
     return new Promise(function(resolve){
       var t = targets();
       if (!t.length) return resolve({ ok:false, error:'Switch on at least one connected platform in the cards below.' });
@@ -3181,13 +3248,13 @@ function ClipNowConnect(platform, set){
       fd.append('video', x.blob, x.name);
       t.forEach(function(p){
         fd.append('platforms[]', p);
-        var ta = document.querySelector('#plats .plat[data-p="' + p + '"] textarea');
-        fd.append('caption[' + p + ']', ta ? ta.value : (x.hook || ''));
+        fd.append('caption[' + p + ']', clipCaption(p, x));
       });
       if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }
+      if (draft) fd.append('tiktok_mode', 'draft');
       // Same clip + same platforms + same time = same key, so a retry (or a resumed batch) can't post twice.
       x.postKey = x.postKey || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
-      fd.append('key', x.postKey + '-' + t.join('').slice(0, 20) + '-' + (when ? when.replace(/\D/g, '') : 'now'));
+      fd.append('key', x.postKey + '-' + t.join('').slice(0, 20) + '-' + (when ? when.replace(/\D/g, '') : 'now') + (draft ? '-d' : ''));
       Keep.sync();
       var xhr = new XMLHttpRequest();
       xhr.open('POST', 'api/post.php'); xhr.withCredentials = true;
@@ -3201,10 +3268,13 @@ function ClipNowConnect(platform, set){
           j.names = t.map(function(p){ var u = j.used && j.used[p]; return NAMES[p] + (u && (info.sets || []).length > 1 ? ' (' + u + ')' : ''); }).join(', ');
           j.skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
           // Move the clip to Sent so it can't be posted again by accident.
-          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names, rid:j.requestId || '', rids:j.requestIds || [] };
+          var drafted = (j.drafted || []).length > 0;
+          if (drafted) j.names = j.names.replace('TikTok', 'TikTok drafts');
+          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names, rid:j.requestId || '', rids:j.requestIds || [], draft:drafted };
+          x.manual = null;
           x.sel = false;
         }
-        resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, retry:j.retry });
+        resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, draft:j.draft, retry:j.retry });
       };
       xhr.onerror = function(){ busy--; resolve({ ok:false, error:'Upload failed. Check your connection and try again.', net:true }); };
       xhr.send(fd);
@@ -3216,9 +3286,19 @@ function ClipNowConnect(platform, set){
     btns.forEach(function(b){ b.disabled = true; });
     say('Uploading…');
     postOne(x, when, function(pct){ say('Uploading… ' + pct + '%'); }).then(function(j){
+      if (!j.ok && j.cap && !when && autoDraft()){
+        if (j.cap === 'tiktok' && !j.draft){ say('TikTok’s daily limit is reached. Sending it to your TikTok drafts…'); return postOne(x, '', null, true); }
+      }
+      return j;
+    }).then(function(j){
       btns.forEach(function(b){ b.disabled = false; });
+      if (!j.ok && j.cap && !when && autoDraft()){
+        x.manual = { platform:j.cap, at:Date.now() }; renderExports();
+        toast((MANUAL_NAMES[j.cap] || 'The platform') + '’s daily limit is reached. The clip is under Post by hand.');
+        return;
+      }
       if (j.ok){
-        var done = (j.scheduled ? 'Scheduled for ' + slotText(j.scheduled) + ' on ' + j.names + '.' : 'Sent to ' + j.names + '. It can take a few minutes to appear.')
+        var done = (j.scheduled ? 'Scheduled for ' + slotText(j.scheduled) + ' on ' + j.names + '.' : (j.drafted && j.drafted.length ? 'TikTok’s daily limit is reached, so it went to your TikTok drafts. Open TikTok to finish posting it.' : 'Sent to ' + j.names + '. It can take a few minutes to appear.'))
           + (j.skipped.length ? ' Skipped ' + j.skipped.join(', ') + ' (not connected).' : '');
         renderExports();
         toast(done + ' Moved to Sent.');
@@ -3237,17 +3317,27 @@ function ClipNowConnect(platform, set){
   function runQueue(items, mode, gap){
     if (queueRunning || !items.length) return;
     queueRunning = true;
-    var total = items.length, done = 0;
+    var total = items.length, done = 0, drafted = 0, byHand = 0, drafting = false;
     var save = function(){ Keep.setState('queue', items.length ? { mode:mode, gap:gap, items:items.map(function(it){ return { id:it.x.id, when:it.when }; }), at:Date.now() } : null); };
     Keep.sync(); save();
     function finish(html, cls){ queueRunning = false; renderExports(); status(html, cls); setTimeout(recent, 1500); }
     (function next(tries){
-      if (!items.length){ save(); return finish('✓ ' + (mode === 'now' ? 'Sent ' : 'Scheduled ') + done + ' clip' + (done === 1 ? '' : 's') + '. ' + (mode === 'now' ? 'They can take a few minutes to appear.' : 'They’re listed under Upcoming posts below.') + ' Moved to Sent.', 'ok'); }
+      if (!items.length){
+        save();
+        if (drafted || byHand) return finish('✓ Posted ' + (done - drafted) + '. TikTok’s daily limit was reached, so ' + (drafted ? drafted + ' went to your <b>TikTok drafts</b> (open TikTok to finish posting them)' : '') + (drafted && byHand ? ' and ' : '') + (byHand ? byHand + ' ' + (byHand === 1 ? 'is' : 'are') + ' under <b>Post by hand</b> below' : '') + '.', 'ok');
+        return finish('✓ ' + (mode === 'now' ? 'Sent ' : 'Scheduled ') + done + ' clip' + (done === 1 ? '' : 's') + '. ' + (mode === 'now' ? 'They can take a few minutes to appear.' : 'They’re listed under Upcoming posts below.') + ' Moved to Sent.', 'ok');
+      }
       var it = items[0];
       if (it.x.sent){ items.shift(); save(); return next(0); }
       status((mode === 'now' ? 'Posting ' : 'Scheduling ') + (done + 1) + ' of ' + total + ': “' + esc2(it.x.name) + '”… Keep this page open until it finishes.');
-      postOne(it.x, it.when, function(pct){ status((mode === 'now' ? 'Posting ' : 'Scheduling ') + (done + 1) + ' of ' + total + ': uploading ' + pct + '%… Keep this page open until it finishes.'); }).then(function(j){
-        if (j.ok){ done++; items.shift(); save(); renderExports(); return wait(mode === 'now' ? 6000 : 2500).then(function(){ next(0); }); }
+      postOne(it.x, it.when, function(pct){ status((drafting ? 'Sending to TikTok drafts ' : mode === 'now' ? 'Posting ' : 'Scheduling ') + (done + 1) + ' of ' + total + ': uploading ' + pct + '%… Keep this page open until it finishes.'); }, drafting).then(function(j){
+        if (j.ok){ done++; if (drafting) drafted++; items.shift(); save(); renderExports(); return wait(mode === 'now' ? 6000 : 2500).then(function(){ next(0); }); }
+        // Daily limit reached while posting now: send the rest to TikTok drafts, then list what's left under Post by hand.
+        if (j.cap && mode === 'now' && autoDraft()){
+          if (j.cap === 'tiktok' && !j.draft && !drafting){ drafting = true; return next(0); }
+          items.forEach(function(it2){ if (!it2.x.sent){ it2.x.manual = { platform:j.cap, at:Date.now() }; byHand++; } });
+          items = []; save(); renderExports(); return next(0);
+        }
         if ((j.retry || j.net) && tries < 3){ status('The posting service is busy. Trying again in ' + (j.retry || 15) + ' seconds…'); return wait((j.retry || 15) * 1000).then(function(){ next(tries + 1); }); }
         queueRunning = false; save(); renderExports();
         var left = items.length;
@@ -3317,6 +3407,9 @@ function ClipNowConnect(platform, set){
         runQueue(sel.map(function(x, k){ return { x:x, when:localStr(new Date(start.getTime() + k * g * 60000)) }; }), 'sched', g);
       }, [now, sch]);
       schBox.appendChild(gapRow); schBox.appendChild(picker.el);
+      var adLab = el('label', 'bulk-auto'), adCb = el('input'); adCb.type = 'checkbox'; adCb.className = 'x-sel'; adCb.checked = autoDraft();
+      adCb.addEventListener('change', function(){ try { localStorage.setItem('cn_autodraft', adCb.checked ? '1' : '0'); } catch(e){} });
+      adLab.appendChild(adCb); adLab.appendChild(document.createTextNode('When a daily limit is reached, send the rest to TikTok drafts, then to Post by hand'));
       bulkUpd = function(){
         var k = selected().length;
         n.textContent = k + ' of ' + list.length + ' selected';
@@ -3342,6 +3435,7 @@ function ClipNowConnect(platform, set){
         removeClips(sel);
       });
       bar.appendChild(lab); bar.appendChild(n); bar.appendChild(now); bar.appendChild(sch); bar.appendChild(rm); bar.appendChild(schBox);
+      if (connected().length) bar.appendChild(adLab);
       box.appendChild(bar);
       bulkUpd();
     },
@@ -3436,7 +3530,7 @@ function ClipNowConnect(platform, set){
 if (IS_STUDIO) Keep.load().then(function(list){
   if (!list.length || S.exports.length) return;
   list.forEach(function(k){
-    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, postKey:m.postKey, at:m.at };
+    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, manual:m.manual || null, postKey:m.postKey, at:m.at };
     Keep.mark(x.id, JSON.stringify(Keep.metaOf(x)));
     S.exports.push(x);
   });

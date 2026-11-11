@@ -530,19 +530,21 @@ function cn_post_status_file(array $member): string {
   return cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.status.json';
 }
 /** Upload-Post's per-platform results for one post, normalized: [['platform','ok','url','error'], ...]. */
-function cn_post_results(array $s): array {
+function cn_post_results(array $s, bool $learn = true): array {
   $out = [];
   foreach ((array)($s['results'] ?? []) as $res) {
     if (!is_array($res)) continue;
     $out[] = ['platform' => (string)($res['platform'] ?? ''), 'ok' => !empty($res['success']),
       'url' => (string)($res['post_url'] ?? $res['url'] ?? ''),
       'error' => (string)($res['error_message'] ?? $res['error'] ?? $res['message'] ?? '')];
-    if ($out[count($out) - 1]['error'] !== '') cn_learn_cap($out[count($out) - 1]['error']);
+    if ($learn && $out[count($out) - 1]['error'] !== '') cn_learn_cap($out[count($out) - 1]['error']);
   }
   return $out;
 }
 /** Platforms' own posting limits per account, enforced before we send (posts per rolling 24 hours). */
 const CN_DAILY_CAPS = ['tiktok' => 15];
+/** Clips sent to the app's drafts/inbox for the member to finish posting by hand (TikTok: about 5 pending per 24 hours). */
+const CN_DRAFT_CAPS = ['tiktok' => 5];
 /**
  * Daily limits per platform: the known ones above, plus any the posting service has told us about
  * in a refusal ("daily posting cap on instagram (50 posts per 24 hours)"). Learned limits are saved,
@@ -577,8 +579,8 @@ function cn_post_recent_count(array $member, string $platform, int $set, int $t)
  * Would one more post to $platform at time $t (0 = now) go over that platform's 24-hour limit?
  * Counts this member's posts that weren't refused. Returns [ok, next time that would fit].
  */
-function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1): array {
-  $cap = cn_daily_caps()[$platform] ?? 0;
+function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1, bool $draft = false): array {
+  $cap = $draft ? (CN_DRAFT_CAPS[$platform] ?? 0) : (cn_daily_caps()[$platform] ?? 0);
   $t = $t ?: time();
   if ($cap <= 0) return [true, $t];
   $st = cn_json_file(cn_post_status_file($member), []);
@@ -586,6 +588,7 @@ function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1
   foreach (cn_post_history($member, 400) as $p) {
     if (!in_array($platform, (array)($p['platforms'] ?? []), true)) continue;
     if ((int)($p['set'] ?? 1) !== $set) continue;   // limits are per account
+    if (in_array($platform, (array)($p['draft'] ?? []), true) !== $draft) continue;   // drafts are counted separately
     $res = $st[$p['request_id'] ?? ''] ?? null;
     if ($res && !empty($res['final'])) {
       $mine = array_values(array_filter((array)$res['results'], fn($r) => ($r['platform'] ?? '') === $platform));
