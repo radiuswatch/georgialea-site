@@ -1,5 +1,6 @@
 <?php
 // GET /api/posts.php → the member's recent auto-posts with where each one really ended up.
+// POST /api/posts.php {action:"hide", ids:[...]} → clears those entries from the list (the post log is kept).
 // Upload-Post is asked about posts that aren't finished yet (up to 15 per call); finished results
 // are saved, so a post that was refused keeps showing why.
 declare(strict_types=1);
@@ -8,14 +9,29 @@ require __DIR__ . '/../admin/lib.php';
 try {
   $m = cn_current_member();
   if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
+  // Entries the member cleared from the list. The post log itself is kept (it counts toward daily limits).
+  $hf = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$m['customer_id']) . '.hidden.json';
+  $hidden = cn_json_file($hf, []);
+  if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
+    $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
+    if (($in['action'] ?? '') !== 'hide') cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
+    $ids = array_slice(array_values(array_filter((array)($in['ids'] ?? []), fn($x) => is_string($x) && preg_match('/^[A-Za-z0-9_.:-]{1,80}$/', $x))), 0, 500);
+    foreach ($ids as $id) $hidden[$id] = time();
+    if (count($hidden) > 5000) $hidden = array_slice($hidden, -5000, null, true);
+    file_put_contents($hf, json_encode($hidden), LOCK_EX);
+    cn_json_out(['ok' => true, 'hidden' => count($ids)]);
+  }
   $sf = cn_post_status_file($m);
   $cache = cn_json_file($sf, []);
   $changed = false; $asked = 0; $now = time();
   $out = [];
-  foreach (cn_post_history($m, 100) as $p) {
+  foreach (cn_post_history($m, 150) as $p) {
     $rid = (string)($p['request_id'] ?? ''); $jid = (string)($p['job_id'] ?? '');
+    $id = $rid !== '' ? $rid : ('t' . $p['at'] . '-' . substr(md5((string)($p['title'] ?? '')), 0, 8));
+    if (isset($hidden[$id])) continue;
     $sched = (int)($p['scheduled'] ?? 0);
-    $row = ['at' => $p['at'], 'title' => $p['title'] ?? '', 'platforms' => $p['platforms'] ?? [], 'scheduled' => $sched, 'status' => $sched > $now ? 'scheduled' : 'sent', 'results' => []];
+    $row = ['id' => $id, 'at' => $p['at'], 'title' => $p['title'] ?? '', 'platforms' => $p['platforms'] ?? [], 'scheduled' => $sched, 'status' => $sched > $now ? 'scheduled' : 'sent', 'results' => []];
     $c = $rid !== '' ? ($cache[$rid] ?? null) : null;
     $due = $sched === 0 || $sched <= $now;
     if (($rid !== '' || $jid !== '') && $due && !($c['final'] ?? false) && $asked < 15 && ($c['checked'] ?? 0) < $now - 20) {

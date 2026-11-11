@@ -438,6 +438,20 @@
   .bulk-status .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .keep-note{margin:0 0 8px}
   .keep-note button{background:none;border:0;color:var(--green);font:inherit;text-decoration:underline;cursor:pointer;padding:0}
+  .rp-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 6px}
+  .rp-bar label{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;cursor:pointer;min-height:40px}
+  .rp-bar .bulk-n{margin-right:auto}
+  .ap-post.rp-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:start}
+  .rp-left{display:flex;gap:10px;align-items:flex-start;min-width:0}
+  .rp-st{grid-column:1 / -1;padding-left:32px;min-width:0;overflow-wrap:anywhere}
+  .rp-x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:14px;line-height:1}
+  .rp-x:hover{color:#F0706A;border-color:#5A2A28}
+  .export-item.sent.failed{border-color:#5A2A28;background:#1E1312}
+  .export-item.sent.failed .sent-st{color:#F0A8A2}
+  .sent-acts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .sent-acts [hidden]{display:none}
+  .ex-sent summary .bad-ct{color:#F0A8A2;border-color:#5A2A28;background:#2A1513}
+  .export-item.sent .sent-st a{font-family:var(--sans)}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -2040,25 +2054,65 @@ function renderExports(){
 }
 /* Clips that were posted or scheduled move here, without Post buttons, so they can't be sent twice by accident. */
 var sentOpen = false;
+/** What really happened to a sent clip, from Recent posts: null (not known yet), or {failed, ok, text}. */
+function sentResult(x){
+  if (!x.sent) return null;
+  var p = x.sent.rid && window.POSTSTAT && window.POSTSTAT[x.sent.rid];
+  // Keep the result on the clip itself, so deleting the notification doesn't lose it.
+  if (p && (p.results || []).length) x.sent.res = p.results;
+  p = x.sent.res ? { results:x.sent.res } : null;
+  if (!p) return null;
+  var bad = p.results.filter(function(r){ return !r.ok; }), names = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
+  if (bad.length) return { failed:true, text:'⚠ Didn’t post on ' + bad.map(function(r){ return names[r.platform] || r.platform; }).join(', ') + (bad[0].error ? ': ' + bad[0].error : '.') };
+  var link = p.results.filter(function(r){ return r.url; })[0];
+  return { ok:true, text:'✓ Posted on ' + p.results.map(function(r){ return names[r.platform] || r.platform; }).join(', '), url:link && link.url };
+}
+function removeClips(list){
+  var ids = {}; list.forEach(function(x){ ids[x.id] = 1; try { URL.revokeObjectURL(x.url); } catch(e){} });
+  S.exports = S.exports.filter(function(x){ return !ids[x.id]; });
+  renderExports();
+}
 function sentBox(list){
   var d = document.createElement('details'); d.className = 'ex-sent'; d.open = sentOpen;
   d.addEventListener('toggle', function(){ sentOpen = d.open; });
-  d.innerHTML = '<summary>Sent <span class="ct"></span><span class="chev" aria-hidden="true">▾</span></summary>'
-    + '<p class="note">Posted and scheduled clips move here so they don’t get posted twice. Scheduled ones are also under Upcoming posts below.</p><div class="exports"></div>';
+  var nFailed = list.filter(function(x){ var r = sentResult(x); return r && r.failed; }).length;
+  if (nFailed) { d.open = true; }
+  d.innerHTML = '<summary>Sent <span class="ct"></span><span class="ct bad-ct" hidden></span><span class="chev" aria-hidden="true">▾</span></summary>'
+    + '<p class="note">Posted and scheduled clips move here so they don’t get posted twice. If a platform turns one down, it’s marked here and you can post it again. Scheduled ones are also under Upcoming posts below.</p>'
+    + '<div class="sent-acts"><button class="btn btn-ghost btn-sm" type="button" data-s="ok">Remove the ones that posted</button><button class="btn btn-ghost btn-sm" type="button" data-s="all">Remove all sent</button></div><div class="exports"></div>';
   $('.ct', d).textContent = list.length;
+  if (nFailed){ var bc = $('.bad-ct', d); bc.hidden = false; bc.textContent = nFailed + ' didn’t post'; }
+  var okList = list.filter(function(x){ var r = sentResult(x); return r && r.ok; });
+  var okBtn = $('[data-s="ok"]', d); okBtn.hidden = !okList.length;
+  okBtn.addEventListener('click', function(){ if (confirm('Remove ' + okList.length + ' clip' + (okList.length === 1 ? '' : 's') + ' that posted from this device? They stay up on your accounts.')) removeClips(okList); });
+  $('[data-s="all"]', d).addEventListener('click', function(){ if (confirm('Remove all ' + list.length + ' sent clips from this device? Posts that went through stay up on your accounts.')) removeClips(list); });
   var wrap = $('.exports', d);
-  list.slice().sort(function(a, b){ return b.sent.at - a.sent.at; }).forEach(function(x){
-    var row = document.createElement('div'); row.className = 'export-item sent';
+  list.slice().sort(function(a, b){
+    var fa = (sentResult(a) || {}).failed ? 1 : 0, fb = (sentResult(b) || {}).failed ? 1 : 0;
+    return fb - fa || b.sent.at - a.sent.at;
+  }).forEach(function(x){
+    var r = sentResult(x);
+    var row = document.createElement('div'); row.className = 'export-item sent' + (r && r.failed ? ' failed' : '');
     row.innerHTML = '<div><div class="n"></div><span class="sent-st"></span></div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn btn-ghost btn-sm" type="button">Post again</button></div>';
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn ' + (r && r.failed ? 'btn-green' : 'btn-ghost') + ' btn-sm" type="button" data-s="again">Post again</button><button class="btn btn-ghost btn-sm" type="button" data-s="rm">Remove</button></div>';
     $('.n', row).textContent = x.name;
     var w = new Date(x.sent.scheduled ? x.sent.scheduled * 1000 : x.sent.at);
-    $('.sent-st', row).textContent = (x.sent.scheduled ? '✓ Scheduled for ' + w.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) + ', ' : '✓ Sent ')
-      + w.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + ' · ' + x.sent.names;
+    var when = (x.sent.scheduled ? 'Scheduled for ' + w.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) + ', ' : 'Sent ') + w.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+    var stEl = $('.sent-st', row);
+    if (r && r.failed) stEl.textContent = r.text + ' (' + when + ')';
+    else if (r && r.ok){
+      stEl.textContent = r.text + ' · ' + when + ' ';
+      if (r.url){ var lk = document.createElement('a'); lk.href = r.url; lk.target = '_blank'; lk.rel = 'noopener'; lk.textContent = 'View ↗'; stEl.appendChild(lk); }
+    } else stEl.textContent = '✓ ' + when + ' · ' + x.sent.names + (x.sent.rid && !x.sent.scheduled ? ' · checking…' : '');
     var a = $('a', row); a.href = x.url; a.download = x.name;
-    $('button', row).addEventListener('click', function(){
-      if (!confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
+    $('[data-s="again"]', row).addEventListener('click', function(){
+      if (!(r && r.failed) && !confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
       x.sent = null; x.postKey = null; renderExports();
+      toast('Moved back to Your clips');
+    });
+    $('[data-s="rm"]', row).addEventListener('click', function(){
+      if (!confirm('Remove “' + x.name + '” from this device?' + (r && r.failed ? ' It didn’t post, so you’d need to export it again to post it.' : ' Anything that posted stays up on your accounts.'))) return;
+      removeClips([x]);
     });
     wrap.appendChild(row);
   });
@@ -2795,45 +2849,89 @@ function ClipNowConnect(platform){
     renderExports();
   }
 
-  var recentAll = false;
+  var recentAll = false, recentSel = {}, recentPoll = 0;
+  function failedPost(p){ return (p.results || []).some(function(r){ return !r.ok; }); }
+  function clearPosts(ids){
+    if (!ids.length) return;
+    var many = ids.length > 1;
+    if (!confirm((many ? 'Delete these ' + ids.length + ' notifications?' : 'Delete this notification?') + ' This only clears ' + (many ? 'them' : 'it') + ' from ClipNow. Anything already posted stays up on TikTok and your other accounts.')) return;
+    cnApi('posts.php', { action:'hide', ids:ids }).then(function(j){
+      if (!j || !j.ok) return toast('Couldn’t delete. Please try again.');
+      ids.forEach(function(id){ delete recentSel[id]; });
+      toast(many ? ids.length + ' notifications deleted' : 'Notification deleted');
+      recent();
+    });
+  }
   function recent(){
     if (!(MEMBER && MEMBER.signedIn && info && info.limit > 0)) { $('#apRecent').hidden = $('#apUpcoming').hidden = true; return; }
     get('posts.php').then(function(j){
       var box = $('#apRecentList'); box.innerHTML = '';
       var all = (j && j.posts) || [], nowS = Date.now() / 1000;
+      // Let clips in the Sent list show what really happened to them.
+      var stat = {}; all.forEach(function(p){ stat[p.id] = p; }); window.POSTSTAT = stat;
+      if (S.exports.some(function(x){ return x.sent && x.sent.rid; })) renderExports();
       var isUp = function(p){ return p.scheduled > nowS && !/fail|error/i.test(String(p.status)); };
       upcoming(all.filter(isUp));
       var posts = all.filter(function(p){ return !isUp(p); }); $('#apRecent').hidden = !posts.length;
-      var failedN = posts.filter(function(p){ return (p.results || []).some(function(r){ return !r.ok; }); }).length;
-      if (failedN){
+      var ids = {}; posts.forEach(function(p){ ids[p.id] = 1; });
+      Object.keys(recentSel).forEach(function(id){ if (!ids[id]) delete recentSel[id]; });
+      var failed = posts.filter(failedPost);
+      if (failed.length){
         var sum = el('p', 'note', ''); sum.style.cssText = 'margin:0 0 8px;color:#F0A8A2';
-        sum.textContent = failedN + ' of your last ' + posts.length + ' posts didn’t go through on at least one platform. The reason is shown on each one. To try again, post those clips again from Your clips.';
+        sum.textContent = failed.length + ' of your last ' + posts.length + ' posts didn’t go through on at least one platform. The reason is shown on each one. To try again, use Post again on the clip under Sent, or export it again.';
         box.appendChild(sum);
       }
-      var showN = recentAll ? posts.length : 10;
-      if (posts.length > showN){
-        var more = el('button', 'btn btn-ghost btn-sm', 'Show all ' + posts.length);
-        more.type = 'button'; more.style.marginTop = '10px';
-        more.addEventListener('click', function(){ recentAll = true; recent(); });
-        setTimeout(function(){ box.appendChild(more); }, 0);
+      // Select + delete bar
+      var bar = el('div', 'rp-bar'), lab = el('label'), allCb = el('input'), n = el('span', 'bulk-n');
+      allCb.type = 'checkbox'; allCb.className = 'x-sel'; lab.appendChild(allCb); lab.appendChild(document.createTextNode('Select all'));
+      var selF = el('button', 'btn btn-ghost btn-sm', 'Select failed (' + failed.length + ')'); selF.type = 'button'; selF.hidden = !failed.length;
+      var del = el('button', 'btn btn-ghost btn-sm rp-del', 'Delete'); del.type = 'button';
+      bar.appendChild(lab); bar.appendChild(n); bar.appendChild(selF); bar.appendChild(del);
+      box.appendChild(bar);
+      function upd(){
+        var k = Object.keys(recentSel).length;
+        n.textContent = k ? k + ' selected' : '';
+        allCb.checked = k > 0 && k === posts.length; allCb.indeterminate = k > 0 && k < posts.length;
+        del.disabled = !k; del.textContent = k ? 'Delete ' + k : 'Delete';
+        $$('#apRecentList .x-sel[data-id]').forEach(function(c){ c.checked = !!recentSel[c.dataset.id]; });
       }
+      allCb.addEventListener('change', function(){ recentSel = {}; if (allCb.checked) posts.forEach(function(p){ recentSel[p.id] = 1; }); upd(); });
+      selF.addEventListener('click', function(){ recentSel = {}; failed.forEach(function(p){ recentSel[p.id] = 1; }); upd(); });
+      del.addEventListener('click', function(){ clearPosts(Object.keys(recentSel)); });
+
+      var showN = recentAll ? posts.length : 10;
       posts.slice(0, showN).forEach(function(p){
-        var row = el('div', 'ap-post'), left = el('div'), right = el('div');
-        left.appendChild(el('b', '', p.title || 'Clip'));
-        left.appendChild(document.createTextNode(' · ' + p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
+        var row = el('div', 'ap-post rp-row' + (failedPost(p) ? ' rp-failed' : '')), left = el('div', 'rp-left'), right = el('div', 'rp-st'), info2 = el('div');
+        var cb = el('input'); cb.type = 'checkbox'; cb.className = 'x-sel'; cb.dataset.id = p.id; cb.setAttribute('aria-label', 'Select ' + (p.title || 'this post'));
+        cb.addEventListener('change', function(){ if (cb.checked) recentSel[p.id] = 1; else delete recentSel[p.id]; upd(); });
+        info2.appendChild(el('b', '', p.title || 'Clip'));
+        info2.appendChild(document.createTextNode(' · ' + p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
+        left.appendChild(cb); left.appendChild(info2);
         var when = p.scheduled ? 'Scheduled for ' + dayName(new Date(p.scheduled * 1000)) + ' at ' + timeName(new Date(p.scheduled * 1000)) : dayName(new Date(p.at * 1000)) + ' at ' + timeName(new Date(p.at * 1000));
         var stTxt = { pending:'Posting…', processing:'Posting…', in_progress:'Posting…', scheduled:'Scheduled', completed:'Posted', success:'Posted', failed:'Failed', error:'Failed', sent:'Sent' }[String(p.status).toLowerCase()] || p.status;
         var res = p.results || [], good = res.filter(function(r){ return r.ok; }).length;
         if (res.length && good === 0) stTxt = 'Failed'; else if (res.length && good < res.length) stTxt = 'Partly posted';
-        var st = el('span', 'st' + (stTxt === 'Posted' ? ' ok' : /fail|partly/i.test(stTxt) ? ' bad' : ''), stTxt + ' · ' + when);
-        right.appendChild(st);
-        (p.results || []).forEach(function(r){
+        right.appendChild(el('span', 'st' + (stTxt === 'Posted' ? ' ok' : /fail|partly/i.test(stTxt) ? ' bad' : ''), stTxt + ' · ' + when));
+        res.forEach(function(r){
           right.appendChild(document.createTextNode(' '));
           if (r.ok && r.url){ var a = el('a', '', (NAMES[r.platform] || r.platform) + ' ↗'); a.href = r.url; a.target = '_blank'; a.rel = 'noopener'; right.appendChild(a); }
           else if (!r.ok && r.error){ right.appendChild(el('span', 'st bad', (NAMES[r.platform] || r.platform) + ': ' + r.error)); }
         });
-        row.appendChild(left); row.appendChild(right); box.appendChild(row);
+        var x = el('button', 'rp-x', '✕'); x.type = 'button'; x.title = 'Delete this notification'; x.setAttribute('aria-label', 'Delete this notification');
+        x.addEventListener('click', function(){ clearPosts([p.id]); });
+        row.appendChild(left); row.appendChild(x); row.appendChild(right); box.appendChild(row);
       });
+      if (posts.length > showN){
+        var more = el('button', 'btn btn-ghost btn-sm', 'Show all ' + posts.length);
+        more.type = 'button'; more.style.marginTop = '10px';
+        more.addEventListener('click', function(){ recentAll = true; recent(); });
+        box.appendChild(more);
+      }
+      upd();
+      // Keep checking for a while after posting, until each recent post has its final result.
+      clearTimeout(recentPoll);
+      var waiting = S.exports.some(function(x){ var r = x.sent && x.sent.rid && stat[x.sent.rid]; return x.sent && x.sent.rid && !x.sent.scheduled && Date.now() - x.sent.at < 30 * 60000 && !(r && r.results && r.results.length); });
+      if (waiting) recentPoll = setTimeout(recent, 45000);
     });
   }
 
@@ -3029,7 +3127,7 @@ function ClipNowConnect(platform){
           j.names = t.map(function(p){ return NAMES[p]; }).join(', ');
           j.skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
           // Move the clip to Sent so it can't be posted again by accident.
-          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names };
+          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names, rid:j.requestId || '' };
           x.sel = false;
         }
         resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, retry:j.retry });
@@ -3146,7 +3244,8 @@ function ClipNowConnect(platform){
         var k = selected().length;
         n.textContent = k + ' of ' + list.length + ' selected';
         all.checked = k === list.length && k > 0; all.indeterminate = k > 0 && k < list.length;
-        now.disabled = sch.disabled = !k || queueRunning;
+        now.disabled = sch.disabled = rm.disabled = !k || queueRunning;
+        rm.textContent = k ? 'Remove ' + k : 'Remove';
         now.textContent = k ? 'Post ' + k + ' now' : 'Post selected';
         sch.textContent = k ? 'Schedule ' + k + '…' : 'Schedule selected…';
       };
@@ -3159,7 +3258,13 @@ function ClipNowConnect(platform){
         runQueue(sel.map(function(x){ return { x:x, when:'' }; }), 'now', 0);
       });
       sch.addEventListener('click', function(){ schBox.hidden = !schBox.hidden; if (!schBox.hidden) picker.toggle(); else picker.close(); });
-      bar.appendChild(lab); bar.appendChild(n); bar.appendChild(now); bar.appendChild(sch); bar.appendChild(schBox);
+      var rm = el('button', 'btn btn-ghost btn-sm', 'Remove'); rm.type = 'button';
+      rm.addEventListener('click', function(){
+        var sel = selected(); if (!sel.length) return;
+        if (!confirm('Remove ' + sel.length + ' clip' + (sel.length === 1 ? '' : 's') + ' from this device? You’d need to export ' + (sel.length === 1 ? 'it' : 'them') + ' again to post.')) return;
+        removeClips(sel);
+      });
+      bar.appendChild(lab); bar.appendChild(n); bar.appendChild(now); bar.appendChild(sch); bar.appendChild(rm); bar.appendChild(schBox);
       box.appendChild(bar);
       bulkUpd();
     },
