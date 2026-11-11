@@ -79,6 +79,13 @@ try {
     $fields['scheduled_date'] = gmdate('Y-m-d\TH:i:s\Z', $scheduled);
   }
 
+  // Platforms cap posts per account per day (TikTok: 15 in 24 hours). Don't send what would be refused.
+  foreach ($want as $p) {
+    [$fits, $next] = cn_post_cap_check($m, $p, $scheduled);
+    if (!$fits) cn_json_out(['ok' => false, 'cap' => $p, 'next_slot' => $next,
+      'error' => CN_POST_PLATFORMS[$p] . ' allows ' . CN_DAILY_CAPS[$p] . ' posts per account in 24 hours, and this one would go over. Schedule it for later (the next opening is shown) or turn ' . CN_POST_PLATFORMS[$p] . ' off for this clip.'], 429);
+  }
+
   $multipart = [];
   foreach ($fields as $k => $v) $multipart[] = [$k, $v];
   foreach ($want as $p) $multipart[] = ['platform[]', $p];
@@ -90,5 +97,7 @@ try {
   cn_post_log($m, $entry);
   cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $entry['request_id'], 'jobId' => $entry['job_id'], 'message' => $r['message'] ?? '']);
 } catch (Throwable $e) {
-  cn_json_out(['ok' => false, 'error' => $e->getMessage()], 502);
+  $msg = $e->getMessage();
+  if (stripos($msg, 'rate limit') !== false) cn_json_out(['ok' => false, 'retry' => 30, 'error' => 'The posting service is busy. Wait about 30 seconds and try again.'], 429);
+  cn_json_out(['ok' => false, 'error' => $msg], 502);
 }

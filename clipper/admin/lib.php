@@ -502,6 +502,54 @@ function cn_post_log(array $member, array $entry): void {
   $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.jsonl';
   file_put_contents($f, json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
 }
+/** Where each post really ended up, per request_id, as Upload-Post reported it (final results are kept). */
+function cn_post_status_file(array $member): string {
+  return cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.status.json';
+}
+/** Upload-Post's per-platform results for one post, normalized: [['platform','ok','url','error'], ...]. */
+function cn_post_results(array $s): array {
+  $out = [];
+  foreach ((array)($s['results'] ?? []) as $res) {
+    if (!is_array($res)) continue;
+    $out[] = ['platform' => (string)($res['platform'] ?? ''), 'ok' => !empty($res['success']),
+      'url' => (string)($res['post_url'] ?? $res['url'] ?? ''),
+      'error' => (string)($res['error_message'] ?? $res['error'] ?? $res['message'] ?? '')];
+  }
+  return $out;
+}
+/** Platforms' own posting limits per account, enforced before we send (posts per rolling 24 hours). */
+const CN_DAILY_CAPS = ['tiktok' => 15];
+/**
+ * Would one more post to $platform at time $t (0 = now) go over that platform's 24-hour limit?
+ * Counts this member's posts that weren't refused. Returns [ok, next time that would fit].
+ */
+function cn_post_cap_check(array $member, string $platform, int $t): array {
+  $cap = CN_DAILY_CAPS[$platform] ?? 0;
+  $t = $t ?: time();
+  if ($cap <= 0) return [true, $t];
+  $st = cn_json_file(cn_post_status_file($member), []);
+  $times = [];
+  foreach (cn_post_history($member, 400) as $p) {
+    if (!in_array($platform, (array)($p['platforms'] ?? []), true)) continue;
+    $res = $st[$p['request_id'] ?? ''] ?? null;
+    if ($res && !empty($res['final'])) {
+      $mine = array_values(array_filter((array)$res['results'], fn($r) => ($r['platform'] ?? '') === $platform));
+      if ($mine && !$mine[0]['ok']) continue;   // refused: doesn't count toward the limit
+    }
+    $times[] = (int)(($p['scheduled'] ?? 0) ?: $p['at']);
+  }
+  sort($times);
+  $fits = function (int $x) use ($times, $cap): bool {
+    $all = $times; $all[] = $x; sort($all);
+    foreach (array_merge([$x], array_filter($times, fn($s) => $s > $x && $s < $x + 86400)) as $end) {
+      if (count(array_filter($all, fn($y) => $y > $end - 86400 && $y <= $end)) > $cap) return false;
+    }
+    return true;
+  };
+  if ($fits($t)) return [true, $t];
+  foreach ($times as $y) { $c = $y + 86400 + 60; if ($c > $t && $fits($c)) return [false, $c]; }
+  return [false, $t + 86400];
+}
 function cn_post_history(array $member, int $n = 20): array {
   $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.jsonl';
   if (!is_file($f)) return [];

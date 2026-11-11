@@ -422,6 +422,22 @@
   .ai-note{margin:8px 0 0;font-size:13.5px;color:var(--muted);min-height:0}
   .ai-note:empty{display:none}
   .ai-note.ok{color:var(--green)} .ai-note.bad{color:#F0706A}
+  .bulk{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:4px}
+  .bulk label{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14.5px;cursor:pointer;min-height:40px}
+  .bulk .bulk-n{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-right:auto}
+  .bulk-sch{flex-basis:100%;display:flex;flex-direction:column;gap:8px}
+  .bulk-sch[hidden]{display:none}
+  .bulk-gap{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);flex-wrap:wrap}
+  .bulk-gap select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font:inherit}
+  .x-sel{width:22px;height:22px;accent-color:var(--green);flex:0 0 auto;cursor:pointer;margin:0}
+  .export-item.has-sel{align-items:flex-start}
+  .export-item .x-head{display:flex;gap:12px;align-items:flex-start;min-width:0}
+  .bulk-status{border-radius:12px;padding:12px 14px;font-size:14.5px;margin:4px 0 8px;background:var(--card);border:1px solid var(--line);color:var(--text)}
+  .bulk-status.ok{border-color:var(--green-dim);background:var(--green-deep);color:#BFE9CF}
+  .bulk-status.bad{border-color:#5A2A28;background:#2A1513;color:#F6C7C3}
+  .bulk-status .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .keep-note{margin:0 0 8px}
+  .keep-note button{background:none;border:0;color:var(--green);font:inherit;text-decoration:underline;cursor:pointer;padding:0}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -851,6 +867,8 @@
       <!-- Stage 3 -->
       <div class="stage" data-stage="3">
         <h3 style="font-family:var(--sans);font-weight:600;font-size:18px">Your clips</h3>
+        <p class="note keep-note" id="keepNote" hidden></p>
+        <div class="bulk-status" id="bulkStatus" role="status" aria-live="polite" hidden></div>
         <div class="exports" id="exports"><p class="note">Export clips in step 2 and they'll appear here.</p></div>
 
         <div class="fields" style="grid-template-columns:1fr 1fr;margin-top:22px" id="capFields">
@@ -1941,12 +1959,65 @@ $('#exportBtn').addEventListener('click', function(){
 });
 function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'clip'; }
 
+/* ---------- Keep exported clips on this device (IndexedDB), so leaving the Studio doesn't lose them ---------- */
+var Keep = (function(){
+  var dbp = null, KEEP_DAYS = 7;
+  function db(){
+    if (!dbp) dbp = new Promise(function(res, rej){
+      if (!window.indexedDB) return rej(new Error('no idb'));
+      var r = indexedDB.open('clipnow-studio', 1);
+      r.onupgradeneeded = function(){ var d = r.result; ['blobs', 'meta', 'state'].forEach(function(n){ if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); }); };
+      r.onsuccess = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); };
+    });
+    return dbp;
+  }
+  function op(store, mode, fn){
+    return db().then(function(d){ return new Promise(function(res, rej){
+      var t = d.transaction(store, mode), req = fn(t.objectStore(store));
+      t.oncomplete = function(){ res(req && req.result); }; t.onerror = t.onabort = function(){ rej(t.error); };
+    }); });
+  }
+  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, postKey:x.postKey || null, at:x.at || Date.now() }; }
+  var kept = {};
+  return {
+    sync: function(){
+      if (!IS_STUDIO) return;
+      var live = {};
+      S.exports.forEach(function(x){
+        x.id = x.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); x.at = x.at || Date.now(); live[x.id] = 1;
+        var m = meta(x), js = JSON.stringify(m);
+        if (!kept[x.id]) op('blobs', 'readwrite', function(st){ return st.put(x.blob, x.id); }).catch(function(){});
+        if (kept[x.id] !== js) op('meta', 'readwrite', function(st){ return st.put(m, x.id); }).catch(function(){});
+        kept[x.id] = js;
+      });
+      Object.keys(kept).forEach(function(id){ if (!live[id]){ delete kept[id]; op('blobs', 'readwrite', function(st){ return st.delete(id); }).catch(function(){}); op('meta', 'readwrite', function(st){ return st.delete(id); }).catch(function(){}); } });
+    },
+    load: function(){
+      return op('meta', 'readonly', function(st){ return st.getAll(); }).then(function(list){
+        list = (list || []).filter(function(m){ return m && m.id; });
+        var old = Date.now() - KEEP_DAYS * 864e5, keep = [];
+        return Promise.all(list.map(function(m){
+          if (m.at < old) { op('blobs', 'readwrite', function(st){ return st.delete(m.id); }).catch(function(){}); op('meta', 'readwrite', function(st){ return st.delete(m.id); }).catch(function(){}); return null; }
+          return op('blobs', 'readonly', function(st){ return st.get(m.id); }).then(function(b){ if (b) keep.push({ m:m, b:b }); });
+        })).then(function(){ keep.sort(function(a, b){ return a.m.at - b.m.at; }); return keep; });
+      }).catch(function(){ return []; });
+    },
+    mark: function(id, js){ kept[id] = js; },
+    metaOf: meta,
+    clear: function(){ kept = {}; return Promise.all(['blobs', 'meta', 'state'].map(function(n){ return op(n, 'readwrite', function(st){ return st.clear(); }).catch(function(){}); })); },
+    setState: function(k, v){ return op('state', 'readwrite', function(st){ return v == null ? st.delete(k) : st.put(v, k); }).catch(function(){}); },
+    getState: function(k){ return op('state', 'readonly', function(st){ return st.get(k); }).catch(function(){ return null; }); }
+  };
+})();
+
 /* ---------- Stage 3: exports + captions ---------- */
 function renderExports(){
   var box = $('#exports'); box.innerHTML = '';
-  if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here.</p>'; return; }
+  if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here.</p>'; Keep.sync(); return; }
+  S.exports.forEach(function(x){ x.id = x.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); });
   var ready = S.exports.filter(function(x){ return !x.sent; }), sent = S.exports.filter(function(x){ return x.sent; });
   if (!ready.length) box.innerHTML = '<p class="note">Every clip here has been sent. Export more in step 2, or find them under Sent below.</p>';
+  if (window.AutoPost && ready.length > 1) AutoPost.bulk(box, ready);
   ready.forEach(function(x){
     var row = document.createElement('div'); row.className = 'export-item';
     row.innerHTML = '<div><div class="n"></div><span>' + fmt(x.dur) + ' · ' + (x.size/1048576).toFixed(1) + ' MB</span></div><a class="btn btn-green btn-sm" download>Download</a>';
@@ -1965,6 +2036,7 @@ function renderExports(){
     box.appendChild(row);
   });
   if (sent.length) box.appendChild(sentBox(sent));
+  Keep.sync();
 }
 /* Clips that were posted or scheduled move here, without Post buttons, so they can't be sent twice by accident. */
 var sentOpen = false;
@@ -2723,6 +2795,7 @@ function ClipNowConnect(platform){
     renderExports();
   }
 
+  var recentAll = false;
   function recent(){
     if (!(MEMBER && MEMBER.signedIn && info && info.limit > 0)) { $('#apRecent').hidden = $('#apUpcoming').hidden = true; return; }
     get('posts.php').then(function(j){
@@ -2731,7 +2804,20 @@ function ClipNowConnect(platform){
       var isUp = function(p){ return p.scheduled > nowS && !/fail|error/i.test(String(p.status)); };
       upcoming(all.filter(isUp));
       var posts = all.filter(function(p){ return !isUp(p); }); $('#apRecent').hidden = !posts.length;
-      posts.slice(0, 8).forEach(function(p){
+      var failedN = posts.filter(function(p){ return (p.results || []).some(function(r){ return !r.ok; }); }).length;
+      if (failedN){
+        var sum = el('p', 'note', ''); sum.style.cssText = 'margin:0 0 8px;color:#F0A8A2';
+        sum.textContent = failedN + ' of your last ' + posts.length + ' posts didn’t go through on at least one platform. The reason is shown on each one. To try again, post those clips again from Your clips.';
+        box.appendChild(sum);
+      }
+      var showN = recentAll ? posts.length : 10;
+      if (posts.length > showN){
+        var more = el('button', 'btn btn-ghost btn-sm', 'Show all ' + posts.length);
+        more.type = 'button'; more.style.marginTop = '10px';
+        more.addEventListener('click', function(){ recentAll = true; recent(); });
+        setTimeout(function(){ box.appendChild(more); }, 0);
+      }
+      posts.slice(0, showN).forEach(function(p){
         var row = el('div', 'ap-post'), left = el('div'), right = el('div');
         left.appendChild(el('b', '', p.title || 'Clip'));
         left.appendChild(document.createTextNode(' · ' + p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
@@ -2904,45 +2990,130 @@ function ClipNowConnect(platform){
     };
   }
 
-  function send(x, when, msg, btns){
-    var t = targets();
-    function say(text, cls){ msg.textContent = text; msg.className = 'xp-msg' + (cls ? ' ' + cls : ''); }
-    if (!t.length) return say('Switch on at least one connected platform in the cards below.', 'bad');
-    if (t.length > info.limit) return say('Your plan posts to up to ' + info.limit + ' platforms at a time. Switch some off below, or upgrade to Gold.', 'bad');
-    if (x.size > MAX) return say('This clip is over 60 MB. Export it at 720p or make it shorter.', 'bad');
-    if (/webm/.test(x.blob.type) && (t.indexOf('instagram') > -1 || t.indexOf('facebook') > -1)) return say('Instagram and Facebook need MP4. Export this clip again in Chrome, Edge or Safari, or switch those off.', 'bad');
-    var fd = new FormData();
-    fd.append('video', x.blob, x.name);
-    t.forEach(function(p){
-      fd.append('platforms[]', p);
-      var ta = document.querySelector('#plats .plat[data-p="' + p + '"] textarea');
-      fd.append('caption[' + p + ']', ta ? ta.value : (x.hook || ''));
+  var busy = 0;          // uploads in progress (warn before leaving the page)
+  var queueRunning = false;
+  function pad2(n){ return String(n).padStart(2, '0'); }
+  function localStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  function parseLocal(s){ var m = /^(\d+)-(\d+)-(\d+)T(\d+):(\d+)/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null; }
+  function slotText(ts){ var d = new Date(ts * 1000); return dayName(d) + ' at ' + timeName(d); }
+
+  /** Upload one clip to the connected platforms, now (when = '') or scheduled ('YYYY-MM-DDTHH:MM'). Resolves with the server's answer. */
+  function postOne(x, when, onProgress){
+    return new Promise(function(resolve){
+      var t = targets();
+      if (!t.length) return resolve({ ok:false, error:'Switch on at least one connected platform in the cards below.' });
+      if (t.length > info.limit) return resolve({ ok:false, error:'Your plan posts to up to ' + info.limit + ' platforms at a time. Switch some off below, or upgrade to Gold.' });
+      if (x.size > MAX) return resolve({ ok:false, error:'“' + x.name + '” is over 60 MB. Export it at 720p or make it shorter.' });
+      if (/webm/.test(x.blob.type) && (t.indexOf('instagram') > -1 || t.indexOf('facebook') > -1)) return resolve({ ok:false, error:'Instagram and Facebook need MP4. Export this clip again in Chrome, Edge or Safari, or switch those off.' });
+      var fd = new FormData();
+      fd.append('video', x.blob, x.name);
+      t.forEach(function(p){
+        fd.append('platforms[]', p);
+        var ta = document.querySelector('#plats .plat[data-p="' + p + '"] textarea');
+        fd.append('caption[' + p + ']', ta ? ta.value : (x.hook || ''));
+      });
+      if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }
+      // Same clip + same platforms + same time = same key, so a retry (or a resumed batch) can't post twice.
+      x.postKey = x.postKey || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+      fd.append('key', x.postKey + '-' + t.join('').slice(0, 20) + '-' + (when ? when.replace(/\D/g, '') : 'now'));
+      Keep.sync();
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'api/post.php'); xhr.withCredentials = true;
+      if (onProgress) xhr.upload.onprogress = function(e){ if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+      busy++;
+      xhr.onload = function(){
+        busy--;
+        var j = {}; try { j = JSON.parse(xhr.responseText); } catch(e){}
+        if (/humans_/.test(xhr.responseText) && !j.ok) j = { ok:false, retry:2, error:'Please try again.' };
+        if (j.ok){
+          j.names = t.map(function(p){ return NAMES[p]; }).join(', ');
+          j.skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
+          // Move the clip to Sent so it can't be posted again by accident.
+          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names };
+          x.sel = false;
+        }
+        resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, retry:j.retry });
+      };
+      xhr.onerror = function(){ busy--; resolve({ ok:false, error:'Upload failed. Check your connection and try again.', net:true }); };
+      xhr.send(fd);
     });
-    if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }
-    // Same clip + same platforms + same time = same key, so a retry can't post twice.
-    x.postKey = x.postKey || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
-    fd.append('key', x.postKey + '-' + t.join('') .slice(0, 20) + '-' + (when ? when.replace(/\D/g, '') : 'now'));
+  }
+
+  function send(x, when, msg, btns){
+    function say(text, cls){ msg.textContent = text; msg.className = 'xp-msg' + (cls ? ' ' + cls : ''); }
     btns.forEach(function(b){ b.disabled = true; });
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', 'api/post.php'); xhr.withCredentials = true;
-    xhr.upload.onprogress = function(e){ if (e.lengthComputable) say('Uploading… ' + Math.round(e.loaded / e.total * 100) + '%'); };
-    xhr.onload = function(){
-      var j = {}; try { j = JSON.parse(xhr.responseText); } catch(e){}
+    say('Uploading…');
+    postOne(x, when, function(pct){ say('Uploading… ' + pct + '%'); }).then(function(j){
       btns.forEach(function(b){ b.disabled = false; });
       if (j.ok){
-        var names = t.map(function(p){ return NAMES[p]; }).join(', ');
-        var skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
-        var done = (j.scheduled ? 'Scheduled for ' + dayName(new Date(j.scheduled * 1000)) + ' at ' + timeName(new Date(j.scheduled * 1000)) + ' on ' + names + '.' : 'Sent to ' + names + '. It can take a few minutes to appear.')
-          + (skipped.length ? ' Skipped ' + skipped.join(', ') + ' (not connected).' : '');
-        // Move the clip to the Sent section so it can't be posted again by accident.
-        x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:names };
+        var done = (j.scheduled ? 'Scheduled for ' + slotText(j.scheduled) + ' on ' + j.names + '.' : 'Sent to ' + j.names + '. It can take a few minutes to appear.')
+          + (j.skipped.length ? ' Skipped ' + j.skipped.join(', ') + ' (not connected).' : '');
         renderExports();
         toast(done + ' Moved to Sent.');
         setTimeout(recent, 1500);
-      } else say(j.error || 'Posting failed. Please try again.', 'bad');
-    };
-    xhr.onerror = function(){ btns.forEach(function(b){ b.disabled = false; }); say('Upload failed. Check your connection and try again.', 'bad'); };
-    say('Uploading…'); xhr.send(fd);
+      } else say(j.error + (j.next_slot ? ' Next opening: ' + slotText(j.next_slot) + '.' : ''), 'bad');
+    });
+  }
+
+  /* ----- Several clips at once ----- */
+  var bulkUpd = function(){};
+  function status(html, cls){ var b = $('#bulkStatus'); b.hidden = !html; b.className = 'bulk-status' + (cls ? ' ' + cls : ''); b.innerHTML = html || ''; return b; }
+  function esc2(t){ return String(t).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  /** Posts the clips one after another. items: [{x, when}]. Remembers the batch so it can resume after leaving the page. */
+  function runQueue(items, mode, gap){
+    if (queueRunning || !items.length) return;
+    queueRunning = true;
+    var total = items.length, done = 0;
+    var save = function(){ Keep.setState('queue', items.length ? { mode:mode, gap:gap, items:items.map(function(it){ return { id:it.x.id, when:it.when }; }), at:Date.now() } : null); };
+    Keep.sync(); save();
+    function finish(html, cls){ queueRunning = false; renderExports(); status(html, cls); setTimeout(recent, 1500); }
+    (function next(tries){
+      if (!items.length){ save(); return finish('✓ ' + (mode === 'now' ? 'Sent ' : 'Scheduled ') + done + ' clip' + (done === 1 ? '' : 's') + '. ' + (mode === 'now' ? 'They can take a few minutes to appear.' : 'They’re listed under Upcoming posts below.') + ' Moved to Sent.', 'ok'); }
+      var it = items[0];
+      if (it.x.sent){ items.shift(); save(); return next(0); }
+      status((mode === 'now' ? 'Posting ' : 'Scheduling ') + (done + 1) + ' of ' + total + ': “' + esc2(it.x.name) + '”… Keep this page open until it finishes.');
+      postOne(it.x, it.when, function(pct){ status((mode === 'now' ? 'Posting ' : 'Scheduling ') + (done + 1) + ' of ' + total + ': uploading ' + pct + '%… Keep this page open until it finishes.'); }).then(function(j){
+        if (j.ok){ done++; items.shift(); save(); renderExports(); return wait(mode === 'now' ? 6000 : 2500).then(function(){ next(0); }); }
+        if ((j.retry || j.net) && tries < 3){ status('The posting service is busy. Trying again in ' + (j.retry || 15) + ' seconds…'); return wait((j.retry || 15) * 1000).then(function(){ next(tries + 1); }); }
+        queueRunning = false; save(); renderExports();
+        var left = items.length;
+        var head = (done ? (mode === 'now' ? 'Sent ' : 'Scheduled ') + done + ' of ' + total + '. ' : '') + esc2(j.error) + ' ';
+        if (j.next_slot){
+          var g = gap || 120, b = status(head + '<br>The ' + left + ' clip' + (left === 1 ? '' : 's') + ' left stay' + (left === 1 ? 's' : '') + ' in Your clips. The next opening is <b>' + esc2(slotText(j.next_slot)) + '</b>.<div class="acts"><button class="btn btn-green btn-sm" type="button" data-q="go">' + (left === 1 ? 'Schedule it for then' : 'Schedule all ' + left + ' from then, one every ' + (g >= 60 ? g / 60 + ' hour' + (g === 60 ? '' : 's') : g + ' minutes')) + '</button><button class="btn btn-ghost btn-sm" type="button" data-q="no">Not now</button></div>', 'bad');
+          $('[data-q="go"]', b).addEventListener('click', function(){
+            var start = new Date(j.next_slot * 1000 + 60000);
+            runQueue(items.map(function(it2, k){ return { x:it2.x, when:localStr(new Date(start.getTime() + k * g * 60000)) }; }), 'sched', g);
+          });
+          $('[data-q="no"]', b).addEventListener('click', function(){ items = []; save(); status(''); });
+        } else {
+          var b2 = status(head + '<br>The ' + left + ' clip' + (left === 1 ? '' : 's') + ' left stay' + (left === 1 ? 's' : '') + ' in Your clips.<div class="acts"><button class="btn btn-green btn-sm" type="button" data-q="again">Try again</button><button class="btn btn-ghost btn-sm" type="button" data-q="no">Stop</button></div>', 'bad');
+          $('[data-q="again"]', b2).addEventListener('click', function(){ runQueue(items, mode, gap); });
+          $('[data-q="no"]', b2).addEventListener('click', function(){ items = []; save(); status(''); });
+        }
+      });
+    })(0);
+  }
+
+  function selected(){ return S.exports.filter(function(x){ return x.sel && !x.sent; }); }
+  window.addEventListener('beforeunload', function(e){ if (busy || queueRunning){ e.preventDefault(); e.returnValue = ''; } });
+
+  /** After a page reload: offer to finish a batch that was interrupted. */
+  function resumeOffer(){
+    Keep.getState('queue').then(function(q){
+      if (!q || !q.items || !q.items.length || queueRunning) return;
+      var byId = {}; S.exports.forEach(function(x){ byId[x.id] = x; });
+      var items = q.items.map(function(it){ return byId[it.id] ? { x:byId[it.id], when:it.when } : null; }).filter(function(it){ return it && !it.x.sent; });
+      if (!items.length) return Keep.setState('queue', null);
+      if (q.mode !== 'now'){
+        var soon = Date.now() + 10 * 60000, first = parseLocal(items[0].when);
+        if (!first || first.getTime() < soon){ items.forEach(function(it, k){ it.when = localStr(new Date(soon + k * (q.gap || 120) * 60000)); }); }
+      }
+      var b = status('Posting stopped when you left the page. <b>' + items.length + ' clip' + (items.length === 1 ? '' : 's') + '</b> still ' + (items.length === 1 ? 'needs' : 'need') + ' to be ' + (q.mode === 'now' ? 'posted' : 'scheduled') + '.<div class="acts"><button class="btn btn-green btn-sm" type="button" data-q="go">Continue</button><button class="btn btn-ghost btn-sm" type="button" data-q="no">Not now</button></div>');
+      $('[data-q="go"]', b).addEventListener('click', function(){ if (!ready()) return status('Sign in and connect your accounts first, then tap Continue again.', 'bad'); runQueue(items, q.mode, q.gap); });
+      $('[data-q="no"]', b).addEventListener('click', function(){ Keep.setState('queue', null); status(''); });
+    });
   }
 
   window.AutoPost = {
@@ -2952,8 +3123,55 @@ function ClipNowConnect(platform){
       if (busy) return; busy = true;
       get('social.php').then(function(j){ busy = false; info = j && j.ok ? j : { available:true, limit:0, accounts:null }; render(); recent(); }, function(){ busy = false; });
     },
+    resumeOffer: resumeOffer,
+    bulk: function(box, list){
+      if (!ready()) return;
+      var bar = el('div', 'bulk'), lab = el('label'), all = el('input'), n = el('span', 'bulk-n');
+      all.type = 'checkbox'; all.className = 'x-sel'; lab.appendChild(all); lab.appendChild(document.createTextNode('Select all'));
+      var now = el('button', 'btn btn-green btn-sm', 'Post selected'), sch = el('button', 'btn btn-ghost btn-sm', 'Schedule selected…');
+      now.type = sch.type = 'button';
+      var schBox = el('div', 'bulk-sch'); schBox.hidden = true;
+      var gapRow = el('div', 'bulk-gap'), gapSel = el('select');
+      [[30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [180, '3 hours'], [240, '4 hours'], [360, '6 hours'], [720, '12 hours'], [1440, '1 day']].forEach(function(o){ var op = el('option', '', o[1]); op.value = o[0]; gapSel.appendChild(op); });
+      gapSel.value = platOn.tiktok ? '120' : '60';
+      gapRow.appendChild(el('span', '', 'Post the first one at the time below, then one every')); gapRow.appendChild(gapSel);
+      if (platOn.tiktok) gapRow.appendChild(el('span', 'note', 'TikTok allows 15 posts a day, so 2 hours or more keeps you under it.'));
+      var picker = scheduler(function(when){
+        picker.close(); schBox.hidden = true;
+        var g = +gapSel.value, start = parseLocal(when), sel = selected();
+        runQueue(sel.map(function(x, k){ return { x:x, when:localStr(new Date(start.getTime() + k * g * 60000)) }; }), 'sched', g);
+      }, [now, sch]);
+      schBox.appendChild(gapRow); schBox.appendChild(picker.el);
+      bulkUpd = function(){
+        var k = selected().length;
+        n.textContent = k + ' of ' + list.length + ' selected';
+        all.checked = k === list.length && k > 0; all.indeterminate = k > 0 && k < list.length;
+        now.disabled = sch.disabled = !k || queueRunning;
+        now.textContent = k ? 'Post ' + k + ' now' : 'Post selected';
+        sch.textContent = k ? 'Schedule ' + k + '…' : 'Schedule selected…';
+      };
+      all.addEventListener('change', function(){ list.forEach(function(x){ x.sel = all.checked; }); $$('#exports .x-sel[data-id]').forEach(function(c){ c.checked = all.checked; }); bulkUpd(); });
+      now.addEventListener('click', function(){
+        var sel = selected(); if (!sel.length) return;
+        var tk = platOn.tiktok && connected().indexOf('tiktok') > -1;
+        if (sel.length > 3 && !confirm('Post ' + sel.length + ' clips right now?' + (tk ? ' TikTok allows 15 posts a day, so if you go over, ClipNow stops and offers to schedule the rest.' : ''))) return;
+        picker.close(); schBox.hidden = true;
+        runQueue(sel.map(function(x){ return { x:x, when:'' }; }), 'now', 0);
+      });
+      sch.addEventListener('click', function(){ schBox.hidden = !schBox.hidden; if (!schBox.hidden) picker.toggle(); else picker.close(); });
+      bar.appendChild(lab); bar.appendChild(n); bar.appendChild(now); bar.appendChild(sch); bar.appendChild(schBox);
+      box.appendChild(bar);
+      bulkUpd();
+    },
     decorate: function(row, x){
       if (!ready()) return;
+      if ($('#exports .bulk')){
+        var cb = el('input'); cb.type = 'checkbox'; cb.className = 'x-sel'; cb.checked = !!x.sel; cb.dataset.id = x.id || '';
+        cb.setAttribute('aria-label', 'Select ' + x.name);
+        cb.addEventListener('change', function(){ x.sel = cb.checked; bulkUpd(); });
+        var head = row.firstElementChild, xh = el('div', 'x-head');
+        row.replaceChild(xh, head); xh.appendChild(cb); xh.appendChild(head); row.classList.add('has-sel');
+      }
       var box = el('div', 'xp'), r1 = el('div', 'xp-row'), msg = el('span', 'xp-msg');
       var now = el('button', 'btn btn-green btn-sm', 'Post now'), sch = el('button', 'btn btn-ghost btn-sm', 'Schedule…');
       now.type = sch.type = 'button';
@@ -2986,6 +3204,27 @@ function ClipNowConnect(platform){
   }
   render();
 })();
+
+/* ---------- Studio: bring back clips saved on this device ---------- */
+if (IS_STUDIO) Keep.load().then(function(list){
+  if (!list.length || S.exports.length) return;
+  list.forEach(function(k){
+    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, postKey:m.postKey, at:m.at };
+    Keep.mark(x.id, JSON.stringify(Keep.metaOf(x)));
+    S.exports.push(x);
+  });
+  renderExports(); renderPlatforms();
+  goStage(3);
+  var n = list.length, note = $('#keepNote');
+  note.innerHTML = 'Your ' + n + ' clip' + (n === 1 ? ' is' : 's are') + ' still here from last time. ClipNow keeps exported clips on this device for 7 days. <button type="button">Clear them</button>';
+  note.hidden = false;
+  $('button', note).addEventListener('click', function(){
+    if (!confirm('Remove all saved clips from this device? Clips you already posted stay posted.')) return;
+    S.exports.forEach(function(x){ try { URL.revokeObjectURL(x.url); } catch(e){} });
+    S.exports = []; Keep.clear(); note.hidden = true; $('#bulkStatus').hidden = true; renderExports();
+  });
+  if (window.AutoPost) AutoPost.resumeOffer();
+});
 
 /* ---------- Pricing ---------- */
 var bill = 'm';
