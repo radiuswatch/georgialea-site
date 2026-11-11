@@ -6,7 +6,8 @@
 // POST action=add             → track a clip by its link   {url, title, views, campaign}
 // POST action=views           → type in a clip's views     {id, views}
 // POST action=campaign        → tag a clip with a campaign {id, campaign}
-// POST action=remove          → stop tracking a clip       {id}
+// POST action=remove          → stop tracking a clip       {id}  (or {ids:[...]} for several)
+// POST action=campaign with {ids:[...]} tags several clips at once
 // campaign = {kind:'clipnow', id} | {kind:'other', name, rate} | null
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
@@ -126,6 +127,22 @@ try {
     if ($auto) cn_stats_refresh($m, $s, 1, $c['id']);
     cn_stats_save($m, $s);
     cn_json_out(st_out($m, $s) + ['added' => $c['id']]);
+  }
+
+  // Several clips at once (Select all / selected).
+  if (in_array($act, ['remove', 'campaign'], true) && is_array($in['ids'] ?? null)) {
+    $ids = array_flip(array_slice(array_map('strval', $in['ids']), 0, 1000));
+    $tag = null;
+    if ($act === 'campaign') { $tag = st_campaign($in['campaign'] ?? null, $me); if (is_string($tag)) cn_json_out(['ok' => false, 'error' => $tag], 422); }
+    $n = 0;
+    foreach ($s['clips'] as &$c) {
+      if (!isset($ids[$c['id']]) || !empty($c['hidden'])) continue;
+      if ($act === 'remove') $c['hidden'] = true; else $c['campaign'] = $tag;
+      $n++;
+    }
+    unset($c);
+    cn_stats_save($m, $s);
+    cn_json_out(st_out($m, $s) + ['changed' => $n]);
   }
 
   $i = $find();

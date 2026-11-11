@@ -71,7 +71,7 @@ try {
         : ($max < 3 ? ' Platinum connects up to 3 ' . CN_POST_PLATFORMS[$p] . ' accounts, and Corporate up to 10.' : '');
       cn_json_out(['ok' => false, 'cap' => $p, 'next_slot' => $soonest,
         'error' => ($nAcc > 1 ? 'All ' . $nAcc . ' of your ' . CN_POST_PLATFORMS[$p] . ' accounts are' : 'Your ' . CN_POST_PLATFORMS[$p] . ' account is')
-          . ' at ' . CN_POST_PLATFORMS[$p] . '\'s limit of ' . CN_DAILY_CAPS[$p] . ' posts per account in 24 hours. Schedule it for later (the next opening is shown) or turn ' . CN_POST_PLATFORMS[$p] . ' off for this clip.' . $more], 429);
+          . ' at ' . CN_POST_PLATFORMS[$p] . '\'s limit of ' . cn_daily_caps()[$p] . ' posts per account in 24 hours. Schedule it for later (the next opening is shown) or turn ' . CN_POST_PLATFORMS[$p] . ' off for this clip.' . $more], 429);
     }
     $groups[$best][] = $p;
     $used[$p] = $sets[$best][$p]['name'] ?: ('account set ' . $best);
@@ -124,6 +124,8 @@ try {
   cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $rids[0] ?? '', 'requestIds' => $rids, 'jobId' => $jobs[0] ?? '', 'used' => $used]);
 } catch (Throwable $e) {
   $msg = $e->getMessage();
+  cn_learn_cap($msg);
+  if (stripos($msg, 'daily posting cap') !== false) cn_json_out(['ok' => false, 'error' => $msg], 429);
   if (stripos($msg, 'rate limit') !== false) cn_json_out(['ok' => false, 'retry' => 30, 'error' => 'The posting service is busy. Wait about 30 seconds and try again.'], 429);
   cn_json_out(['ok' => false, 'error' => $msg], 502);
 }

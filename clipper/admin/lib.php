@@ -537,11 +537,32 @@ function cn_post_results(array $s): array {
     $out[] = ['platform' => (string)($res['platform'] ?? ''), 'ok' => !empty($res['success']),
       'url' => (string)($res['post_url'] ?? $res['url'] ?? ''),
       'error' => (string)($res['error_message'] ?? $res['error'] ?? $res['message'] ?? '')];
+    if ($out[count($out) - 1]['error'] !== '') cn_learn_cap($out[count($out) - 1]['error']);
   }
   return $out;
 }
 /** Platforms' own posting limits per account, enforced before we send (posts per rolling 24 hours). */
 const CN_DAILY_CAPS = ['tiktok' => 15];
+/**
+ * Daily limits per platform: the known ones above, plus any the posting service has told us about
+ * in a refusal ("daily posting cap on instagram (50 posts per 24 hours)"). Learned limits are saved,
+ * so ClipNow stops sending what that platform would refuse.
+ */
+function cn_daily_caps(): array {
+  $learned = cn_read('platform-caps.json', []);
+  $out = CN_DAILY_CAPS;
+  foreach ($learned as $p => $n) if (isset(CN_POST_PLATFORMS[$p]) && (int)$n > 0) $out[$p] = min((int)$n, $out[$p] ?? PHP_INT_MAX);
+  return $out;
+}
+/** Learn a platform's daily limit from a refusal message, if it states one. */
+function cn_learn_cap(string $msg): void {
+  if (!preg_match('/daily posting cap on ([a-z]+)\s*\((\d+) posts? per 24 hours\)/i', $msg, $mm)) return;
+  $p = strtolower($mm[1]); $n = (int)$mm[2];
+  if (!isset(CN_POST_PLATFORMS[$p]) || $n < 1 || $n > 1000) return;
+  $caps = cn_read('platform-caps.json', []);
+  if (($caps[$p] ?? 0) === $n) return;
+  $caps[$p] = $n; cn_write('platform-caps.json', $caps);
+}
 /** Posts to $platform on account set $set in the 24 hours before $t (for spreading posts across accounts). */
 function cn_post_recent_count(array $member, string $platform, int $set, int $t): int {
   $n = 0; $t = $t ?: time();
@@ -557,7 +578,7 @@ function cn_post_recent_count(array $member, string $platform, int $set, int $t)
  * Counts this member's posts that weren't refused. Returns [ok, next time that would fit].
  */
 function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1): array {
-  $cap = CN_DAILY_CAPS[$platform] ?? 0;
+  $cap = cn_daily_caps()[$platform] ?? 0;
   $t = $t ?: time();
   if ($cap <= 0) return [true, $t];
   $st = cn_json_file(cn_post_status_file($member), []);

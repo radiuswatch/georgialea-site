@@ -456,6 +456,18 @@
   .ap-sets h5{margin:10px 0 4px;font-size:14px;color:var(--muted);font-weight:600}
   .ap-set{border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:10px 0}
   .ap-set-h{font-weight:600;font-size:14px;margin:2px 0 4px}
+  .ex-tools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+  .link-btn{background:none;border:0;padding:0;color:var(--green);font:inherit;cursor:pointer;text-decoration:underline}
+  .ap-make{display:block;white-space:nowrap;font-size:12.5px;color:var(--green);text-decoration:underline;background:none;border:0;cursor:pointer;padding:3px 0 0;text-align:left;font-family:inherit}
+  .ap-acct .ap-btns{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto}
+  .st-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+  .st-bar label{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;cursor:pointer;min-height:40px}
+  .st-bar .bulk-n{margin-right:auto}
+  .st-bar .st-bcamp{flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .st-bar .st-bcamp[hidden]{display:none}
+  .st-bar select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font:inherit;max-width:100%}
+  .st-clip .st-top{gap:12px}
+  .st-clip .st-pick{display:flex;gap:10px;align-items:flex-start;min-width:0}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -827,6 +839,7 @@
           <h3 id="dropTitle">Drop a video here, or click to choose one</h3>
           <p id="dropSub">MP4, MOV or WebM. A 10 to 60 minute video works best.</p>
         </label>
+        <p class="note" style="margin-top:10px">Already have finished clips? <button type="button" class="link-btn" id="toAddClips">Add them straight to Your clips →</button></p>
         <p class="note"><b>Only clip videos you have the right to use:</b> your own, or a campaign that allows reposting. Reposting other people's videos without permission can get accounts banned and payouts withheld.</p>
 
         <div class="src-grid" id="srcGrid" hidden>
@@ -885,6 +898,11 @@
       <!-- Stage 3 -->
       <div class="stage" data-stage="3">
         <h3 style="font-family:var(--sans);font-weight:600;font-size:18px">Your clips</h3>
+        <div class="ex-tools">
+          <input type="file" id="addClips" accept="video/*" multiple hidden>
+          <button class="btn btn-ghost btn-sm" type="button" id="addClipsBtn">+ Add clips from your device</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="saveAllBtn" hidden>Save all clips</button>
+        </div>
         <p class="note keep-note" id="keepNote" hidden></p>
         <div class="bulk-status" id="bulkStatus" role="status" aria-live="polite" hidden></div>
         <div class="exports" id="exports"><p class="note">Export clips in step 2 and they'll appear here.</p></div>
@@ -1979,7 +1997,8 @@ function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|
 
 /* ---------- Keep exported clips on this device (IndexedDB), so leaving the Studio doesn't lose them ---------- */
 var Keep = (function(){
-  var dbp = null, KEEP_DAYS = 7;
+  var dbp = null, KEEP_DAYS = 30;
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
   function db(){
     if (!dbp) dbp = new Promise(function(res, rej){
       if (!window.indexedDB) return rej(new Error('no idb'));
@@ -2031,7 +2050,9 @@ var Keep = (function(){
 /* ---------- Stage 3: exports + captions ---------- */
 function renderExports(){
   var box = $('#exports'); box.innerHTML = '';
-  if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here.</p>'; Keep.sync(); return; }
+  $('#saveAllBtn').hidden = S.exports.length < 1;
+  $('#saveAllBtn').textContent = S.exports.length > 1 ? 'Save all ' + S.exports.length + ' clips' : 'Save this clip';
+  if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here, or tap <b>+ Add clips from your device</b> to post clips you already have.</p>'; Keep.sync(); return; }
   S.exports.forEach(function(x){ x.id = x.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); });
   var ready = S.exports.filter(function(x){ return !x.sent; }), sent = S.exports.filter(function(x){ return x.sent; });
   if (!ready.length) box.innerHTML = '<p class="note">Every clip here has been sent. Export more in step 2, or find them under Sent below.</p>';
@@ -2800,6 +2821,15 @@ function ClipNowConnect(platform, set){
   var NAMES = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
   var LOGO = { tiktok:['TT','#111;box-shadow:inset 0 0 0 1px #333'], youtube:['▶','#FF0033'], instagram:['IG','linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)'], facebook:['f','#1877F2'], x:['X','#000;box-shadow:inset 0 0 0 1px #333'] };
   var MAX = 60 * 1048576;
+  // Each platform's own sign-up page. ClipNow can't open an account for someone, but Connect links it right after.
+  var SIGNUP = { tiktok:'https://www.tiktok.com/signup', youtube:'https://www.youtube.com/create_channel', instagram:'https://www.instagram.com/accounts/emailsignup/', facebook:'https://www.facebook.com/pages/create', x:'https://x.com/i/flow/signup' };
+  var SIGNUP_TIP = {
+    tiktok:'Pick a username that fits your clip niche.',
+    youtube:'Sign in with a Google account (or make one), then create your channel.',
+    instagram:'Then switch it to a Professional (Creator or Business) account in Settings, which Instagram needs for posting Reels from apps.',
+    facebook:'ClipNow posts Reels to a Facebook Page, so create a Page (you need a personal Facebook account first).',
+    x:'Verify your email or phone when X asks.'
+  };
   function get(path){ return cnApi(path); }
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function connected(){
@@ -2823,9 +2853,17 @@ function ClipNowConnect(platform, set){
       who.appendChild(el('b', '', NAMES[k])); who.appendChild(el('span', '', on ? '✓ Connected' + (a.name ? ' · ' + a.name : '') : 'Not connected'));
       row.appendChild(logo); row.appendChild(who);
       if (canConnect && !on){
+        var btns = el('div', 'ap-btns');
         var c = el('button', 'btn btn-green btn-sm', 'Connect'); c.type = 'button';
         c.addEventListener('click', function(){ c.disabled = true; c.textContent = 'Opening…'; ClipNowConnect(k, set).catch(function(err){ c.disabled = false; c.textContent = 'Connect'; note.textContent = err.message; }); });
-        row.appendChild(c);
+        var mk = el('button', 'ap-make', 'Create account'); mk.type = 'button';
+        mk.addEventListener('click', function(){
+          window.open(SIGNUP[k], '_blank', 'noopener');
+          note.textContent = NAMES[k] + ' sign-up opened in a new tab. ' + SIGNUP_TIP[k] + ' Then come back here and tap Connect to link it to ClipNow.';
+        });
+        who.appendChild(mk);
+        btns.appendChild(c);
+        row.appendChild(btns);
       } else if (canConnect && on){
         var x = el('button', 'ap-x', 'Disconnect'); x.type = 'button';
         x.addEventListener('click', function(){
@@ -2914,7 +2952,7 @@ function ClipNowConnect(platform, set){
       var failed = posts.filter(failedPost);
       if (failed.length){
         var sum = el('p', 'note', ''); sum.style.cssText = 'margin:0 0 8px;color:#F0A8A2';
-        sum.textContent = failed.length + ' of your last ' + posts.length + ' posts didn’t go through on at least one platform. The reason is shown on each one. To try again, use Post again on the clip under Sent, or export it again.';
+        sum.textContent = failed.length + ' of your last ' + posts.length + ' posts didn’t go through on at least one platform. The reason is shown on each one. To try again, use Post again on the clip under Sent, or add the clip file back with + Add clips from your device.';
         box.appendChild(sum);
       }
       // Select + delete bar
@@ -3350,6 +3388,50 @@ function ClipNowConnect(platform, set){
   render();
 })();
 
+/* ---------- Add finished clips from the device, and save every clip ---------- */
+(function(){
+  if (!document.getElementById('addClipsBtn')) return;
+  function durOf(file){
+    return new Promise(function(res){
+      var v = document.createElement('video'), u = URL.createObjectURL(file), done = false;
+      var fin = function(d){ if (done) return; done = true; URL.revokeObjectURL(u); res(d); };
+      v.preload = 'metadata'; v.muted = true;
+      v.onloadedmetadata = function(){ fin(isFinite(v.duration) ? v.duration : 0); };
+      v.onerror = function(){ fin(0); };
+      setTimeout(function(){ fin(0); }, 6000);
+      v.src = u;
+    });
+  }
+  function hookFrom(name){ return name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70); }
+  $('#addClipsBtn').addEventListener('click', function(){ $('#addClips').click(); });
+  $('#toAddClips').addEventListener('click', function(){ goStage(3); setTimeout(function(){ $('#addClips').click(); }, 50); });
+  $('#addClips').addEventListener('change', function(){
+    var files = [].slice.call(this.files || []).filter(function(f){ return /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v)$/i.test(f.name); });
+    this.value = '';
+    if (!files.length) return toast('Pick video files (MP4, MOV or WebM).');
+    var have = {}; S.exports.forEach(function(x){ have[x.name + '|' + x.size] = 1; });
+    var fresh = files.filter(function(f){ return !have[f.name + '|' + f.size]; });
+    Promise.all(fresh.map(function(f){ return durOf(f).then(function(d){ return { clip:null, name:f.name, blob:f, url:URL.createObjectURL(f), size:f.size, dur:d, hook:hookFrom(f.name), at:Date.now() }; }); }))
+      .then(function(list){
+        list.forEach(function(x){ S.exports.push(x); });
+        goStage(3); renderExports(); renderPlatforms();
+        var skipped = files.length - fresh.length;
+        toast('Added ' + list.length + ' clip' + (list.length === 1 ? '' : 's') + ' to Your clips' + (skipped ? ' (' + skipped + ' already there)' : '') + '.');
+      });
+  });
+  // Save every clip: phones get the share sheet (Save to Photos); computers download each file.
+  $('#saveAllBtn').addEventListener('click', function(){
+    var list = S.exports.slice(); if (!list.length) return;
+    var files = window.File ? list.map(function(x){ return new File([x.blob], x.name, { type:x.blob.type || 'video/mp4' }); }) : [];
+    if (MOBILE && files.length && navigator.canShare && navigator.canShare({ files:files })){
+      navigator.share({ files:files, title:'ClipNow clips' }).catch(function(){});
+      return;
+    }
+    list.forEach(function(x, i){ setTimeout(function(){ var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 700); });
+    toast('Downloading ' + list.length + ' clip' + (list.length === 1 ? '' : 's') + '. Your browser may ask to allow several downloads.');
+  });
+})();
+
 /* ---------- Studio: bring back clips saved on this device ---------- */
 if (IS_STUDIO) Keep.load().then(function(list){
   if (!list.length || S.exports.length) return;
@@ -3361,7 +3443,7 @@ if (IS_STUDIO) Keep.load().then(function(list){
   renderExports(); renderPlatforms();
   goStage(3);
   var n = list.length, note = $('#keepNote');
-  note.innerHTML = 'Your ' + n + ' clip' + (n === 1 ? ' is' : 's are') + ' still here from last time. ClipNow keeps exported clips on this device for 7 days. <button type="button">Clear them</button>';
+  note.innerHTML = 'Your ' + n + ' clip' + (n === 1 ? ' is' : 's are') + ' still here from last time. ClipNow keeps your clips on this device for 30 days. Tap <b>Save all</b> to keep copies in your photos or downloads. <button type="button">Clear them</button>';
   note.hidden = false;
   $('button', note).addEventListener('click', function(){
     if (!confirm('Remove all saved clips from this device? Clips you already posted stay posted.')) return;
@@ -3965,22 +4047,64 @@ if ('IntersectionObserver' in window){
           '<a class="cp-link" style="text-decoration:none;color:var(--green)" href="/campaigns#c=' + esc(g.id) + '">Report views to this campaign →</a>' : '') + '</div>';
     }).join('') : '<p class="cp-empty">No campaigns yet. Tag a clip with a campaign below to see what it could pay.</p>';
     $('#saCamp').innerHTML = campOptions('');
-    $('#stClips').innerHTML = j.clips.length ? j.clips.map(function(c){
+    var ids = {}; j.clips.forEach(function(c){ ids[c.id] = 1; });
+    Object.keys(stSel).forEach(function(id){ if (!ids[id]) delete stSel[id]; });
+    $('#stClips').innerHTML = j.clips.length ? stBar(j.clips) + j.clips.map(function(c){
       var line;
       if (c.waiting) line = '<span class="st-line">Waiting for the first stats (posted ' + ago(c.posted) + ')</span>';
       else if (c.error) line = '<span class="st-line bad">' + esc(c.error) + '</span>';
       else if (c.auto) line = '<span class="st-line">Updated automatically ' + (c.checked ? ago(c.checked) : '') + (c.likes != null ? ' · ' + num(c.likes) + ' likes' : '') + (c.comments != null ? ' · ' + num(c.comments) + ' comments' : '') + '</span>';
       else line = '<span class="st-line">Views typed in by you</span>';
       var title = c.title || (c.url ? c.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60) : 'Clip');
-      return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
-        '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div>' +
+      return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
+        '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div></div>' +
         '<div class="st-views"><b>' + num(c.views) + '</b><span>' + (c.week ? '+' + num(c.week) + ' this week' : 'views') + '</span></div></div>' + line +
         '<div class="cp-acts">' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
         '<div class="st-edit" data-edit="views" hidden><div class="cp-acts"><input type="text" inputmode="numeric" placeholder="Views now" data-v><button class="btn btn-green btn-sm" type="button" data-act="views">Save</button></div></div>' +
         '<div class="st-edit" data-edit="camp" hidden><div class="field"><select data-c>' + campOptions(tagKey(c.campaign)) + '</select></div><div class="cp-2" data-other hidden><div class="field"><input type="text" maxlength="80" placeholder="Campaign name" data-cn></div><div class="field"><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-cr></div></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="camp">Save</button></div></div>' +
         '<p class="cp-msg"></p></div>';
     }).join('') : '<p class="cp-empty">No clips yet. Clips you post with ClipNow’s Post now or Schedule show up here by themselves, or tap <b>Add a clip by link</b>.</p>';
+    stUpd();
   }
+  var stSel = {};
+  function stDidntPost(c){ return !!(c.error && /didn.t publish|not sent|didn.t post|failed/i.test(c.error)); }
+  function stBar(clips){
+    var bad = clips.filter(stDidntPost).length;
+    return '<div class="st-bar"><label><input type="checkbox" class="x-sel" data-sel-all> Select all</label><span class="bulk-n" data-sel-n></span>' +
+      (bad ? '<button class="btn btn-ghost btn-sm" type="button" data-bulk="bad">Select the ' + bad + ' that didn’t post</button>' : '') +
+      '<button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
+      '<div class="st-bcamp" data-bcamp hidden><select data-bc>' + campOptions('') + '</select><input type="text" maxlength="80" placeholder="Campaign name" data-bcn hidden><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-bcr hidden><button class="btn btn-green btn-sm" type="button" data-bulk="camp">Save</button></div></div>';
+  }
+  function stUpd(){
+    var k = Object.keys(stSel).length, n = D ? D.clips.length : 0, bar = $('#stClips .st-bar'); if (!bar) return;
+    $('[data-sel-n]', bar).textContent = k ? k + ' selected' : '';
+    var all = $('[data-sel-all]', bar); all.checked = k > 0 && k === n; all.indeterminate = k > 0 && k < n;
+    $$('#stClips [data-bulk="camp-open"], #stClips [data-bulk="remove"]').forEach(function(b){ b.disabled = !k; });
+    $('[data-bulk="remove"]', bar).textContent = k ? 'Remove ' + k : 'Remove';
+  }
+  $('#stClips').addEventListener('change', function(e){
+    var t = e.target;
+    if (t.matches('[data-sel]')){ if (t.checked) stSel[t.dataset.sel] = 1; else delete stSel[t.dataset.sel]; stUpd(); }
+    else if (t.matches('[data-sel-all]')){ stSel = {}; if (t.checked) D.clips.forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = t.checked; }); stUpd(); }
+    else if (t.matches('[data-bc]')){ var o = t.value === 'new'; $('#stClips [data-bcn]').hidden = !o; $('#stClips [data-bcr]').hidden = !o; }
+  });
+  $('#stClips').addEventListener('click', function(e){
+    var b = e.target.closest('[data-bulk]'); if (!b) return;
+    var act = b.dataset.bulk, ids = Object.keys(stSel);
+    if (act === 'bad'){ stSel = {}; D.clips.filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
+    if (act === 'camp-open'){ $('#stClips [data-bcamp]').hidden = false; return; }
+    if (!ids.length) return;
+    if (act === 'remove'){
+      if (!confirm('Stop tracking ' + ids.length + ' clip' + (ids.length === 1 ? '' : 's') + '? ' + (ids.length === 1 ? 'It stays' : 'They stay') + ' on the platform; this only removes ' + (ids.length === 1 ? 'it' : 'them') + ' from your stats.')) return;
+      b.disabled = true;
+      return post({ action:'remove', ids:ids }).then(function(j){ b.disabled = false; if (!j.ok) return toast(j.error || 'Couldn’t remove them.'); stSel = {}; show(j); toast('Removed ' + (j.changed || ids.length) + ' clip' + ((j.changed || ids.length) === 1 ? '' : 's')); });
+    }
+    if (act === 'camp'){
+      var tag = tagFrom($('#stClips [data-bc]').value, $('#stClips [data-bcn]').value, $('#stClips [data-bcr]').value);
+      b.disabled = true;
+      return post({ action:'campaign', ids:ids, campaign:tag }).then(function(j){ b.disabled = false; if (!j.ok) return toast(j.error || 'Couldn’t save the campaign.'); stSel = {}; show(j); toast('Campaign saved on ' + (j.changed || ids.length) + ' clip' + ((j.changed || ids.length) === 1 ? '' : 's')); });
+    }
+  });
   function say(el, t, bad){ el.textContent = t; el.className = 'cp-msg' + (bad ? ' bad' : ''); }
 
   $('#stAddBtn').addEventListener('click', function(){ $('#stAdd').hidden = false; $('#saUrl').focus(); });
