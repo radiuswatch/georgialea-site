@@ -5,6 +5,7 @@
 //   caption[<platform>]  the caption to use on each platform
 //   schedule     optional local date-time "2026-11-06T18:30" + tz (IANA name, e.g. America/New_York)
 //   key          a random id from the browser so a retry doesn't post twice
+//   set          optional account set to post from (otherwise ClipNow picks a connected account with room)
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
 @set_time_limit(300);
@@ -30,42 +31,14 @@ try {
   if (count($want) > $limit) cn_json_out(['ok' => false, 'error' => "Your {$m['plan']} plan posts to up to $limit platforms at a time. Upgrade to Gold to post everywhere at once."], 403);
   if ($isWebm && array_intersect($want, ['instagram', 'facebook'])) cn_json_out(['ok' => false, 'error' => 'Instagram and Facebook need an MP4 clip. Your browser saved this one as WebM. Export it again in Chrome, Edge or Safari.'], 422);
 
-  $user = cn_up_username($m);
-  $accounts = cn_up_accounts(cn_up_profile($user));
-  $missing = array_values(array_filter($want, fn($p) => !$accounts[$p]['connected']));
-  if ($missing) cn_json_out(['ok' => false, 'error' => 'Connect ' . implode(', ', array_map(fn($p) => CN_POST_PLATFORMS[$p], $missing)) . ' first.'], 422);
+  $sets = cn_up_sets($m);   // [set => [platform => ['connected', 'name']]]
+  $pin = (int)($_POST['set'] ?? 0);
+  if ($pin > 0 && !isset($sets[$pin])) $pin = 0;
 
   $caps = (array)($_POST['caption'] ?? []);
   $cap = function (string $p) use ($caps): string { return trim((string)($caps[$p] ?? '')); };
   $limits = ['tiktok' => 2200, 'youtube' => 5000, 'instagram' => 2200, 'facebook' => 2200, 'x' => 280];
   foreach ($want as $p) if (mb_strlen($cap($p)) > $limits[$p]) cn_json_out(['ok' => false, 'error' => CN_POST_PLATFORMS[$p] . ' caption is too long.'], 422);
-
-  $first = $cap($want[0]);
-  $title = mb_substr(trim(strtok($first, "\n") ?: 'New clip'), 0, 100);
-  $fields = [
-    'user' => $user,
-    'video' => new CURLFile($f['tmp_name'], $isWebm ? 'video/webm' : 'video/mp4', $isWebm ? 'clip.webm' : 'clip.mp4'),
-    'title' => $title,
-    'async_upload' => 'true',
-  ];
-  foreach ($want as $p) {
-    $c = $cap($p);
-    if ($p === 'youtube') {
-      $fields['youtube_title'] = mb_substr(trim(strtok($c, "\n") ?: $title), 0, 100);
-      $fields['youtube_description'] = $c;
-      $fields['privacyStatus'] = 'public';
-    } else {
-      $fields[$p . '_title'] = $c;
-    }
-  }
-  if (in_array('tiktok', $want, true)) $fields['privacy_level'] = 'PUBLIC_TO_EVERYONE';
-  if (in_array('instagram', $want, true)) $fields['media_type'] = 'REELS';
-  if (in_array('facebook', $want, true)) {
-    $page = cn_up_facebook_page($user);
-    if ($page === '') cn_json_out(['ok' => false, 'error' => 'Facebook Reels post to a Facebook Page, and none is connected. Reconnect Facebook and pick a Page.'], 422);
-    $fields['facebook_page_id'] = $page;
-    $fields['facebook_media_type'] = 'REELS';
-  }
 
   $when = trim((string)($_POST['schedule'] ?? ''));
   $tz = trim((string)($_POST['tz'] ?? 'UTC'));
@@ -76,26 +49,79 @@ try {
     $scheduled = $dt->getTimestamp();
     if ($scheduled < time() + 300) cn_json_out(['ok' => false, 'error' => 'Pick a time at least 5 minutes from now.'], 422);
     if ($scheduled > time() + 60 * 86400) cn_json_out(['ok' => false, 'error' => 'You can schedule up to 60 days ahead.'], 422);
-    $fields['scheduled_date'] = gmdate('Y-m-d\TH:i:s\Z', $scheduled);
   }
 
-  // Platforms cap posts per account per day (TikTok: 15 in 24 hours). Don't send what would be refused.
+  // Pick an account for each platform: a connected one that still has room under the platform's daily
+  // limit, preferring the least-used, so posts spread across the member's accounts.
+  $groups = []; $used = [];
   foreach ($want as $p) {
-    [$fits, $next] = cn_post_cap_check($m, $p, $scheduled);
-    if (!$fits) cn_json_out(['ok' => false, 'cap' => $p, 'next_slot' => $next,
-      'error' => CN_POST_PLATFORMS[$p] . ' allows ' . CN_DAILY_CAPS[$p] . ' posts per account in 24 hours, and this one would go over. Schedule it for later (the next opening is shown) or turn ' . CN_POST_PLATFORMS[$p] . ' off for this clip.'], 429);
+    $cands = [];
+    foreach ($sets as $i => $acc) if ($acc[$p]['connected'] && (!$pin || $pin === $i)) $cands[] = $i;
+    if (!$cands) cn_json_out(['ok' => false, 'error' => 'Connect ' . CN_POST_PLATFORMS[$p] . ' first.'], 422);
+    $best = 0; $bestN = PHP_INT_MAX; $soonest = 0;
+    foreach ($cands as $i) {
+      [$fits, $next] = cn_post_cap_check($m, $p, $scheduled, $i);
+      if (!$fits) { $soonest = $soonest ? min($soonest, $next) : $next; continue; }
+      $n = cn_post_recent_count($m, $p, $i, $scheduled);
+      if ($n < $bestN) { $best = $i; $bestN = $n; }
+    }
+    if (!$best) {
+      $nAcc = count($cands); $max = cn_account_sets($m);
+      $more = $nAcc < $max ? ' Or connect another ' . CN_POST_PLATFORMS[$p] . ' account (your plan allows ' . $max . ') to post more.'
+        : ($max < 3 ? ' Platinum connects up to 3 ' . CN_POST_PLATFORMS[$p] . ' accounts, and Corporate up to 10.' : '');
+      cn_json_out(['ok' => false, 'cap' => $p, 'next_slot' => $soonest,
+        'error' => ($nAcc > 1 ? 'All ' . $nAcc . ' of your ' . CN_POST_PLATFORMS[$p] . ' accounts are' : 'Your ' . CN_POST_PLATFORMS[$p] . ' account is')
+          . ' at ' . CN_POST_PLATFORMS[$p] . '\'s limit of ' . CN_DAILY_CAPS[$p] . ' posts per account in 24 hours. Schedule it for later (the next opening is shown) or turn ' . CN_POST_PLATFORMS[$p] . ' off for this clip.' . $more], 429);
+    }
+    $groups[$best][] = $p;
+    $used[$p] = $sets[$best][$p]['name'] ?: ('account set ' . $best);
   }
 
-  $multipart = [];
-  foreach ($fields as $k => $v) $multipart[] = [$k, $v];
-  foreach ($want as $p) $multipart[] = ['platform[]', $p];
-  $idem = preg_match('/^[A-Za-z0-9_-]{8,80}$/', (string)($_POST['key'] ?? '')) ? ['Idempotency-Key: cn-' . $_POST['key']] : [];
-  $r = cn_up('POST', '/upload', $multipart, true, $idem);
+  // One upload per account set.
+  $first = $cap($want[0]);
+  $title = mb_substr(trim(strtok($first, "\n") ?: 'New clip'), 0, 100);
+  $baseKey = preg_match('/^[A-Za-z0-9_-]{8,80}$/', (string)($_POST['key'] ?? '')) ? (string)$_POST['key'] : '';
+  $rids = []; $jobs = [];
+  foreach ($groups as $set => $plats) {
+    $user = cn_up_username($m, $set);
+    $fields = [
+      'user' => $user,
+      'video' => new CURLFile($f['tmp_name'], $isWebm ? 'video/webm' : 'video/mp4', $isWebm ? 'clip.webm' : 'clip.mp4'),
+      'title' => $title,
+      'async_upload' => 'true',
+    ];
+    foreach ($plats as $p) {
+      $c = $cap($p);
+      if ($p === 'youtube') {
+        $fields['youtube_title'] = mb_substr(trim(strtok($c, "\n") ?: $title), 0, 100);
+        $fields['youtube_description'] = $c;
+        $fields['privacyStatus'] = 'public';
+      } else {
+        $fields[$p . '_title'] = $c;
+      }
+    }
+    if (in_array('tiktok', $plats, true)) $fields['privacy_level'] = 'PUBLIC_TO_EVERYONE';
+    if (in_array('instagram', $plats, true)) $fields['media_type'] = 'REELS';
+    if (in_array('facebook', $plats, true)) {
+      $page = cn_up_facebook_page($user);
+      if ($page === '') cn_json_out(['ok' => false, 'error' => 'Facebook Reels post to a Facebook Page, and none is connected' . ($set > 1 ? ' on account set ' . $set : '') . '. Reconnect Facebook and pick a Page.'], 422);
+      $fields['facebook_page_id'] = $page;
+      $fields['facebook_media_type'] = 'REELS';
+    }
+    if ($scheduled) $fields['scheduled_date'] = gmdate('Y-m-d\TH:i:s\Z', $scheduled);
 
-  $entry = ['platforms' => $want, 'title' => $title, 'scheduled' => $scheduled,
-            'request_id' => (string)($r['request_id'] ?? ''), 'job_id' => (string)($r['job_id'] ?? '')];
-  cn_post_log($m, $entry);
-  cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $entry['request_id'], 'jobId' => $entry['job_id'], 'message' => $r['message'] ?? '']);
+    $multipart = [];
+    foreach ($fields as $k => $v) $multipart[] = [$k, $v];
+    foreach ($plats as $p) $multipart[] = ['platform[]', $p];
+    $idem = $baseKey !== '' ? ['Idempotency-Key: cn-' . $baseKey . ($set > 1 ? '-s' . $set : '')] : [];
+    $r = cn_up('POST', '/upload', $multipart, true, $idem);
+
+    $entry = ['platforms' => $plats, 'title' => $title, 'scheduled' => $scheduled, 'set' => $set,
+              'request_id' => (string)($r['request_id'] ?? ''), 'job_id' => (string)($r['job_id'] ?? '')];
+    cn_post_log($m, $entry);
+    $rids[] = $entry['request_id']; $jobs[] = $entry['job_id'];
+  }
+  cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $rids[0] ?? '', 'requestIds' => $rids, 'jobId' => $jobs[0] ?? '', 'used' => $used]);
 } catch (Throwable $e) {
   $msg = $e->getMessage();
   if (stripos($msg, 'rate limit') !== false) cn_json_out(['ok' => false, 'retry' => 30, 'error' => 'The posting service is busy. Wait about 30 seconds and try again.'], 429);

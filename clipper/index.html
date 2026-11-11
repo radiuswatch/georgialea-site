@@ -452,6 +452,10 @@
   .sent-acts [hidden]{display:none}
   .ex-sent summary .bad-ct{color:#F0A8A2;border-color:#5A2A28;background:#2A1513}
   .export-item.sent .sent-st a{font-family:var(--sans)}
+  .ap-sets{margin-top:14px;border-top:1px solid var(--line);padding-top:6px}
+  .ap-sets h5{margin:10px 0 4px;font-size:14px;color:var(--muted);font-weight:600}
+  .ap-set{border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:10px 0}
+  .ap-set-h{font-weight:600;font-size:14px;margin:2px 0 4px}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -2057,9 +2061,11 @@ var sentOpen = false;
 /** What really happened to a sent clip, from Recent posts: null (not known yet), or {failed, ok, text}. */
 function sentResult(x){
   if (!x.sent) return null;
-  var p = x.sent.rid && window.POSTSTAT && window.POSTSTAT[x.sent.rid];
+  var ids = (x.sent.rids && x.sent.rids.length) ? x.sent.rids : (x.sent.rid ? [x.sent.rid] : []), merged = [], known = 0;
+  ids.forEach(function(id){ var q = window.POSTSTAT && window.POSTSTAT[id]; if (q && (q.results || []).length){ known++; merged = merged.concat(q.results); } });
+  var p = known && known === ids.length ? { results:merged } : null;
   // Keep the result on the clip itself, so deleting the notification doesn't lose it.
-  if (p && (p.results || []).length) x.sent.res = p.results;
+  if (p) x.sent.res = p.results;
   p = x.sent.res ? { results:x.sent.res } : null;
   if (!p) return null;
   var bad = p.results.filter(function(r){ return !r.ok; }), names = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
@@ -2780,9 +2786,9 @@ function cnApi(path, body, retry){
   });
 }
 /** Opens the connect page for one platform (or all), and comes back to this page. */
-function ClipNowConnect(platform){
+function ClipNowConnect(platform, set){
   var back = /^\/(studio|stats|campaigns)$/.test(location.pathname) ? location.pathname : '/studio';
-  return cnApi('social.php', { action:'connect', platform:platform || '', back:back }).then(function(j){
+  return cnApi('social.php', { action:'connect', platform:platform || '', back:back, set:set || 1 }).then(function(j){
     if (j.ok && j.url){ location.href = j.url; return new Promise(function(){}); }
     throw new Error(j.error || 'Couldn’t open the connect page. Please try again.');
   }, function(){ throw new Error('You seem to be offline.'); });
@@ -2796,7 +2802,12 @@ function ClipNowConnect(platform){
   var MAX = 60 * 1048576;
   function get(path){ return cnApi(path); }
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function connected(){ return info && info.accounts ? Object.keys(info.accounts).filter(function(k){ return info.accounts[k].connected; }) : []; }
+  function connected(){
+    if (info && info.connectedAny) return Object.keys(info.connectedAny).filter(function(k){ return info.connectedAny[k]; });
+    return info && info.accounts ? Object.keys(info.accounts).filter(function(k){ return info.accounts[k].connected; }) : [];
+  }
+  var extraSets = 0;   // empty account sets the member opened with "Add another account set"
+  function setList(){ return (info && info.sets) ? info.sets : [{ set:1, accounts:(info && info.accounts) || {} }]; }
   function ready(){ return !!(info && info.available && info.limit > 0 && connected().length); }
   function targets(){ return connected().filter(function(p){ return platOn[p]; }); }
 
@@ -2805,30 +2816,55 @@ function ClipNowConnect(platform){
     accts.innerHTML = ''; act.innerHTML = ''; note.textContent = '';
     var signed = MEMBER && MEMBER.signedIn, canConnect = signed && info && info.available && info.limit > 0;
     accts.className = 'ap-list';
-    Object.keys(NAMES).forEach(function(k){
-      var a = info && info.accounts && info.accounts[k], on = !!(a && a.connected);
+    function acctRow(k, a, set, into){
+      var on = !!(a && a.connected);
       var row = el('div', 'ap-acct' + (on ? ' on' : '')), logo = el('span', 'ap-logo', LOGO[k][0]), who = el('div', 'ap-who');
       logo.setAttribute('style', 'background:' + LOGO[k][1]);
       who.appendChild(el('b', '', NAMES[k])); who.appendChild(el('span', '', on ? '✓ Connected' + (a.name ? ' · ' + a.name : '') : 'Not connected'));
       row.appendChild(logo); row.appendChild(who);
       if (canConnect && !on){
         var c = el('button', 'btn btn-green btn-sm', 'Connect'); c.type = 'button';
-        c.addEventListener('click', function(){ c.disabled = true; c.textContent = 'Opening…'; ClipNowConnect(k).catch(function(err){ c.disabled = false; c.textContent = 'Connect'; note.textContent = err.message; }); });
+        c.addEventListener('click', function(){ c.disabled = true; c.textContent = 'Opening…'; ClipNowConnect(k, set).catch(function(err){ c.disabled = false; c.textContent = 'Connect'; note.textContent = err.message; }); });
         row.appendChild(c);
       } else if (canConnect && on){
         var x = el('button', 'ap-x', 'Disconnect'); x.type = 'button';
         x.addEventListener('click', function(){
-          if (!confirm('Disconnect ' + NAMES[k] + '? ClipNow will stop posting to it. Scheduled posts to it may fail.')) return;
+          if (!confirm('Disconnect ' + NAMES[k] + (a.name ? ' (' + a.name + ')' : '') + '? ClipNow will stop posting to it. Scheduled posts to it may fail.')) return;
           x.disabled = true; x.textContent = 'Disconnecting…';
-          cnApi('social.php', { action:'disconnect', platform:k }).then(function(j){
+          cnApi('social.php', { action:'disconnect', platform:k, set:set }).then(function(j){
             if (!j.ok){ x.disabled = false; x.textContent = 'Disconnect'; note.textContent = j.error || 'Couldn’t disconnect. Please try again.'; return; }
-            toast(NAMES[k] + ' disconnected'); info.accounts[k].connected = false; info.accounts[k].name = ''; render(); setTimeout(window.AutoPost.refresh, 1500);
+            toast(NAMES[k] + ' disconnected'); a.connected = false; a.name = ''; render(); setTimeout(window.AutoPost.refresh, 1500);
           }, function(){ x.disabled = false; x.textContent = 'Disconnect'; note.textContent = 'You seem to be offline.'; });
         });
         row.appendChild(x);
       }
-      accts.appendChild(row);
-    });
+      into.appendChild(row);
+    }
+    var sets = setList(), first = sets[0] || { set:1, accounts:{} };
+    Object.keys(NAMES).forEach(function(k){ acctRow(k, first.accounts[k], 1, accts); });
+    var maxSets = (info && info.maxSets) || 1;
+    if (canConnect && maxSets > 1){
+      var more = el('div', 'ap-sets'), shown = sets.slice(1);
+      for (var e = 0; e < extraSets && sets.length + e < maxSets; e++) shown.push({ set:sets.length + e + 1, accounts:{}, isNew:true });
+      more.appendChild(el('h5', '', 'More accounts'));
+      more.appendChild(el('p', 'note', 'Each platform limits how much one account can post (TikTok: 15 posts a day). Connect more accounts and ClipNow spreads your posts across them automatically. Your ' + (info.plan || '') + ' plan connects up to ' + maxSets + ' accounts per platform.'));
+      shown.forEach(function(st){
+        var box = el('div', 'ap-set'), head = el('div', 'ap-set-h', 'Account set ' + st.set);
+        box.appendChild(head);
+        var list = el('div', 'ap-list'); box.appendChild(list);
+        Object.keys(NAMES).forEach(function(k){ acctRow(k, st.accounts[k], st.set, list); });
+        more.appendChild(box);
+      });
+      if (sets.length + extraSets < maxSets){
+        var add = el('button', 'btn btn-ghost btn-sm', '+ Add another account set'); add.type = 'button';
+        add.addEventListener('click', function(){ extraSets++; render(); });
+        more.appendChild(add);
+      }
+      accts.appendChild(more);
+    } else if (canConnect && connected().indexOf('tiktok') > -1){
+      var tip = el('p', 'note', 'Need to post more than 15 TikToks a day? Platinum connects up to 3 accounts per platform and Corporate up to 10, and ClipNow spreads posts across them.');
+      tip.style.marginTop = '10px'; accts.appendChild(tip);
+    }
     function button(cls, text, fn){ var b = el('button', 'btn btn-sm ' + cls, text); b.type = 'button'; b.addEventListener('click', fn); act.appendChild(b); return b; }
     if (!signed){
       sub.textContent = 'Members can connect TikTok, YouTube, Instagram, Facebook and X, then post or schedule each clip in one tap.';
@@ -3124,10 +3160,10 @@ function ClipNowConnect(platform){
         var j = {}; try { j = JSON.parse(xhr.responseText); } catch(e){}
         if (/humans_/.test(xhr.responseText) && !j.ok) j = { ok:false, retry:2, error:'Please try again.' };
         if (j.ok){
-          j.names = t.map(function(p){ return NAMES[p]; }).join(', ');
+          j.names = t.map(function(p){ var u = j.used && j.used[p]; return NAMES[p] + (u && (info.sets || []).length > 1 ? ' (' + u + ')' : ''); }).join(', ');
           j.skipped = Object.keys(NAMES).filter(function(p){ return platOn[p] && t.indexOf(p) < 0; }).map(function(p){ return NAMES[p]; });
           // Move the clip to Sent so it can't be posted again by accident.
-          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names, rid:j.requestId || '' };
+          x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names, rid:j.requestId || '', rids:j.requestIds || [] };
           x.sel = false;
         }
         resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, retry:j.retry });
@@ -3233,7 +3269,10 @@ function ClipNowConnect(platform){
       [[30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [180, '3 hours'], [240, '4 hours'], [360, '6 hours'], [720, '12 hours'], [1440, '1 day']].forEach(function(o){ var op = el('option', '', o[1]); op.value = o[0]; gapSel.appendChild(op); });
       gapSel.value = platOn.tiktok ? '120' : '60';
       gapRow.appendChild(el('span', '', 'Post the first one at the time below, then one every')); gapRow.appendChild(gapSel);
-      if (platOn.tiktok) gapRow.appendChild(el('span', 'note', 'TikTok allows 15 posts a day, so 2 hours or more keeps you under it.'));
+      if (platOn.tiktok){
+        var nTk = setList().filter(function(st){ return st.accounts.tiktok && st.accounts.tiktok.connected; }).length || 1;
+        gapRow.appendChild(el('span', 'note', nTk > 1 ? 'You have ' + nTk + ' TikTok accounts (15 posts a day each). ClipNow spreads posts across them, so you can space them ' + (nTk >= 3 ? '30 minutes' : '1 hour') + ' apart.' : 'TikTok allows 15 posts a day per account, so 2 hours or more keeps you under it.'));
+      }
       var picker = scheduler(function(when){
         picker.close(); schBox.hidden = true;
         var g = +gapSel.value, start = parseLocal(when), sel = selected();
@@ -3296,7 +3335,8 @@ function ClipNowConnect(platform){
     if (IS_STUDIO) setTimeout(function(){ goStage(3); var ap = $('#autopost'); ap && ap.scrollIntoView({ behavior:'smooth', block:'center' }); }, 400);
     var check = function(tries){
       cnApi('social.php').then(function(j){
-        var acc = j && j.accounts || {};
+        var setN = +((/[?&]set=(\d+)/.exec(location.search) || [])[1] || 1);
+        var acc = (j && j.sets || []).filter(function(st){ return st.set === setN; }).map(function(st){ return st.accounts; })[0] || (j && j.accounts) || {};
         if (NAMES[which]){
           if (acc[which] && acc[which].connected) toast(NAMES[which] + ' connected ✓');
           else if (tries > 0) return setTimeout(function(){ check(tries - 1); }, 2000);

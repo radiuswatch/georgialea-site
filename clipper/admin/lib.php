@@ -422,8 +422,29 @@ function cn_up(string $method, string $path, array $params = [], bool $multipart
   return $j;
 }
 
-function cn_up_username(array $member): string {
-  return 'cn_' . preg_replace('/[^a-z0-9_]/', '', strtolower((string)$member['customer_id']));
+/** How many account sets (one account per platform in each) a plan may connect. Each set is one Upload-Post profile. */
+const CN_ACCOUNT_SETS = ['starter' => 1, 'pro' => 1, 'agency' => 3, 'corporate' => 10];
+function cn_account_sets(array $member): int {
+  if (empty($member['active'])) return 0;
+  return CN_ACCOUNT_SETS[$member['plan_key'] ?? ''] ?? 1;
+}
+/** The member's Upload-Post profile name for one account set (set 1 keeps the original name). */
+function cn_up_username(array $member, int $set = 1): string {
+  $base = 'cn_' . preg_replace('/[^a-z0-9_]/', '', strtolower((string)$member['customer_id']));
+  return $set > 1 ? $base . '_s' . $set : $base;
+}
+/** Every account set the member may use: [set => accounts], from one Upload-Post call. */
+function cn_up_sets(array $member): array {
+  $max = max(1, cn_account_sets($member));
+  $byName = [];
+  foreach ((cn_up('GET', '/uploadposts/users')['profiles'] ?? []) as $p) $byName[(string)($p['username'] ?? '')] = $p;
+  $out = [];
+  for ($i = 1; $i <= $max; $i++) {
+    $prof = $byName[cn_up_username($member, $i)] ?? null;
+    if ($i > 1 && !$prof) continue;
+    $out[$i] = cn_up_accounts($prof);
+  }
+  return $out;
 }
 
 /** How many platforms a plan may post to at once (0 = auto-posting not included). */
@@ -456,8 +477,9 @@ function cn_up_accounts(?array $profile): array {
 /** A link to Upload-Post's connect page for this member (creates their profile first).
  *  With $platform, the page shows only that platform, so it's one tap to its sign-in.
  *  $back is the ClipNow page to return to (a path like "/studio"). */
-function cn_up_connect_url(array $member, string $platform = '', string $back = '/studio'): string {
-  $u = cn_up_username($member);
+function cn_up_connect_url(array $member, string $platform = '', string $back = '/studio', int $set = 1): string {
+  $set = max(1, min($set, max(1, cn_account_sets($member))));
+  $u = cn_up_username($member, $set);
   if (!cn_up_profile($u)) {
     try { cn_up('POST', '/uploadposts/users', ['username' => $u]); }
     catch (RuntimeException $e) {
@@ -470,7 +492,7 @@ function cn_up_connect_url(array $member, string $platform = '', string $back = 
   if (!preg_match('#^/(studio|stats|campaigns)?$#', $back)) $back = '/studio';
   $j = cn_up('POST', '/uploadposts/users/generate-jwt', [
     'username' => $u,
-    'redirect_url' => CN_SITE . $back . '?connected=' . ($one ? $platform : 'all'),
+    'redirect_url' => CN_SITE . $back . '?connected=' . ($one ? $platform : 'all') . ($set > 1 ? '&set=' . $set : ''),
     'redirect_button_text' => 'Back to ClipNow',
     'logo_image' => CN_SITE . '/brand/clipnow-mark-512.png',
     'platforms' => $one ? [$platform] : array_keys(CN_POST_PLATFORMS),
@@ -485,9 +507,10 @@ function cn_up_connect_url(array $member, string $platform = '', string $back = 
 }
 
 /** Unlinks one platform from the member's posting profile. */
-function cn_up_disconnect(array $member, string $platform): void {
+function cn_up_disconnect(array $member, string $platform, int $set = 1): void {
   if (!isset(CN_POST_PLATFORMS[$platform])) throw new InvalidArgumentException('Unknown platform.');
-  cn_up('DELETE', '/uploadposts/users/social', ['profile_username' => cn_up_username($member), 'social_platform' => $platform]);
+  $set = max(1, min($set, max(1, cn_account_sets($member))));
+  cn_up('DELETE', '/uploadposts/users/social', ['profile_username' => cn_up_username($member, $set), 'social_platform' => $platform]);
 }
 
 /** The member's Facebook Page to post Reels to (Upload-Post needs a Page id). */
@@ -519,11 +542,21 @@ function cn_post_results(array $s): array {
 }
 /** Platforms' own posting limits per account, enforced before we send (posts per rolling 24 hours). */
 const CN_DAILY_CAPS = ['tiktok' => 15];
+/** Posts to $platform on account set $set in the 24 hours before $t (for spreading posts across accounts). */
+function cn_post_recent_count(array $member, string $platform, int $set, int $t): int {
+  $n = 0; $t = $t ?: time();
+  foreach (cn_post_history($member, 400) as $p) {
+    if ((int)($p['set'] ?? 1) !== $set || !in_array($platform, (array)($p['platforms'] ?? []), true)) continue;
+    $w = (int)(($p['scheduled'] ?? 0) ?: $p['at']);
+    if ($w > $t - 86400 && $w <= $t + 86400) $n++;
+  }
+  return $n;
+}
 /**
  * Would one more post to $platform at time $t (0 = now) go over that platform's 24-hour limit?
  * Counts this member's posts that weren't refused. Returns [ok, next time that would fit].
  */
-function cn_post_cap_check(array $member, string $platform, int $t): array {
+function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1): array {
   $cap = CN_DAILY_CAPS[$platform] ?? 0;
   $t = $t ?: time();
   if ($cap <= 0) return [true, $t];
@@ -531,6 +564,7 @@ function cn_post_cap_check(array $member, string $platform, int $t): array {
   $times = [];
   foreach (cn_post_history($member, 400) as $p) {
     if (!in_array($platform, (array)($p['platforms'] ?? []), true)) continue;
+    if ((int)($p['set'] ?? 1) !== $set) continue;   // limits are per account
     $res = $st[$p['request_id'] ?? ''] ?? null;
     if ($res && !empty($res['final'])) {
       $mine = array_values(array_filter((array)$res['results'], fn($r) => ($r['platform'] ?? '') === $platform));
