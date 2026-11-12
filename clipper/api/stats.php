@@ -7,6 +7,7 @@
 // POST action=views           → type in a clip's views     {id, views}
 // POST action=campaign        → tag a clip with a campaign {id, campaign}
 // POST action=remove          → stop tracking a clip       {id}  (or {ids:[...]} for several)
+// POST action=est_rate        → the pay per 1,000 views used to estimate untagged clips {rate} (empty = automatic)
 // POST action=campaign with {ids:[...]} tags several clips at once
 // campaign = {kind:'clipnow', id} | {kind:'other', name, rate} | null
 declare(strict_types=1);
@@ -31,7 +32,7 @@ function st_campaign($in, string $me): array|string|null {
 
 function st_out(array $m, array $s): array {
   $me = strtolower($m['email']); $now = time();
-  $clips = []; $groups = []; $totViews = 0; $totWeek = 0;
+  $clips = []; $groups = []; $totViews = 0; $totWeek = 0; $perClip = [];
   usort($s['clips'], fn($a, $b) => ($b['posted'] ?? $b['created']) <=> ($a['posted'] ?? $a['created']));
   $camps = [];
   foreach ($s['clips'] as $c) {
@@ -45,8 +46,15 @@ function st_out(array $m, array $s): array {
       $camps[$tag['id']] = $camps[$tag['id']] ?? cn_camp_load($tag['id']);
       $label = $camps[$tag['id']] ? $camps[$tag['id']]['title'] : 'Deleted campaign';
     } elseif ($tag) $label = $tag['name'];
+    $rate = 0;
+    if ($tag && $tag['kind'] === 'clipnow') $rate = $camps[$tag['id']] ? (int)$camps[$tag['id']]['rate_cents'] : 0;
+    elseif ($tag) $rate = (int)($tag['rate_cents'] ?? 0);
+    $perClip[] = ['platform' => $c['platform'], 'views' => (int)$c['views'], 'week' => $week, 'likes' => (int)($c['likes'] ?? 0), 'comments' => (int)($c['comments'] ?? 0),
+      'shares' => $c['shares'] ?? null, 'saves' => $c['saves'] ?? null, 'reach' => $c['reach'] ?? null, 'rate' => $rate,
+      'group' => $tag ? ($tag['kind'] === 'clipnow' ? 'cn:' . $tag['id'] : 'o:' . strtolower($tag['name']) . ':' . $tag['rate_cents']) : ''];
     $clips[] = ['id' => $c['id'], 'source' => $c['source'], 'platform' => $c['platform'], 'url' => $c['url'], 'title' => $c['title'],
-      'views' => $c['views'], 'likes' => $c['likes'], 'comments' => $c['comments'], 'week' => $week, 'auto' => !empty($c['auto']),
+      'views' => $c['views'], 'likes' => $c['likes'], 'comments' => $c['comments'], 'shares' => $c['shares'] ?? null, 'saves' => $c['saves'] ?? null, 'reach' => $c['reach'] ?? null,
+      'week' => $week, 'auto' => !empty($c['auto']),
       'checked' => $c['checked'], 'error' => $c['error'], 'posted' => $c['posted'] ?? $c['created'],
       'waiting' => $c['source'] === 'autopost' && !$c['checked'], 'campaign' => $tag ? $tag + ['label' => $label] : null];
     $key = $tag ? ($tag['kind'] === 'clipnow' ? 'cn:' . $tag['id'] : 'o:' . strtolower($tag['name']) . ':' . $tag['rate_cents']) : '';
@@ -61,7 +69,8 @@ function st_out(array $m, array $s): array {
     $groups['cn:' . $c['id']] = $groups['cn:' . $c['id']] ?? ['kind' => 'clipnow', 'id' => $c['id'], 'name' => $c['title'], 'rate_cents' => 0, 'clips' => 0, 'views' => 0];
   }
   $out = []; $totPotential = 0;
-  foreach ($groups as $g) {
+  $gScale = [];
+  foreach ($groups as $gk => $g) {
     if ($g['kind'] === 'clipnow') {
       $c = $camps[$g['id']] ?? null;
       if (!$c) { $g['name'] = 'Deleted campaign'; $g['potential_cents'] = 0; $out[] = $g; continue; }
@@ -71,14 +80,37 @@ function st_out(array $m, array $s): array {
       $g['creator'] = $c['creator'];
     }
     $g['potential_cents'] = (int)round($g['views'] * $g['rate_cents'] / 1000);
+    $uncapped = $g['potential_cents'];
     if (!empty($g['budget_cents'])) $g['potential_cents'] = min($g['potential_cents'], $g['budget_cents']);
+    $gScale[$gk] = $uncapped > 0 ? $g['potential_cents'] / $uncapped : 1;
     $totPotential += $g['potential_cents'];
     $out[] = $g;
   }
   usort($out, fn($a, $b) => $b['potential_cents'] <=> $a['potential_cents']);
+  // Rate used to estimate clips that aren't in a campaign: the member's own choice, else their average campaign rate, else $1.00.
+  $rates = array_values(array_filter(array_map(fn($g) => (int)$g['rate_cents'], $out)));
+  $estAuto = !isset($s['est_rate_cents']);
+  $est = $estAuto ? ($rates ? (int)round(array_sum($rates) / count($rates)) : 100) : (int)$s['est_rate_cents'];
+  // By platform: views, engagement and money.
+  $plats = [];
+  foreach ($perClip as $c) {
+    $p = $c['platform'] ?: 'other';
+    $plats[$p] = $plats[$p] ?? ['platform' => $p, 'clips' => 0, 'views' => 0, 'week' => 0, 'likes' => 0, 'comments' => 0, 'shares' => null, 'saves' => null, 'reach' => null,
+      'campaign_cents' => 0, 'untagged_views' => 0, 'could_cents' => 0];
+    $q = &$plats[$p];
+    $q['clips']++; $q['views'] += $c['views']; $q['week'] += $c['week']; $q['likes'] += $c['likes']; $q['comments'] += $c['comments'];
+    foreach (['shares', 'saves', 'reach'] as $k) if ($c[$k] !== null) $q[$k] = (int)$q[$k] + $c[$k];
+    if ($c['group'] !== '' && $c['rate'] > 0) $q['campaign_cents'] += (int)round($c['views'] * $c['rate'] / 1000 * ($gScale[$c['group']] ?? 1));
+    elseif ($c['group'] === '') $q['untagged_views'] += $c['views'];
+    unset($q);
+  }
+  foreach ($plats as &$q) $q['could_cents'] = (int)round($q['untagged_views'] * $est / 1000);
+  unset($q);
+  $plats = array_values($plats);
+  usort($plats, fn($a, $b) => $b['views'] <=> $a['views']);
   $joined = array_values(array_map(fn($c) => ['id' => $c['id'], 'title' => $c['title'], 'rate_cents' => (int)$c['rate_cents']],
     array_filter($camps, fn($c) => $c && isset($c['clippers'][$me]))));
-  return ['ok' => true, 'clips' => $clips, 'campaigns' => $out, 'joined' => $joined,
+  return ['ok' => true, 'clips' => $clips, 'campaigns' => $out, 'joined' => $joined, 'platforms' => $plats, 'est_rate_cents' => $est, 'est_rate_auto' => $estAuto,
     'totals' => ['views' => $totViews, 'week' => $totWeek, 'clips' => count($clips), 'potential_cents' => $totPotential],
     'auto_ready' => (string)(cn_config()['uploadpost_key'] ?? '') !== '',
     'due' => count(array_filter($s['clips'], fn($c) => !empty($c['auto']) && empty($c['hidden']) && $c['checked'] < $now - CN_STATS_REFRESH && ($c['posted'] ?? 0) <= $now - 120))];
@@ -106,6 +138,18 @@ try {
     cn_json_out(st_out($m, $s) + ['refreshed' => $n]);
   }
   if (!cn_rate_ok('stats:' . $me, 200)) cn_json_out(['ok' => false, 'error' => 'Too many changes in a short time. Wait a few minutes.'], 429);
+
+  if ($act === 'est_rate') {
+    $r = trim((string)($in['rate'] ?? ''));
+    if ($r === '') unset($s['est_rate_cents']);
+    else {
+      $cents = (int)round((float)preg_replace('/[^0-9.]/', '', $r) * 100);
+      if ($cents < 1 || $cents > 100000) cn_json_out(['ok' => false, 'error' => 'Enter a rate between $0.01 and $1,000 per 1,000 views.'], 422);
+      $s['est_rate_cents'] = $cents;
+    }
+    cn_stats_save($m, $s);
+    cn_json_out(st_out($m, $s));
+  }
 
   if ($act === 'add') {
     $url = trim((string)($in['url'] ?? ''));

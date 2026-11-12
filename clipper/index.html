@@ -476,6 +476,22 @@
   .export-item.manual .sent-st{display:block;margin-top:3px;color:#F1D9A6;font-family:var(--mono);font-size:12.5px}
   .m-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
   .bulk-auto{flex-basis:100%;font-weight:400!important;font-size:13.5px!important;color:var(--muted)}
+  .st-plats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:10px}
+  .st-plat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+  .st-plat h4{margin:0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .st-plat h4 small{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400}
+  .st-plat .nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .st-plat .nums div{display:flex;flex-direction:column}
+  .st-plat .nums b{font-size:17px} .st-plat .nums span{font-size:12px;color:var(--muted)}
+  .st-plat .money{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+  .st-plat .money b{font-size:19px;color:var(--green)} .st-plat .money .could b{color:var(--gold)}
+  .st-plat .money span{display:block;font-size:12px;color:var(--muted)}
+  .st-plat button.cp-link{align-self:flex-start}
+  .st-rate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin:0 0 10px}
+  .st-rate input{width:90px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font:inherit}
+  .st-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+  .st-filter button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:7px 12px;font:600 13px var(--sans);cursor:pointer;min-height:36px}
+  .st-filter button.on{background:var(--green-deep);border-color:var(--green-dim);color:#BFE9CF}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -1066,6 +1082,11 @@
       <div class="cp-stats" id="stTotals"></div>
       <p class="note" id="stSync" hidden></p>
 
+      <h3 class="st-h">By platform</h3>
+      <div class="st-rate" id="stRate"></div>
+      <div id="stPlats" class="st-plats"></div>
+      <p class="cp-fine">“From campaigns” = views on clips you tagged with a campaign × that campaign’s pay per 1,000 views (capped at its budget). “Could earn” = views on clips not in any campaign × the rate above, to show what those views would be worth in a campaign. Both are estimates: campaigns decide which views count, and earnings vary and aren’t guaranteed.</p>
+
       <h3 class="st-h">Potential earnings by campaign</h3>
       <div id="stCamps" class="st-camps"></div>
       <p class="cp-fine">Potential earnings = views × the campaign’s pay per 1,000 views (capped at its budget). The campaign decides which views count and pays you, so treat this as an estimate.</p>
@@ -1089,6 +1110,7 @@
         <div class="cp-acts"><button class="btn btn-green" type="button" id="saSave">Add clip</button><button class="btn btn-ghost" type="button" id="saCancel">Cancel</button></div>
         <p class="cp-msg" id="saMsg"></p>
       </div>
+      <div class="st-filter" id="stFilter"></div>
       <div id="stClips"></div>
     </div>
   </div>
@@ -4141,13 +4163,15 @@ if ('IntersectionObserver' in window){
           '<a class="cp-link" style="text-decoration:none;color:var(--green)" href="/campaigns#c=' + esc(g.id) + '">Report views to this campaign →</a>' : '') + '</div>';
     }).join('') : '<p class="cp-empty">No campaigns yet. Tag a clip with a campaign below to see what it could pay.</p>';
     $('#saCamp').innerHTML = campOptions('');
-    var ids = {}; j.clips.forEach(function(c){ ids[c.id] = 1; });
+    renderPlats(j);
+    var vis = visClips();
+    var ids = {}; vis.forEach(function(c){ ids[c.id] = 1; });
     Object.keys(stSel).forEach(function(id){ if (!ids[id]) delete stSel[id]; });
-    $('#stClips').innerHTML = j.clips.length ? stBar(j.clips) + j.clips.map(function(c){
+    $('#stClips').innerHTML = vis.length ? stBar(vis) + vis.map(function(c){
       var line;
       if (c.waiting) line = '<span class="st-line">Waiting for the first stats (posted ' + ago(c.posted) + ')</span>';
       else if (c.error) line = '<span class="st-line bad">' + esc(c.error) + '</span>';
-      else if (c.auto) line = '<span class="st-line">Updated automatically ' + (c.checked ? ago(c.checked) : '') + (c.likes != null ? ' · ' + num(c.likes) + ' likes' : '') + (c.comments != null ? ' · ' + num(c.comments) + ' comments' : '') + '</span>';
+      else if (c.auto) line = '<span class="st-line">Updated automatically ' + (c.checked ? ago(c.checked) : '') + (c.likes != null ? ' · ' + num(c.likes) + ' likes' : '') + (c.comments != null ? ' · ' + num(c.comments) + ' comments' : '') + (c.shares != null ? ' · ' + num(c.shares) + ' shares' : '') + (c.saves != null ? ' · ' + num(c.saves) + ' saves' : '') + (c.reach != null ? ' · reached ' + num(c.reach) : '') + '</span>';
       else line = '<span class="st-line">Views typed in by you</span>';
       var title = c.title || (c.url ? c.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60) : 'Clip');
       return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
@@ -4160,7 +4184,35 @@ if ('IntersectionObserver' in window){
     }).join('') : '<p class="cp-empty">No clips yet. Clips you post with ClipNow’s Post now or Schedule show up here by themselves, or tap <b>Add a clip by link</b>.</p>';
     stUpd();
   }
-  var stSel = {};
+  var stSel = {}, stPlat = '';
+  function visClips(){ return D ? D.clips.filter(function(c){ return !stPlat || (c.platform || 'other') === stPlat; }) : []; }
+  function renderPlats(j){
+    var plats = j.platforms || [];
+    var r = $('#stRate');
+    r.innerHTML = 'Clips not in a campaign are estimated at $<input type="text" inputmode="decimal" data-er aria-label="Pay per 1,000 views for the estimate"> per 1,000 views' + (j.est_rate_auto ? ' <small>(your average campaign rate)</small>' : ' <button class="cp-link" type="button" data-er-auto>Use my average</button>') + ' <button class="btn btn-ghost btn-sm" type="button" data-er-save>Update</button>';
+    $('[data-er]', r).value = ((j.est_rate_cents || 100) / 100).toFixed(2);
+    $('#stPlats').innerHTML = plats.length ? plats.map(function(q){
+      var extra = [];
+      if (q.shares != null) extra.push('<div><b>' + num(q.shares) + '</b><span>Shares</span></div>');
+      if (q.saves != null) extra.push('<div><b>' + num(q.saves) + '</b><span>Saves</span></div>');
+      if (q.reach != null) extra.push('<div><b>' + num(q.reach) + '</b><span>Reached</span></div>');
+      return '<div class="st-plat"><h4>' + esc(PL[q.platform] || q.platform) + '<small>' + q.clips + ' clip' + (q.clips === 1 ? '' : 's') + '</small></h4>' +
+        '<div class="nums"><div><b>' + num(q.views) + '</b><span>Views</span></div><div><b>' + num(q.week) + '</b><span>Last 7 days</span></div><div><b>' + num(q.likes) + '</b><span>Likes</span></div><div><b>' + num(q.comments) + '</b><span>Comments</span></div>' + extra.join('') + '</div>' +
+        '<div class="money"><div><b>' + money(q.campaign_cents) + '</b><span>From campaigns</span></div><div class="could"><b>' + money(q.could_cents) + '</b><span>Could earn from ' + num(q.untagged_views) + ' views not in a campaign</span></div></div>' +
+        '<button class="cp-link" type="button" data-pf="' + esc(q.platform) + '">See ' + esc(PL[q.platform] || q.platform) + ' clips ↓</button></div>';
+    }).join('') : '<p class="cp-empty">Post clips or add them by link to see each platform here.</p>';
+    var f = $('#stFilter');
+    f.innerHTML = plats.length > 1 ? '<button type="button" data-pf=""' + (stPlat ? '' : ' class="on"') + '>All</button>' + plats.map(function(q){ return '<button type="button" data-pf="' + esc(q.platform) + '"' + (stPlat === q.platform ? ' class="on"' : '') + '>' + esc(PL[q.platform] || q.platform) + ' (' + q.clips + ')</button>'; }).join('') : '';
+  }
+  sec.addEventListener('click', function(e){
+    var pf = e.target.closest('[data-pf]');
+    if (pf){ stPlat = pf.dataset.pf; stSel = {}; show(D); if (pf.closest('.st-plat')) $('#stFilter').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    if (e.target.closest('[data-er-save]')){
+      var v = $('#stRate [data-er]').value;
+      post({ action:'est_rate', rate:v }).then(function(j){ if (!j.ok) return toast(j.error || 'Couldn’t save the rate.'); show(j); toast('Estimate updated'); });
+    }
+    if (e.target.closest('[data-er-auto]')) post({ action:'est_rate', rate:'' }).then(function(j){ if (j.ok){ show(j); toast('Using your average campaign rate'); } });
+  });
   function stDidntPost(c){ return !!(c.error && /didn.t publish|not sent|didn.t post|failed/i.test(c.error)); }
   function stBar(clips){
     var bad = clips.filter(stDidntPost).length;
@@ -4170,7 +4222,7 @@ if ('IntersectionObserver' in window){
       '<div class="st-bcamp" data-bcamp hidden><select data-bc>' + campOptions('') + '</select><input type="text" maxlength="80" placeholder="Campaign name" data-bcn hidden><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-bcr hidden><button class="btn btn-green btn-sm" type="button" data-bulk="camp">Save</button></div></div>';
   }
   function stUpd(){
-    var k = Object.keys(stSel).length, n = D ? D.clips.length : 0, bar = $('#stClips .st-bar'); if (!bar) return;
+    var k = Object.keys(stSel).length, n = visClips().length, bar = $('#stClips .st-bar'); if (!bar) return;
     $('[data-sel-n]', bar).textContent = k ? k + ' selected' : '';
     var all = $('[data-sel-all]', bar); all.checked = k > 0 && k === n; all.indeterminate = k > 0 && k < n;
     $$('#stClips [data-bulk="camp-open"], #stClips [data-bulk="remove"]').forEach(function(b){ b.disabled = !k; });
@@ -4179,13 +4231,13 @@ if ('IntersectionObserver' in window){
   $('#stClips').addEventListener('change', function(e){
     var t = e.target;
     if (t.matches('[data-sel]')){ if (t.checked) stSel[t.dataset.sel] = 1; else delete stSel[t.dataset.sel]; stUpd(); }
-    else if (t.matches('[data-sel-all]')){ stSel = {}; if (t.checked) D.clips.forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = t.checked; }); stUpd(); }
+    else if (t.matches('[data-sel-all]')){ stSel = {}; if (t.checked) visClips().forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = t.checked; }); stUpd(); }
     else if (t.matches('[data-bc]')){ var o = t.value === 'new'; $('#stClips [data-bcn]').hidden = !o; $('#stClips [data-bcr]').hidden = !o; }
   });
   $('#stClips').addEventListener('click', function(e){
     var b = e.target.closest('[data-bulk]'); if (!b) return;
     var act = b.dataset.bulk, ids = Object.keys(stSel);
-    if (act === 'bad'){ stSel = {}; D.clips.filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
+    if (act === 'bad'){ stSel = {}; visClips().filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
     if (act === 'camp-open'){ $('#stClips [data-bcamp]').hidden = false; return; }
     if (!ids.length) return;
     if (act === 'remove'){

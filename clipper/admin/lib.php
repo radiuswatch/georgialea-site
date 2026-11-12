@@ -1099,6 +1099,14 @@ function cn_stats_import(array $m, array &$s): void {
   }
 }
 
+/** Shares, saves and reach when the platform reports them (not every platform does). */
+function cn_stats_extra(array &$c, array $pm): void {
+  $map = ['shares' => ['shares', 'share_count'], 'saves' => ['saves', 'saved', 'bookmarks', 'favorites'], 'reach' => ['reach', 'impressions', 'accounts_reached']];
+  foreach ($map as $k => $keys) {
+    $c[$k] = null;
+    foreach ($keys as $src) if (isset($pm[$src]) && is_numeric($pm[$src])) { $c[$k] = (int)$pm[$src]; break; }
+  }
+}
 /** Views as the platform's own app shows them (Instagram Reels shared to Facebook count both). */
 function cn_stats_views(array $pm): int { return (int)($pm['crossposted_views'] ?? $pm['views'] ?? 0); }
 
@@ -1141,6 +1149,7 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
             cn_stats_set_views($o, cn_stats_views($pd['post_metrics']), 'auto');
             $o['likes'] = isset($pd['post_metrics']['likes']) ? (int)$pd['post_metrics']['likes'] : null;
             $o['comments'] = isset($pd['post_metrics']['comments']) ? (int)$pd['post_metrics']['comments'] : null;
+            cn_stats_extra($o, $pd['post_metrics']);
             $o['error'] = '';
           } else {
             $o['error'] = (string)($pd['post_metrics_error'] ?? (empty($pd['success']) ? 'This post didn’t publish.' : 'Views aren’t available for this post yet.'));
@@ -1156,6 +1165,7 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
           cn_stats_set_views($s['clips'][$i], cn_stats_views($pm), 'auto');
           $s['clips'][$i]['likes'] = isset($pm['likes']) ? (int)$pm['likes'] : null;
           $s['clips'][$i]['comments'] = isset($pm['comments']) ? (int)$pm['comments'] : null;
+          cn_stats_extra($s['clips'][$i], $pm);
           $s['clips'][$i]['error'] = '';
         } else {
           $s['clips'][$i]['error'] = (string)($pd['post_metrics_error'] ?? 'Views aren’t available for this post. Type them in instead.');
