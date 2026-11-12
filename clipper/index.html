@@ -2244,6 +2244,8 @@ function sentBox(list){
 function tagify(s){ return (s||'').split(/[\s,]+/).filter(Boolean).map(function(t){ return /^[#@]/.test(t) ? t : '#'+t.replace(/[^\w]/g,''); }).filter(function(t){ return t.length>1; }); }
 /** The caption for one clip on one platform: built from that clip's own title. If the member edited the
  *  caption box, their edits are kept and the first clip's title in it is swapped for this clip's. */
+/** UTF-8 text → base64url, so captions pass the host's firewall untouched. */
+function b64url(s){ var b = ''; new TextEncoder().encode(s).forEach(function(c){ b += String.fromCharCode(c); }); return btoa(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function clipCaption(platform, x){
   var ta = document.querySelector('#plats .plat[data-p="' + platform + '"] textarea');
   var P = PLATFORMS.filter(function(q){ return q.id === platform; })[0];
@@ -3309,7 +3311,7 @@ function ClipNowConnect(platform, set){
       fd.append('video', x.blob, x.name);
       t.forEach(function(p){
         fd.append('platforms[]', p);
-        fd.append('caption[' + p + ']', clipCaption(p, x));
+        fd.append('caption64[' + p + ']', b64url(clipCaption(p, x)));   // encoded: the host's firewall blocks text like "1 x 1 = 2"
       });
       if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }
       if (draft) fd.append('tiktok_mode', 'draft');

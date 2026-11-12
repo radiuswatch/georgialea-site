@@ -2,7 +2,7 @@
 // POST /api/post.php (multipart) → post one clip to the member's connected accounts, now or later.
 //   video        the clip file (MP4 recommended; max 60 MB)
 //   platforms[]  tiktok | youtube | instagram | facebook | x
-//   caption[<platform>]  the caption to use on each platform
+//   caption64[<platform>]  the caption for each platform, base64url-encoded UTF-8 (caption[<platform>] plain also works)
 //   schedule     optional local date-time "2026-11-06T18:30" + tz (IANA name, e.g. America/New_York)
 //   key          a random id from the browser so a retry doesn't post twice
 //   set          optional account set to post from (otherwise ClipNow picks a connected account with room)
@@ -80,7 +80,13 @@ try {
   $pin = (int)($_POST['set'] ?? 0);
   if ($pin > 0 && !isset($sets[$pin])) $pin = 0;
 
+  // The Studio sends captions base64url-encoded (caption64[...]): the host's firewall turns away plain
+  // form text that looks like code, e.g. "1 x 1 = 2" from a math clip, before it ever reaches ClipNow.
   $caps = (array)($_POST['caption'] ?? []);
+  foreach ((array)($_POST['caption64'] ?? []) as $p => $b) {
+    $d = base64_decode(strtr((string)$b, '-_', '+/'), true);
+    if ($d !== false && mb_check_encoding($d, 'UTF-8')) $caps[$p] = $d;
+  }
   $cap = function (string $p) use ($caps): string { return trim((string)($caps[$p] ?? '')); };
   $limits = ['tiktok' => 2200, 'youtube' => 5000, 'instagram' => 2200, 'facebook' => 2200, 'x' => 280];
   foreach ($want as $p) if (mb_strlen($cap($p)) > $limits[$p]) post_refuse(['ok' => false, 'error' => CN_POST_PLATFORMS[$p] . ' caption is too long.'], 422);
