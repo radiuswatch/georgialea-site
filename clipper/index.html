@@ -3304,9 +3304,15 @@ function ClipNowConnect(platform, set){
       xhr.open('POST', 'api/post.php'); xhr.withCredentials = true;
       if (onProgress) xhr.upload.onprogress = function(e){ if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
       busy++;
+      var t0 = Date.now();
       xhr.onload = function(){
         busy--;
-        var j = {}; try { j = JSON.parse(xhr.responseText); } catch(e){}
+        var j = {}, parsed = false; try { j = JSON.parse(xhr.responseText); parsed = true; } catch(e){}
+        if (!parsed){
+          // Not ClipNow's answer (a host error page, a firewall block, a time-out): report it so it can be fixed.
+          try { fetch('api/post-report.php', { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ status:xhr.status, text:String(xhr.responseText || '').slice(0, 600), bytes:x.size, seconds:(Date.now() - t0) / 1000, platforms:t }) }).catch(function(){}); } catch(e){}
+          if (!/humans_/.test(xhr.responseText)) j = { ok:false, error:'Posting failed (error ' + xhr.status + '). Please try again. ClipNow has logged it.' };
+        }
         if (/humans_/.test(xhr.responseText) && !j.ok) j = { ok:false, retry:2, error:'Please try again.' };
         if (j.ok){
           j.names = t.map(function(p){ var u = j.used && j.used[p]; return NAMES[p] + (u && (info.sets || []).length > 1 ? ' (' + u + ')' : ''); }).join(', ');
@@ -3320,7 +3326,11 @@ function ClipNowConnect(platform, set){
         }
         resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, draft:j.draft, retry:j.retry });
       };
-      xhr.onerror = function(){ busy--; resolve({ ok:false, error:'Upload failed. Check your connection and try again.', net:true }); };
+      xhr.onerror = function(){
+        busy--;
+        try { fetch('api/post-report.php', { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ status:0, text:'network error (upload did not complete)', bytes:x.size, seconds:(Date.now() - t0) / 1000, platforms:t }) }).catch(function(){}); } catch(e){}
+        resolve({ ok:false, error:'Upload failed. Check your connection and try again.', net:true });
+      };
       xhr.send(fd);
     });
   }

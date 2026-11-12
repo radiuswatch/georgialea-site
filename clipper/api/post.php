@@ -10,9 +10,38 @@
 //                (used when TikTok's daily posting limit is reached; captions can't be passed to a draft)
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
+/* Every attempt is noted when it starts. If the script is stopped part-way (the host's time limit, a crash),
+   the shutdown handler records why and still answers in JSON, so the member doesn't get a bare error page. */
+$GLOBALS['cn_post_done'] = false;
+$GLOBALS['cn_post_t0'] = microtime(true);
+function post_note(array $e): void {
+  try {
+    $f = cn_dir('posts') . '/attempts.jsonl';
+    file_put_contents($f, json_encode(['at' => time()] + $e, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
+    if (filesize($f) > 500000) { $lines = array_slice(file($f), -1000); file_put_contents($f, implode('', $lines), LOCK_EX); }
+  } catch (Throwable $t) {}
+}
+post_note(['step' => 'start', 'bytes' => (int)($_FILES['video']['size'] ?? 0), 'upload_error' => (int)($_FILES['video']['error'] ?? -1),
+  'length' => (int)($_SERVER['CONTENT_LENGTH'] ?? 0), 'platforms' => array_values(array_map('strval', (array)($_POST['platforms'] ?? []))),
+  'limit' => ini_get('max_execution_time'), 'post_max' => ini_get('post_max_size'), 'upload_max' => ini_get('upload_max_filesize')]);
+register_shutdown_function(function () {
+  if ($GLOBALS['cn_post_done']) return;
+  global $m;
+  $err = error_get_last();
+  post_note(['step' => 'stopped', 'customer' => (string)($m['customer_id'] ?? ''), 'email' => (string)($m['email'] ?? ''),
+    'seconds' => round(microtime(true) - $GLOBALS['cn_post_t0'], 1), 'error' => $err ? mb_substr($err['message'] . ' @' . basename((string)$err['file']) . ':' . $err['line'], 0, 400) : '', 'limit' => ini_get('max_execution_time')]);
+  if (!headers_sent()) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'The post stopped part-way through on our server. We’ve logged it. Please try again in a minute.']);
+  }
+});
+
 /** Answer with an error and keep a record of it (posts/refused.jsonl), so a failed post can be looked into later. */
 function post_refuse(array $body, int $code): never {
   global $m;
+  $GLOBALS['cn_post_done'] = true;
+  post_note(['step' => 'refused', 'customer' => (string)($m['customer_id'] ?? ''), 'code' => $code, 'seconds' => round(microtime(true) - $GLOBALS['cn_post_t0'], 1), 'error' => mb_substr((string)($body['error'] ?? ''), 0, 200)]);
   try {
     $f = cn_dir('posts') . '/refused.jsonl';
     $e = ['at' => time(), 'code' => $code, 'customer' => (string)($m['customer_id'] ?? ''), 'email' => (string)($m['email'] ?? ''),
@@ -146,6 +175,8 @@ try {
     cn_post_log($m, $entry);
     $rids[] = $entry['request_id']; $jobs[] = $entry['job_id'];
   }
+  $GLOBALS['cn_post_done'] = true;
+  post_note(['step' => 'sent', 'customer' => (string)($m['customer_id'] ?? ''), 'seconds' => round(microtime(true) - $GLOBALS['cn_post_t0'], 1), 'request_ids' => $rids]);
   cn_json_out(['ok' => true, 'scheduled' => $scheduled, 'requestId' => $rids[0] ?? '', 'requestIds' => $rids, 'jobId' => $jobs[0] ?? '', 'used' => $used, 'drafted' => $draftTk ? ['tiktok'] : []]);
 } catch (Throwable $e) {
   $msg = $e->getMessage();
