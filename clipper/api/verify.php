@@ -15,6 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $email = cn_same_origin() ? cn_use_login_link($t) : null;
   if (!$email) { header('Location: ' . CN_SITE . '/?signin=expired', true, 303); exit; }
   cn_start_session($email);
+  // Before launch, only members (you and your testers) can sign in. Whichever browser the email link
+  // opens in (the phone's default, e.g. Chrome), give it the tester pass so it shows the full site
+  // instead of the coming-soon page.
+  if (!cn_site_live()) setcookie('cn_preview', '1', ['expires' => time() + 180 * 86400, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
   header('Location: ' . CN_SITE . '/studio?signin=ok', true, 303);
   exit;
 }
