@@ -2063,7 +2063,7 @@ var Keep = (function(){
       t.oncomplete = function(){ res(req && req.result); }; t.onerror = t.onabort = function(){ rej(t.error); };
     }); });
   }
-  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, manual:x.manual || null, postKey:x.postKey || null, at:x.at || Date.now() }; }
+  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, manual:x.manual || null, only:x.only || null, postKey:x.postKey || null, at:x.at || Date.now() }; }
   var kept = {};
   return {
     sync: function(){
@@ -2189,6 +2189,7 @@ function sentResult(x){
   if (x.sent.draft) return { ok:true, text:'✓ In your TikTok drafts. Open TikTok to finish posting it.' };
   return { ok:true, text:'✓ Posted on ' + p.results.map(function(r){ return names[r.platform] || r.platform; }).join(', '), url:link && link.url };
 }
+function platList(a){ var n = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' }; return a.map(function(p){ return n[p] || p; }).join(', '); }
 function removeClips(list){
   var ids = {}; list.forEach(function(x){ ids[x.id] = 1; try { URL.revokeObjectURL(x.url); } catch(e){} });
   S.exports = S.exports.filter(function(x){ return !ids[x.id]; });
@@ -2229,8 +2230,12 @@ function sentBox(list){
     var a = $('a', row); a.href = x.url; a.download = x.name;
     $('[data-s="again"]', row).addEventListener('click', function(){
       if (!(r && r.failed) && !confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
+      // Didn't go through on some platforms: post again only to those, so it isn't posted twice on the others.
+      var miss = (r && r.failed && x.sent.res) ? x.sent.res.filter(function(q){ return !q.ok; }).map(function(q){ return q.platform; }) : [];
+      var hit = (r && r.failed && x.sent.res) ? x.sent.res.filter(function(q){ return q.ok; }).length : 0;
+      x.only = miss.length && hit ? miss : null;
       x.sent = null; x.postKey = null; renderExports();
-      toast('Moved back to Your clips');
+      toast(x.only ? 'Moved back to Your clips. It will post to ' + platList(x.only) + ' only.' : 'Moved back to Your clips');
     });
     $('[data-s="rm"]', row).addEventListener('click', function(){
       if (!confirm('Remove “' + x.name + '” from this device?' + (r && r.failed ? ' It didn’t post, so you’d need to export it again to post it.' : ' Anything that posted stays up on your accounts.'))) return;
@@ -3303,6 +3308,10 @@ function ClipNowConnect(platform, set){
   function postOne(x, when, onProgress, draft){
     return new Promise(function(resolve){
       var t = targets();
+      if (x.only && x.only.length){   // a "Post again" for the platforms it didn't go through on
+        var cn = connected(); t = x.only.filter(function(p){ return cn.indexOf(p) > -1; });
+        if (!t.length) return resolve({ ok:false, error:platList(x.only) + ' isn’t connected. Connect it under Platforms, or tap “Post everywhere” to use your usual platforms.' });
+      }
       if (!t.length) return resolve({ ok:false, error:'Switch on at least one connected platform in the cards below.' });
       if (t.length > info.limit) return resolve({ ok:false, error:'Your plan posts to up to ' + info.limit + ' platforms at a time. Switch some off below, or upgrade to Gold.' });
       if (x.size > MAX) return resolve({ ok:false, error:'“' + x.name + '” is over 60 MB. Export it at 720p or make it shorter.' });
@@ -3340,7 +3349,7 @@ function ClipNowConnect(platform, set){
           var drafted = (j.drafted || []).length > 0;
           if (drafted) j.names = j.names.replace('TikTok', 'TikTok drafts');
           x.sent = { at:Date.now(), scheduled:j.scheduled || 0, names:j.names, rid:j.requestId || '', rids:j.requestIds || [], draft:drafted };
-          x.manual = null;
+          x.manual = null; x.only = null;
           x.sel = false;
         }
         resolve(j.ok ? j : { ok:false, error:j.error || 'Posting failed. Please try again.', next_slot:j.next_slot, cap:j.cap, draft:j.draft, retry:j.retry });
@@ -3530,6 +3539,12 @@ function ClipNowConnect(platform, set){
       sch.addEventListener('click', function(){ picker.toggle(); });
       r1.appendChild(now); r1.appendChild(sch);
       box.appendChild(r1); box.appendChild(picker.el); box.appendChild(msg); row.appendChild(box);
+      if (x.only && x.only.length){
+        msg.textContent = 'Posts to ' + platList(x.only) + ' only, where it didn’t go through last time' + (x.only.indexOf('youtube') > -1 ? '. YouTube’s daily upload limit resets around midnight Pacific Time; use Schedule… to post it after that.' : '.') + ' ';
+        var all = el('button', 'btn btn-ghost btn-sm', 'Post everywhere'); all.type = 'button';
+        all.addEventListener('click', function(){ x.only = null; x.postKey = null; renderExports(); });
+        msg.appendChild(all);
+      }
     }
   };
   // Came back to this tab after tapping Connect (X opens in its own tab): check whether it linked.
@@ -3622,7 +3637,7 @@ function ClipNowConnect(platform, set){
 if (IS_STUDIO) Keep.load().then(function(list){
   if (!list.length || S.exports.length) return;
   list.forEach(function(k){
-    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, manual:m.manual || null, postKey:m.postKey, at:m.at };
+    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, manual:m.manual || null, only:m.only || null, postKey:m.postKey, at:m.at };
     Keep.mark(x.id, JSON.stringify(Keep.metaOf(x)));
     S.exports.push(x);
   });
