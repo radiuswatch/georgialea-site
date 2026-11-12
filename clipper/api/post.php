@@ -10,28 +10,41 @@
 //                (used when TikTok's daily posting limit is reached; captions can't be passed to a draft)
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
+/** Answer with an error and keep a record of it (posts/refused.jsonl), so a failed post can be looked into later. */
+function post_refuse(array $body, int $code): never {
+  global $m;
+  try {
+    $f = cn_dir('posts') . '/refused.jsonl';
+    $e = ['at' => time(), 'code' => $code, 'customer' => (string)($m['customer_id'] ?? ''), 'email' => (string)($m['email'] ?? ''),
+      'platforms' => array_values(array_map('strval', (array)($_POST['platforms'] ?? []))), 'schedule' => (string)($_POST['schedule'] ?? ''),
+      'mode' => (string)($_POST['tiktok_mode'] ?? ''), 'bytes' => (int)($_FILES['video']['size'] ?? 0), 'error' => mb_substr((string)($body['error'] ?? ''), 0, 300)];
+    file_put_contents($f, json_encode($e, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
+    if (filesize($f) > 500000) { $lines = array_slice(file($f), -1000); file_put_contents($f, implode('', $lines), LOCK_EX); }
+  } catch (Throwable $t) {}
+  cn_json_out($body, $code);
+}
 @set_time_limit(300);
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) post_refuse(['ok' => false, 'error' => 'bad request'], 400);
 // When an upload is over PHP's size limit, PHP silently drops both the file and the form fields.
-if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) cn_json_out(['ok' => false, 'error' => 'That clip is too big to post (60 MB max). Export it at 720p or make it shorter.'], 413);
+if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) post_refuse(['ok' => false, 'error' => 'That clip is too big to post (60 MB max). Export it at 720p or make it shorter.'], 413);
 
 try {
   $m = cn_current_member(true);
-  if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
+  if (!$m) post_refuse(['ok' => false, 'error' => 'Please sign in first.'], 401);
   $limit = cn_post_limit($m);
-  if ($limit === 0) cn_json_out(['ok' => false, 'error' => 'Auto-posting is included with an active ClipNow plan.'], 403);
+  if ($limit === 0) post_refuse(['ok' => false, 'error' => 'Auto-posting is included with an active ClipNow plan.'], 403);
 
   $f = $_FILES['video'] ?? null;
-  if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'The clip didn\'t upload. Please try again.'], 422);
-  if ($f['size'] > CN_POST_MAX_BYTES) cn_json_out(['ok' => false, 'error' => 'That clip is too big to post (60 MB max). Export it at 720p or make it shorter.'], 413);
+  if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) post_refuse(['ok' => false, 'error' => 'The clip didn\'t upload. Please try again.'], 422);
+  if ($f['size'] > CN_POST_MAX_BYTES) post_refuse(['ok' => false, 'error' => 'That clip is too big to post (60 MB max). Export it at 720p or make it shorter.'], 413);
   $mime = (string)(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
-  if (!in_array($mime, ['video/mp4', 'video/webm', 'video/quicktime', 'application/octet-stream'], true)) cn_json_out(['ok' => false, 'error' => 'That file isn\'t a video ClipNow can post.'], 422);
+  if (!in_array($mime, ['video/mp4', 'video/webm', 'video/quicktime', 'application/octet-stream'], true)) post_refuse(['ok' => false, 'error' => 'That file isn\'t a video ClipNow can post.'], 422);
   $isWebm = $mime === 'video/webm';
 
   $want = array_values(array_unique(array_filter((array)($_POST['platforms'] ?? []), fn($p) => isset(CN_POST_PLATFORMS[$p]))));
-  if (!$want) cn_json_out(['ok' => false, 'error' => 'Pick at least one connected platform.'], 422);
-  if (count($want) > $limit) cn_json_out(['ok' => false, 'error' => "Your {$m['plan']} plan posts to up to $limit platforms at a time. Upgrade to Gold to post everywhere at once."], 403);
-  if ($isWebm && array_intersect($want, ['instagram', 'facebook'])) cn_json_out(['ok' => false, 'error' => 'Instagram and Facebook need an MP4 clip. Your browser saved this one as WebM. Export it again in Chrome, Edge or Safari.'], 422);
+  if (!$want) post_refuse(['ok' => false, 'error' => 'Pick at least one connected platform.'], 422);
+  if (count($want) > $limit) post_refuse(['ok' => false, 'error' => "Your {$m['plan']} plan posts to up to $limit platforms at a time. Upgrade to Gold to post everywhere at once."], 403);
+  if ($isWebm && array_intersect($want, ['instagram', 'facebook'])) post_refuse(['ok' => false, 'error' => 'Instagram and Facebook need an MP4 clip. Your browser saved this one as WebM. Export it again in Chrome, Edge or Safari.'], 422);
 
   $sets = cn_up_sets($m);   // [set => [platform => ['connected', 'name']]]
   $draftTk = ($_POST['tiktok_mode'] ?? '') === 'draft' && in_array('tiktok', $want, true);
@@ -41,17 +54,17 @@ try {
   $caps = (array)($_POST['caption'] ?? []);
   $cap = function (string $p) use ($caps): string { return trim((string)($caps[$p] ?? '')); };
   $limits = ['tiktok' => 2200, 'youtube' => 5000, 'instagram' => 2200, 'facebook' => 2200, 'x' => 280];
-  foreach ($want as $p) if (mb_strlen($cap($p)) > $limits[$p]) cn_json_out(['ok' => false, 'error' => CN_POST_PLATFORMS[$p] . ' caption is too long.'], 422);
+  foreach ($want as $p) if (mb_strlen($cap($p)) > $limits[$p]) post_refuse(['ok' => false, 'error' => CN_POST_PLATFORMS[$p] . ' caption is too long.'], 422);
 
   $when = trim((string)($_POST['schedule'] ?? ''));
   $tz = trim((string)($_POST['tz'] ?? 'UTC'));
   $scheduled = 0;
   if ($when !== '') {
     try { $dt = new DateTime($when, new DateTimeZone(in_array($tz, timezone_identifiers_list(), true) ? $tz : 'UTC')); }
-    catch (Throwable $e) { cn_json_out(['ok' => false, 'error' => 'That date and time isn\'t valid.'], 422); }
+    catch (Throwable $e) { post_refuse(['ok' => false, 'error' => 'That date and time isn\'t valid.'], 422); }
     $scheduled = $dt->getTimestamp();
-    if ($scheduled < time() + 300) cn_json_out(['ok' => false, 'error' => 'Pick a time at least 5 minutes from now.'], 422);
-    if ($scheduled > time() + 60 * 86400) cn_json_out(['ok' => false, 'error' => 'You can schedule up to 60 days ahead.'], 422);
+    if ($scheduled < time() + 300) post_refuse(['ok' => false, 'error' => 'Pick a time at least 5 minutes from now.'], 422);
+    if ($scheduled > time() + 60 * 86400) post_refuse(['ok' => false, 'error' => 'You can schedule up to 60 days ahead.'], 422);
   }
 
   // Pick an account for each platform: a connected one that still has room under the platform's daily
@@ -60,7 +73,7 @@ try {
   foreach ($want as $p) {
     $cands = [];
     foreach ($sets as $i => $acc) if ($acc[$p]['connected'] && (!$pin || $pin === $i)) $cands[] = $i;
-    if (!$cands) cn_json_out(['ok' => false, 'error' => 'Connect ' . CN_POST_PLATFORMS[$p] . ' first.'], 422);
+    if (!$cands) post_refuse(['ok' => false, 'error' => 'Connect ' . CN_POST_PLATFORMS[$p] . ' first.'], 422);
     $best = 0; $bestN = PHP_INT_MAX; $soonest = 0;
     foreach ($cands as $i) {
       $asDraft = $draftTk && $p === 'tiktok';
@@ -70,14 +83,14 @@ try {
       if ($n < $bestN) { $best = $i; $bestN = $n; }
     }
     if (!$best && $draftTk && $p === 'tiktok') {
-      cn_json_out(['ok' => false, 'cap' => $p, 'draft' => true, 'next_slot' => $soonest,
+      post_refuse(['ok' => false, 'cap' => $p, 'draft' => true, 'next_slot' => $soonest,
         'error' => 'TikTok drafts are full for now (TikTok allows about ' . CN_DRAFT_CAPS['tiktok'] . ' clips waiting in drafts per account in 24 hours).'], 429);
     }
     if (!$best) {
       $nAcc = count($cands); $max = cn_account_sets($m);
       $more = $nAcc < $max ? ' Or connect another ' . CN_POST_PLATFORMS[$p] . ' account (your plan allows ' . $max . ') to post more.'
         : ($max < 3 ? ' Platinum connects up to 3 ' . CN_POST_PLATFORMS[$p] . ' accounts, and Corporate up to 10.' : '');
-      cn_json_out(['ok' => false, 'cap' => $p, 'next_slot' => $soonest,
+      post_refuse(['ok' => false, 'cap' => $p, 'next_slot' => $soonest,
         'error' => ($nAcc > 1 ? 'All ' . $nAcc . ' of your ' . CN_POST_PLATFORMS[$p] . ' accounts are' : 'Your ' . CN_POST_PLATFORMS[$p] . ' account is')
           . ' at ' . CN_POST_PLATFORMS[$p] . '\'s limit of ' . cn_daily_caps()[$p] . ' posts per account in 24 hours. Schedule it for later (the next opening is shown) or turn ' . CN_POST_PLATFORMS[$p] . ' off for this clip.' . $more], 429);
     }
@@ -115,7 +128,7 @@ try {
     if (in_array('instagram', $plats, true)) $fields['media_type'] = 'REELS';
     if (in_array('facebook', $plats, true)) {
       $page = cn_up_facebook_page($user);
-      if ($page === '') cn_json_out(['ok' => false, 'error' => 'Facebook Reels post to a Facebook Page, and none is connected' . ($set > 1 ? ' on account set ' . $set : '') . '. Reconnect Facebook and pick a Page.'], 422);
+      if ($page === '') post_refuse(['ok' => false, 'error' => 'Facebook Reels post to a Facebook Page, and none is connected' . ($set > 1 ? ' on account set ' . $set : '') . '. Reconnect Facebook and pick a Page.'], 422);
       $fields['facebook_page_id'] = $page;
       $fields['facebook_media_type'] = 'REELS';
     }
@@ -137,7 +150,7 @@ try {
 } catch (Throwable $e) {
   $msg = $e->getMessage();
   if (($_POST['tiktok_mode'] ?? '') !== 'draft') cn_learn_cap($msg);
-  if (stripos($msg, 'daily posting cap') !== false) cn_json_out(['ok' => false, 'error' => $msg], 429);
-  if (stripos($msg, 'rate limit') !== false) cn_json_out(['ok' => false, 'retry' => 30, 'error' => 'The posting service is busy. Wait about 30 seconds and try again.'], 429);
-  cn_json_out(['ok' => false, 'error' => $msg], 502);
+  if (stripos($msg, 'daily posting cap') !== false) post_refuse(['ok' => false, 'error' => $msg], 429);
+  if (stripos($msg, 'rate limit') !== false) post_refuse(['ok' => false, 'retry' => 30, 'error' => 'The posting service is busy. Wait about 30 seconds and try again.'], 429);
+  post_refuse(['ok' => false, 'error' => $msg], 502);
 }

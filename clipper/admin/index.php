@@ -796,6 +796,21 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     </form>
   </div>
   <div class="panel">
+    <h2>Posts ClipNow turned down</h2>
+    <?php
+      $rf = cn_dir('posts') . '/refused.jsonl';
+      $refused = is_file($rf) ? array_reverse(array_values(array_filter(array_map(fn($l) => json_decode($l, true), array_slice(file($rf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), -25))))) : [];
+    ?>
+    <?php if (!$refused): ?><p>None yet. When a member's post is stopped before it's sent (not connected, daily limit, a file problem, an error from the posting service), it shows here with the reason the member saw.</p><?php else: ?>
+    <p>The last <?= count($refused) ?> posts that were stopped before reaching the posting service, with the exact message the member saw.</p>
+    <table class="members"><thead><tr><th>When</th><th>Member</th><th>Platforms</th><th>Message shown</th></tr></thead><tbody>
+    <?php foreach ($refused as $r): ?>
+      <tr><td><?= e(date('M j, g:i:s a', (int)$r['at'])) ?></td><td><?= e($r['email'] ?: '(not signed in)') ?></td><td><?= e(implode(', ', $r['platforms'] ?? []) . (($r['mode'] ?? '') === 'draft' ? ' (draft)' : '') . (($r['schedule'] ?? '') ? ' · scheduled' : '')) ?></td><td><?= e($r['error'] ?? '') ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table>
+    <?php endif; ?>
+  </div>
+  <div class="panel">
     <h2>Recent emails</h2>
     <?php $ml = cn_mail_recent(15); ?>
     <?php if (!$ml): ?><p>No emails sent yet.</p><?php else: ?>
