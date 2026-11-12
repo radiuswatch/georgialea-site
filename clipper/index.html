@@ -2668,7 +2668,7 @@ $('#pgPanel').addEventListener('click', function(e){
     var pid = gc.dataset.goconnect;
     if (!(MEMBER && MEMBER.signedIn)){ window.ClipNowAccount && ClipNowAccount.open(); return; }
     gc.disabled = true; gc.textContent = 'Opening…';
-    ClipNowConnect(pid).catch(function(err){ gc.disabled = false; gc.textContent = 'Connect'; toast(err.message); });
+    ClipNowConnect(pid).then(function(r){ if (r && r.newTab){ gc.disabled = false; gc.textContent = 'Connect'; toast('Sign in on the new tab, then come back here. ClipNow checks the connection by itself.'); } }, function(err){ gc.disabled = false; gc.textContent = 'Connect'; toast(err.message); });
     return;
   }
   var b = e.target.closest('[data-pgdone]'); if (!b) return;
@@ -2910,10 +2910,19 @@ function cnApi(path, body, retry){
 /** Opens the connect page for one platform (or all), and comes back to this page. */
 function ClipNowConnect(platform, set){
   var back = /^\/(studio|stats|campaigns)$/.test(location.pathname) ? location.pathname : '/studio';
+  // Remember what was being connected, so coming back to this tab re-checks it (no return button needed).
+  window.__cnPendingConnect = { platform:platform || '', set:set || 1, at:Date.now() };
+  // X's sign-in doesn't lead back to the connect page's return button, so it opens in its own tab
+  // (opened right away, during the tap, so the browser doesn't block it) and ClipNow stays open here.
+  var tab = platform === 'x' ? window.open('', '_blank') : null;
   return cnApi('social.php', { action:'connect', platform:platform || '', back:back, set:set || 1 }).then(function(j){
-    if (j.ok && j.url){ location.href = j.url; return new Promise(function(){}); }
+    if (j.ok && j.url){
+      if (tab && !tab.closed){ tab.location.href = j.url; return { newTab:true }; }
+      location.href = j.url; return new Promise(function(){});
+    }
+    if (tab) tab.close();
     throw new Error(j.error || 'Couldn’t open the connect page. Please try again.');
-  }, function(){ throw new Error('You seem to be offline.'); });
+  }, function(){ if (tab) tab.close(); throw new Error('You seem to be offline.'); });
 }
 
 /* ---------- Auto-post (via api/social.php + api/post.php) ---------- */
@@ -2956,7 +2965,7 @@ function ClipNowConnect(platform, set){
       if (canConnect && !on){
         var btns = el('div', 'ap-btns');
         var c = el('button', 'btn btn-green btn-sm', 'Connect'); c.type = 'button';
-        c.addEventListener('click', function(){ c.disabled = true; c.textContent = 'Opening…'; ClipNowConnect(k, set).catch(function(err){ c.disabled = false; c.textContent = 'Connect'; note.textContent = err.message; }); });
+        c.addEventListener('click', function(){ c.disabled = true; c.textContent = 'Opening…'; ClipNowConnect(k, set).then(function(r){ if (r && r.newTab){ c.disabled = false; c.textContent = 'Connect'; note.textContent = NAMES[k] + ' opened in a new tab. Sign in and allow access there, then come back to this tab. ClipNow checks the connection by itself.'; } }, function(err){ c.disabled = false; c.textContent = 'Connect'; note.textContent = err.message; }); });
         var mk = el('button', 'ap-make', 'Create account'); mk.type = 'button';
         mk.addEventListener('click', function(){
           window.open(SIGNUP[k], '_blank', 'noopener');
@@ -3494,6 +3503,25 @@ function ClipNowConnect(platform, set){
       box.appendChild(r1); box.appendChild(picker.el); box.appendChild(msg); row.appendChild(box);
     }
   };
+  // Came back to this tab after tapping Connect (X opens in its own tab): check whether it linked.
+  function backToTab(){
+    var pc = window.__cnPendingConnect;
+    if (document.hidden || !pc || Date.now() - pc.at < 3000 || Date.now() - pc.at > 30 * 60000) return;
+    if (pc.checking) return; pc.checking = true;
+    cnApi('social.php').then(function(j){
+      pc.checking = false;
+      if (!j || !j.ok) return;
+      var st = (j.sets || []).filter(function(x){ return x.set === pc.set; })[0], acc = (st && st.accounts) || j.accounts || {};
+      var name = NAMES[pc.platform] || 'Your account';
+      if (pc.platform && acc[pc.platform] && acc[pc.platform].connected){
+        window.__cnPendingConnect = null;
+        toast(name + ' connected ✓' + (acc[pc.platform].name ? ' (' + acc[pc.platform].name + ')' : ''));
+      } else if (pc.platform) toast(name + ' isn’t connected yet. Finish signing in on the other tab, then come back here.');
+      if (window.AutoPost) window.AutoPost.refresh();
+    });
+  }
+  document.addEventListener('visibilitychange', backToTab);
+  window.addEventListener('focus', backToTab);
   // Back from the connect page (?connected=tiktok or ?connected=all): say how it went.
   var back = /[?&]connected=([a-z]+)/.exec(location.search);
   if (back){
