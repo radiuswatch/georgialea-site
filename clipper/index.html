@@ -492,6 +492,18 @@
   .st-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
   .st-filter button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:7px 12px;font:600 13px var(--sans);cursor:pointer;min-height:36px}
   .st-filter button.on{background:var(--green-deep);border-color:var(--green-dim);color:#BFE9CF}
+  .st-w{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:16px}
+  .st-w[hidden]{display:none}
+  .st-w-box{background:var(--card);border:1px solid var(--line);border-radius:16px;width:min(420px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden}
+  .st-w-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px 10px 16px;border-bottom:1px solid var(--line)}
+  .st-w-t{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-w-x{background:none;border:1px solid var(--line);color:var(--text);border-radius:8px;width:38px;height:38px;cursor:pointer;flex:0 0 auto}
+  .st-w-body{background:#000;display:flex;align-items:center;justify-content:center;min-height:200px}
+  .st-w-body video,.st-w-body iframe{display:block;width:100%;aspect-ratio:9/16;max-height:calc(100vh - 170px);border:0;background:#000}
+  .st-w-body .note{color:#C6CEC6;padding:24px;margin:0}
+  .st-w-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px}
+  .st-w-acts .note{margin:0;font-size:12.5px}
+  .st-watch-btn{font-weight:600}
   .exports{display:flex;flex-direction:column;gap:8px;margin-top:6px}
   .export-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
   .export-item span{color:var(--muted);font-family:var(--mono);font-size:12.5px}
@@ -4177,7 +4189,7 @@ if ('IntersectionObserver' in window){
       return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
         '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div></div>' +
         '<div class="st-views"><b>' + num(c.views) + '</b><span>' + (c.week ? '+' + num(c.week) + ' this week' : 'views') + '</span></div></div>' + line +
-        '<div class="cp-acts">' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
+        '<div class="cp-acts"><button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
         '<div class="st-edit" data-edit="views" hidden><div class="cp-acts"><input type="text" inputmode="numeric" placeholder="Views now" data-v><button class="btn btn-green btn-sm" type="button" data-act="views">Save</button></div></div>' +
         '<div class="st-edit" data-edit="camp" hidden><div class="field"><select data-c>' + campOptions(tagKey(c.campaign)) + '</select></div><div class="cp-2" data-other hidden><div class="field"><input type="text" maxlength="80" placeholder="Campaign name" data-cn></div><div class="field"><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-cr></div></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="camp">Save</button></div></div>' +
         '<p class="cp-msg"></p></div>';
@@ -4185,6 +4197,63 @@ if ('IntersectionObserver' in window){
     stUpd();
   }
   var stSel = {}, stPlat = '';
+  /* ---- Watch a clip: the copy saved on this device, else the platform's own player, else the post's page ---- */
+  var stLocal = null, wBox = null, wUrl = '';
+  function localClips(){
+    if (stLocal) return Promise.resolve(stLocal);
+    return Keep.load().then(function(list){
+      stLocal = {};
+      list.forEach(function(k){
+        var sent = k.m.sent || {}, rids = (sent.rids && sent.rids.length) ? sent.rids : (sent.rid ? [sent.rid] : []);
+        rids.forEach(function(r){ stLocal[r] = { blob:k.b, name:k.m.name }; });
+      });
+      return stLocal;
+    });
+  }
+  function embedFor(c){
+    var u = c.url || '', m;
+    if (c.platform === 'tiktok'){ var id = /^\d{6,}$/.test(c.post_id) ? c.post_id : ((m = /\/video\/(\d+)/.exec(u)) && m[1]); return id ? 'https://www.tiktok.com/embed/v2/' + id : ''; }
+    if (c.platform === 'youtube'){ var y = ((m = /(?:shorts\/|youtu\.be\/|[?&]v=|embed\/)([\w-]{11})/.exec(u)) && m[1]) || (/^[\w-]{11}$/.test(c.post_id) ? c.post_id : ''); return y ? 'https://www.youtube.com/embed/' + y + '?playsinline=1' : ''; }
+    if (c.platform === 'instagram'){ var g = (m = /instagram\.com\/(?:reels?|p)\/([\w-]+)/.exec(u)) && m[1]; return g ? 'https://www.instagram.com/reel/' + g + '/embed' : ''; }
+    if (c.platform === 'facebook' && u) return 'https://www.facebook.com/plugins/video.php?show_text=false&href=' + encodeURIComponent(u);
+    return '';
+  }
+  function closeWatch(){ if (!wBox) return; wBox.hidden = true; $('.st-w-body', wBox).innerHTML = ''; if (wUrl){ URL.revokeObjectURL(wUrl); wUrl = ''; } }
+  function watch(c){
+    if (!wBox){
+      wBox = document.createElement('div'); wBox.className = 'st-w'; wBox.hidden = true;
+      wBox.innerHTML = '<div class="st-w-box" role="dialog" aria-modal="true" aria-label="Watch clip"><div class="st-w-head"><b class="st-w-t"></b><button type="button" class="st-w-x" aria-label="Close">✕</button></div><div class="st-w-body"></div><div class="st-w-acts"></div></div>';
+      document.body.appendChild(wBox);
+      $('.st-w-x', wBox).addEventListener('click', closeWatch);
+      wBox.addEventListener('click', function(e){ if (e.target === wBox) closeWatch(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeWatch(); });
+    }
+    var title = c.title || (PL[c.platform] || 'Clip');
+    $('.st-w-t', wBox).textContent = title;
+    var body = $('.st-w-body', wBox), acts = $('.st-w-acts', wBox);
+    body.innerHTML = '<p class="note">Loading…</p>'; acts.innerHTML = ''; wBox.hidden = false;
+    var open = c.url ? '<a class="btn btn-ghost btn-sm" href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer">Open on ' + esc(PL[c.platform] || 'the platform') + ' ↗</a>' : '';
+    localClips().then(function(map){
+      var loc = c.request_id && map[c.request_id];
+      if (loc){
+        wUrl = URL.createObjectURL(loc.blob);
+        body.innerHTML = '<video controls playsinline autoplay></video>';
+        $('video', body).src = wUrl;
+        acts.innerHTML = '<a class="btn btn-green btn-sm" download>Save a copy</a>' + open + '<span class="note">Playing the copy saved on this device.</span>';
+        var a = $('a[download]', acts); a.href = wUrl; a.download = loc.name || 'clip.mp4';
+        return;
+      }
+      var src = embedFor(c);
+      if (src){
+        body.innerHTML = '<iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>';
+        $('iframe', body).src = src;
+        acts.innerHTML = open;
+        return;
+      }
+      if (c.url){ closeWatch(); window.open(c.url, '_blank', 'noopener'); return; }
+      body.innerHTML = '<p class="note">This clip isn’t saved on this device and its post link isn’t known yet. Once the platform reports it, Watch will play it here. Posts usually appear within a few minutes.</p>';
+    });
+  }
   function visClips(){ return D ? D.clips.filter(function(c){ return !stPlat || (c.platform || 'other') === stPlat; }) : []; }
   function renderPlats(j){
     var plats = j.platforms || [];
@@ -4274,6 +4343,7 @@ if ('IntersectionObserver' in window){
     var b = e.target.closest('[data-act]'); if (!b) return;
     var row = b.closest('.st-clip'), id = row.dataset.id, msg = row.querySelector('.cp-msg'), act = b.dataset.act;
     function run(body, ok){ b.disabled = true; return post(body).then(function(j){ b.disabled = false; if (!j.ok) return say(msg, j.error || 'Something went wrong.', true); show(j); if (ok) toast(ok); }); }
+    if (act === 'watch'){ var cc = (D.clips || []).filter(function(x){ return x.id === id; })[0]; if (cc) watch(cc); return; }
     if (act === 'views-open'){ row.querySelector('[data-edit="views"]').hidden = false; row.querySelector('[data-v]').focus(); return; }
     if (act === 'camp-open'){ row.querySelector('[data-edit="camp"]').hidden = false; return; }
     if (act === 'views'){ var v = row.querySelector('[data-v]').value; if (!/\d/.test(v)) return say(msg, 'Enter the views.', true); return run({ action:'views', id:id, views:v }, 'Views saved'); }

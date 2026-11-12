@@ -53,6 +53,7 @@ function st_out(array $m, array $s): array {
       'shares' => $c['shares'] ?? null, 'saves' => $c['saves'] ?? null, 'reach' => $c['reach'] ?? null, 'rate' => $rate,
       'group' => $tag ? ($tag['kind'] === 'clipnow' ? 'cn:' . $tag['id'] : 'o:' . strtolower($tag['name']) . ':' . $tag['rate_cents']) : ''];
     $clips[] = ['id' => $c['id'], 'source' => $c['source'], 'platform' => $c['platform'], 'url' => $c['url'], 'title' => $c['title'],
+      'request_id' => (string)($c['request_id'] ?? ''), 'post_id' => (string)($c['post_id'] ?? ''),
       'views' => $c['views'], 'likes' => $c['likes'], 'comments' => $c['comments'], 'shares' => $c['shares'] ?? null, 'saves' => $c['saves'] ?? null, 'reach' => $c['reach'] ?? null,
       'week' => $week, 'auto' => !empty($c['auto']),
       'checked' => $c['checked'], 'error' => $c['error'], 'posted' => $c['posted'] ?? $c['created'],
