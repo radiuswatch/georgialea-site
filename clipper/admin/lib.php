@@ -314,13 +314,19 @@ function cn_send_login_link(string $email): bool {
   $m = cn_member_lookup($email);
   if (!$m) return false;
   $token = cn_token();
-  file_put_contents(cn_token_file('logins', $token), json_encode(['email' => $m['email'], 'exp' => time() + CN_LINK_MINUTES * 60]), LOCK_EX);
+  $exp = time() + CN_LINK_MINUTES * 60;
+  file_put_contents(cn_token_file('logins', $token), json_encode(['email' => $m['email'], 'exp' => $exp]), LOCK_EX);
+  // A 6-digit code too, typed into ClipNow in the browser the member is already using (the email
+  // app may open links in a different browser).
+  $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+  file_put_contents(cn_code_file($email), json_encode(['email' => $m['email'], 'hash' => cn_code_hash($email, $code), 'exp' => $exp, 'tries' => 0, 'token' => $token]), LOCK_EX);
   $link = CN_SITE . '/api/verify.php?t=' . $token;
   $name = trim(explode(' ', $m['name'])[0] ?? '') ?: 'there';
-  $body = "Hi $name,\n\nTap the link below to sign in to " . CN_BRAND . ":\n$link\n\n"
-    . "The link works once and expires in " . CN_LINK_MINUTES . " minutes. If you didn't ask to sign in, you can ignore this email.\n\n"
+  $spaced = substr($code, 0, 3) . ' ' . substr($code, 3);
+  $body = "Hi $name,\n\nYour " . CN_BRAND . " sign-in code is:\n$spaced\n\nType it into " . CN_BRAND . " where you asked to sign in. Or tap the link below to sign in on this device:\n$link\n\n"
+    . "The code and link work once and expire in " . CN_LINK_MINUTES . " minutes. If you didn't ask to sign in, you can ignore this email.\n\n"
     . "Thanks,\nThe " . CN_BRAND . " team\n" . CN_SITE . "\n";
-  return cn_send_mail($m['email'], 'Your ' . CN_BRAND . ' sign-in link', $body, 'Sign in to ' . CN_BRAND);
+  return cn_send_mail($m['email'], 'Your ' . CN_BRAND . ' sign-in code: ' . $code, $body, 'Sign in to ' . CN_BRAND);
 }
 
 /** Use a sign-in link once. Returns the email, or null if invalid/expired. */
@@ -330,7 +336,30 @@ function cn_use_login_link(string $token): ?string {
   $j = cn_json_file($f, null);
   if (is_file($f)) unlink($f);
   if (!$j || ($j['exp'] ?? 0) < time()) return null;
+  $cf = cn_code_file($j['email']);   // the code from the same email can't be used afterwards
+  if (is_file($cf)) unlink($cf);
   return $j['email'];
+}
+
+/* Sign-in codes: one per email address at a time, stored hashed, 5 tries. */
+function cn_code_file(string $email): string { return cn_dir('logins') . '/code-' . hash('sha256', 'code|' . strtolower(trim($email))) . '.json'; }
+function cn_code_hash(string $email, string $code): string { return hash_hmac('sha256', strtolower(trim($email)) . '|' . $code, cn_config()['secret']); }
+/** Use a sign-in code. Returns [email, ''] on success, or [null, why]. */
+function cn_use_login_code(string $email, string $code): array {
+  $code = preg_replace('/\D/', '', $code);
+  $f = cn_code_file($email);
+  $j = cn_json_file($f, null);
+  if (!$j || ($j['exp'] ?? 0) < time()) { if (is_file($f)) unlink($f); return [null, 'That code has expired. Request a new one.']; }
+  if (strlen($code) !== 6 || !hash_equals((string)$j['hash'], cn_code_hash($email, $code))) {
+    $j['tries'] = (int)($j['tries'] ?? 0) + 1;
+    if ($j['tries'] >= 5) { unlink($f); return [null, 'Too many wrong codes. Request a new one.']; }
+    file_put_contents($f, json_encode($j), LOCK_EX);
+    return [null, 'That code isn’t right. Check the email and try again.'];
+  }
+  unlink($f);
+  $lf = cn_token_file('logins', (string)($j['token'] ?? ''));   // the link from the same email can't be used afterwards
+  if (($j['token'] ?? '') !== '' && is_file($lf)) unlink($lf);
+  return [$j['email'], ''];
 }
 
 function cn_start_session(string $email): void {

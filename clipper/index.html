@@ -1468,16 +1468,22 @@
   <form method="dialog" class="acct-x"><button aria-label="Close">×</button></form>
   <div id="acctOut">
     <h3 id="acctTitle">Sign in to ClipNow</h3>
-    <p class="acct-sub" id="acctMsg">Enter the email you used at checkout. We'll email you a link to sign in, no password needed.</p>
+    <p class="acct-sub" id="acctMsg">Enter the email you used at checkout. We'll email you a sign-in code, no password needed.</p>
     <form id="acctForm" novalidate>
       <label for="acctEmail">Email</label>
       <input id="acctEmail" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
       <p class="acct-err" id="acctErr" hidden></p>
-      <button class="btn btn-green" id="acctSend" type="submit">Email me a sign-in link</button>
+      <button class="btn btn-green" id="acctSend" type="submit">Email me a sign-in code</button>
     </form>
     <div id="acctSent" hidden>
-      <p class="acct-ok"><b>Check your email.</b> If <span id="acctSentTo"></span> has a ClipNow membership, a sign-in link is on its way from helpdesk@clipnow.vip. It works once and expires in 20 minutes.</p>
-      <p class="acct-sub">Nothing arrived? Check spam, or <a href="#" id="acctRetry">try another email</a>.</p>
+      <p class="acct-ok"><b>Check your email.</b> If <span id="acctSentTo"></span> has a ClipNow membership, a 6-digit code is on its way from helpdesk@clipnow.vip. Type it here to sign in on this device.</p>
+      <form id="acctCodeForm" novalidate>
+        <label for="acctCode">Sign-in code</label>
+        <input id="acctCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123 456">
+        <p class="acct-err" id="acctCodeErr" hidden></p>
+        <button class="btn btn-green" id="acctCodeBtn" type="submit">Sign in</button>
+      </form>
+      <p class="acct-sub">The code works once and expires in 20 minutes. The email also has a link, but it may open in a different browser. Nothing arrived? Check spam, or <a href="#" id="acctRetry">try another email</a>.</p>
     </div>
     <p class="acct-sub acct-foot">Not a member yet? <a href="#pricing" id="acctPlans">Start a free trial</a>.</p>
   </div>
@@ -2862,10 +2868,21 @@ renderTrial();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = 'Enter a valid email address.'; err.hidden = false; return; }
     err.hidden = true; send.disabled = true; send.textContent = 'Sending…';
     api('login.php', { email:email }).then(function(j){
-      send.disabled = false; send.textContent = 'Email me a sign-in link';
-      if (j.ok){ $('#acctSentTo').textContent = email; $('#acctForm').hidden = true; $('#acctSent').hidden = false; }
+      send.disabled = false; send.textContent = 'Email me a sign-in code';
+      if (j.ok){ $('#acctSentTo').textContent = email; $('#acctForm').hidden = true; $('#acctSent').hidden = false; $('#acctCode').value = ''; $('#acctCodeErr').hidden = true; setTimeout(function(){ $('#acctCode').focus(); }, 50); }
       else { err.textContent = j.error || 'Something went wrong. Please try again.'; err.hidden = false; }
-    }, function(){ send.disabled = false; send.textContent = 'Email me a sign-in link'; err.textContent = 'You seem to be offline. Please try again.'; err.hidden = false; });
+    }, function(){ send.disabled = false; send.textContent = 'Email me a sign-in code'; err.textContent = 'You seem to be offline. Please try again.'; err.hidden = false; });
+  });
+  $('#acctCodeForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var code = $('#acctCode').value.replace(/\D/g, ''), err = $('#acctCodeErr'), b = $('#acctCodeBtn');
+    if (code.length !== 6){ err.textContent = 'Enter the 6-digit code from the email.'; err.hidden = false; return; }
+    err.hidden = true; b.disabled = true; b.textContent = 'Signing in…';
+    api('code.php', { email:$('#acctEmail').value.trim(), code:code }).then(function(j){
+      b.disabled = false; b.textContent = 'Sign in';
+      if (!j.ok){ err.textContent = j.error || 'That code didn’t work. Please try again.'; err.hidden = false; return; }
+      refresh(true).then(function(){ dlg.close(); toast('Signed in'); if (window.AutoPost) AutoPost.refresh(); });
+    }, function(){ b.disabled = false; b.textContent = 'Sign in'; err.textContent = 'You seem to be offline. Please try again.'; err.hidden = false; });
   });
   function billing(){
     var b = $('#acctBilling'), e2 = $('#acctInErr'); b.disabled = true; b.textContent = 'Opening…';
