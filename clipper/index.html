@@ -2249,7 +2249,7 @@ function sentBox(list){
       if (r.url){ var lk = document.createElement('a'); lk.href = r.url; lk.target = '_blank'; lk.rel = 'noopener'; lk.textContent = 'View ↗'; stEl.appendChild(lk); }
     } else stEl.textContent = '✓ ' + when + ' · ' + x.sent.names + (x.sent.rid && !x.sent.scheduled ? ' · checking…' : '');
     var a = $('a', row); a.href = x.url; a.download = x.name;
-    if (canSaveToPhotos(x)){ a.textContent = 'Save to Photos'; a.removeAttribute('download'); a.href = '#'; a.addEventListener('click', function(e){ e.preventDefault(); saveClip(x); }); }
+    if (canSaveToPhotos(x)){ a.textContent = 'Save to Photos'; a.className = 'btn btn-green btn-sm'; a.removeAttribute('download'); a.href = '#'; a.addEventListener('click', function(e){ e.preventDefault(); saveClip(x); }); }
     $('[data-s="again"]', row).addEventListener('click', function(){
       if (!(r && r.failed) && !confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
       // Didn't go through on some platforms: post again only to those, so it isn't posted twice on the others.
@@ -3534,7 +3534,7 @@ function ClipNowConnect(platform, set){
         runQueue(sel.map(function(x){ return { x:x, when:'' }; }), 'now', 0);
       });
       sch.addEventListener('click', function(){ schBox.hidden = !schBox.hidden; if (!schBox.hidden) picker.toggle(); else picker.close(); });
-      var sv = el('button', 'btn btn-ghost btn-sm', 'Save to Photos'); sv.type = 'button';
+      var sv = el('button', 'btn btn-green btn-sm', 'Save to Photos'); sv.type = 'button';
       sv.addEventListener('click', function(){ saveClips(selected()); });
       var rm = el('button', 'btn btn-ghost btn-sm', 'Remove'); rm.type = 'button';
       rm.addEventListener('click', function(){
