@@ -4407,8 +4407,10 @@ if ('IntersectionObserver' in window){
     $$('#stClips [data-bulk="camp-open"], #stClips [data-bulk="remove"]').forEach(function(b){ b.disabled = !k; });
     $('[data-bulk="remove"]', bar).textContent = k ? 'Remove ' + k : 'Remove';
     // Save only counts selected clips whose file is on this device
+    // Always tappable: with nothing ticked it saves every clip kept on this device; ticked, just those.
     var have = Object.keys(stSel).filter(function(id){ var r = $('#stClips .st-clip[data-id="' + id + '"] [data-act="save"]'); return r && !r.hidden; }).length;
-    var sb = $('[data-bulk="save"]', bar); sb.disabled = !have; sb.textContent = SAVE_LABEL.replace(/^(Save|Download)/, '$1' + (have ? ' ' + have : ''));
+    var sb = $('[data-bulk="save"]', bar); sb.disabled = false;
+    sb.textContent = k && have ? SAVE_LABEL.replace(/^(Save|Download)/, '$1 ' + have) : k ? SAVE_LABEL : SAVE_LABEL.replace(/^(Save|Download)/, '$1 all');
   }
   $('#stClips').addEventListener('change', function(e){
     var t = e.target;
@@ -4421,7 +4423,14 @@ if ('IntersectionObserver' in window){
     var act = b.dataset.bulk, ids = Object.keys(stSel);
     if (act === 'bad'){ stSel = {}; visClips().filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
     if (act === 'camp-open'){ $('#stClips [data-bcamp]').hidden = false; return; }
-    if (act === 'save'){ localCopies(ids.map(clipById)).then(function(l){ if (l.length) saveClips(l); else toast('None of these clips are saved on this device.'); }); return; }
+    if (act === 'save'){
+      var pick = ids.length ? ids.map(clipById) : visClips();
+      localCopies(pick).then(function(l){
+        if (l.length) return saveClips(l);
+        toast((ids.length ? 'These clips aren’t' : 'None of these clips are') + ' saved on this device. Clips stay on the phone or computer that posted them for 30 days.');
+      });
+      return;
+    }
     if (!ids.length) return;
     if (act === 'remove'){
       if (!confirm('Stop tracking ' + ids.length + ' clip' + (ids.length === 1 ? '' : 's') + '? ' + (ids.length === 1 ? 'It stays' : 'They stay') + ' on the platform; this only removes ' + (ids.length === 1 ? 'it' : 'them') + ' from your stats.')) return;
