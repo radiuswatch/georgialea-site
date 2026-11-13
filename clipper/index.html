@@ -2100,7 +2100,7 @@ var Keep = (function(){
 function renderExports(){
   var box = $('#exports'); box.innerHTML = '';
   $('#saveAllBtn').hidden = S.exports.length < 1;
-  $('#saveAllBtn').textContent = S.exports.length > 1 ? 'Save all ' + S.exports.length + ' clips' : 'Save this clip';
+  $('#saveAllBtn').textContent = (S.exports.length > 1 ? 'Save all ' + S.exports.length + ' clips' : 'Save this clip') + (MOBILE && navigator.canShare ? ' to Photos' : '');
   if (!S.exports.length){ box.innerHTML = '<p class="note">Export clips in step 2 and they’ll appear here, or tap <b>+ Add clips from your device</b> to post clips you already have.</p>'; Keep.sync(); return; }
   S.exports.forEach(function(x){ x.id = x.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); });
   var ready = S.exports.filter(function(x){ return !x.sent && !x.manual; }), sent = S.exports.filter(function(x){ return x.sent; }), manual = S.exports.filter(function(x){ return x.manual && !x.sent; });
@@ -2111,14 +2111,11 @@ function renderExports(){
     row.innerHTML = '<div><div class="n"></div><span>' + fmt(x.dur) + ' · ' + (x.size/1048576).toFixed(1) + ' MB</span></div><a class="btn btn-green btn-sm" download>Download</a>';
     $('.n', row).textContent = x.name;
     var a = $('a', row); a.href = x.url; a.download = x.name;
-    // Phones: the share sheet saves straight to Photos or opens TikTok/Instagram directly
-    var file = window.File ? new File([x.blob], x.name, { type:x.blob.type }) : null;
-    if (file && navigator.canShare && navigator.canShare({ files:[file] })){
-      var sh = document.createElement('button'); sh.className = 'btn btn-green btn-sm'; sh.type = 'button'; sh.textContent = MOBILE ? 'Save or share' : 'Share';
-      sh.addEventListener('click', function(){ navigator.share({ files:[file], title:x.hook || x.name }).catch(function(){}); });
-      if (MOBILE){ a.className = 'btn btn-ghost btn-sm'; }
-      var grp = document.createElement('div'); grp.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end';
-      row.replaceChild(grp, a); grp.appendChild(sh); grp.appendChild(a);
+    // Phones: one button that opens the share sheet → "Save Video" puts it in Photos (or pick TikTok/Instagram there)
+    if (canSaveToPhotos(x)){
+      var sh = document.createElement('button'); sh.className = 'btn btn-green btn-sm'; sh.type = 'button'; sh.textContent = 'Save to Photos';
+      sh.addEventListener('click', function(){ saveClip(x); });
+      row.replaceChild(sh, a);
     }
     if (window.AutoPost) AutoPost.decorate(row, x);
     box.appendChild(row);
@@ -2126,6 +2123,18 @@ function renderExports(){
   if (manual.length) box.appendChild(manualBox(manual));
   if (sent.length) box.appendChild(sentBox(sent));
   Keep.sync();
+}
+/** Save a clip. Phones: the share sheet with only the video in it, so iOS shows "Save Video" (it hides that
+ *  option when a title or text is shared too), which puts the clip in Photos. Computers: a normal download. */
+function clipFile(x){ return window.File ? new File([x.blob], x.name, { type:x.blob.type || 'video/mp4' }) : null; }
+function canSaveToPhotos(x){ var f = clipFile(x); return !!(MOBILE && f && navigator.canShare && navigator.canShare({ files:[f] })); }
+function saveClip(x){
+  if (canSaveToPhotos(x)){
+    navigator.share({ files:[clipFile(x)] }).catch(function(){});
+    toast('Tap “Save Video” to put it in Photos.');
+    return;
+  }
+  var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove();
 }
 /* Clips that hit a platform's daily limit and didn't fit in its drafts: post them by hand in the app. */
 var MANUAL_NAMES = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
@@ -2145,7 +2154,7 @@ function manualBox(list){
     $('.sent-st', row).textContent = nm + '’s daily limit was reached ' + new Date(x.manual.at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '.';
     $('[data-m="open"]', row).textContent = 'Open in ' + nm;
     $('[data-m="open"]', row).addEventListener('click', function(){
-      var file = window.File ? new File([x.blob], x.name, { type:x.blob.type || 'video/mp4' }) : null;
+      var file = clipFile(x);
       var cap = captionText(p, x);
       if (cap && navigator.clipboard) navigator.clipboard.writeText(cap).catch(function(){});
       if (MOBILE && file && navigator.canShare && navigator.canShare({ files:[file] })){
@@ -2228,6 +2237,7 @@ function sentBox(list){
       if (r.url){ var lk = document.createElement('a'); lk.href = r.url; lk.target = '_blank'; lk.rel = 'noopener'; lk.textContent = 'View ↗'; stEl.appendChild(lk); }
     } else stEl.textContent = '✓ ' + when + ' · ' + x.sent.names + (x.sent.rid && !x.sent.scheduled ? ' · checking…' : '');
     var a = $('a', row); a.href = x.url; a.download = x.name;
+    if (canSaveToPhotos(x)){ a.textContent = 'Save to Photos'; a.removeAttribute('download'); a.href = '#'; a.addEventListener('click', function(e){ e.preventDefault(); saveClip(x); }); }
     $('[data-s="again"]', row).addEventListener('click', function(){
       if (!(r && r.failed) && !confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
       // Didn't go through on some platforms: post again only to those, so it isn't posted twice on the others.
@@ -2572,7 +2582,7 @@ var GUIDES = [
       'Turn on <b>2-step verification</b>: Profile → ☰ → <b>Settings and privacy</b> → <b>Security</b>.'
     ],
     post:[
-      'In the ClipNow Studio, export your clip and tap <b>Save or share</b> → <b>Save Video</b>.',
+      'In the ClipNow Studio, export your clip and tap <b>Save to Photos</b> → <b>Save Video</b>.',
       'Tap <b>Copy caption</b> on the TikTok card in Studio step 3.',
       'Open TikTok, tap <b>+</b> → <b>Upload</b>, and pick the clip.',
       'Tap <b>Next</b>, paste the caption, and tap <b>Post</b>.'
@@ -3625,7 +3635,8 @@ function ClipNowConnect(platform, set){
     var list = S.exports.slice(); if (!list.length) return;
     var files = window.File ? list.map(function(x){ return new File([x.blob], x.name, { type:x.blob.type || 'video/mp4' }); }) : [];
     if (MOBILE && files.length && navigator.canShare && navigator.canShare({ files:files })){
-      navigator.share({ files:files, title:'ClipNow clips' }).catch(function(){});
+      navigator.share({ files:files }).catch(function(){});   // no title: iOS hides "Save Videos" when text is shared too
+      toast('Tap “Save ' + files.length + ' Videos” to put them in Photos.');
       return;
     }
     list.forEach(function(x, i){ setTimeout(function(){ var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 700); });
