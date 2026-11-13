@@ -2136,6 +2136,18 @@ function saveClip(x){
   }
   var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove();
 }
+/** Save several clips: phones get one share sheet with all of them ("Save Videos" → Photos); computers download each. */
+function saveClips(list){
+  if (!list.length) return;
+  var files = list.map(clipFile).filter(Boolean);
+  if (MOBILE && files.length === list.length && navigator.canShare && navigator.canShare({ files:files })){
+    navigator.share({ files:files }).catch(function(){});   // no title: iOS hides "Save Videos" when text is shared too
+    toast(files.length === 1 ? 'Tap “Save Video” to put it in Photos.' : 'Tap “Save ' + files.length + ' Videos” to put them in Photos.');
+    return;
+  }
+  list.forEach(function(x, i){ setTimeout(function(){ var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 700); });
+  if (list.length > 1) toast('Downloading ' + list.length + ' clips. Your browser may ask to allow several downloads.');
+}
 /* Clips that hit a platform's daily limit and didn't fit in its drafts: post them by hand in the app. */
 var MANUAL_NAMES = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
 var MANUAL_UPLOAD = { tiktok:'https://www.tiktok.com/tiktokstudio/upload', youtube:'https://studio.youtube.com/', instagram:'https://www.instagram.com/', facebook:'https://www.facebook.com/', x:'https://x.com/compose/post' };
@@ -3507,6 +3519,8 @@ function ClipNowConnect(platform, set){
         n.textContent = k + ' of ' + list.length + ' selected';
         all.checked = k === list.length && k > 0; all.indeterminate = k > 0 && k < list.length;
         now.disabled = sch.disabled = rm.disabled = !k || queueRunning;
+        sv.disabled = !k;
+        sv.textContent = (MOBILE && navigator.canShare ? 'Save ' + (k || '') + ' to Photos' : 'Download ' + (k || 'selected')).replace('  ', ' ');
         rm.textContent = k ? 'Remove ' + k : 'Remove';
         now.textContent = k ? 'Post ' + k + ' now' : 'Post selected';
         sch.textContent = k ? 'Schedule ' + k + '…' : 'Schedule selected…';
@@ -3520,13 +3534,15 @@ function ClipNowConnect(platform, set){
         runQueue(sel.map(function(x){ return { x:x, when:'' }; }), 'now', 0);
       });
       sch.addEventListener('click', function(){ schBox.hidden = !schBox.hidden; if (!schBox.hidden) picker.toggle(); else picker.close(); });
+      var sv = el('button', 'btn btn-ghost btn-sm', 'Save to Photos'); sv.type = 'button';
+      sv.addEventListener('click', function(){ saveClips(selected()); });
       var rm = el('button', 'btn btn-ghost btn-sm', 'Remove'); rm.type = 'button';
       rm.addEventListener('click', function(){
         var sel = selected(); if (!sel.length) return;
         if (!confirm('Remove ' + sel.length + ' clip' + (sel.length === 1 ? '' : 's') + ' from this device? You’d need to export ' + (sel.length === 1 ? 'it' : 'them') + ' again to post.')) return;
         removeClips(sel);
       });
-      bar.appendChild(lab); bar.appendChild(n); bar.appendChild(now); bar.appendChild(sch); bar.appendChild(rm); bar.appendChild(schBox);
+      bar.appendChild(lab); bar.appendChild(n); bar.appendChild(now); bar.appendChild(sch); bar.appendChild(sv); bar.appendChild(rm); bar.appendChild(schBox);
       if (connected().length) bar.appendChild(adLab);
       box.appendChild(bar);
       bulkUpd();
@@ -3632,15 +3648,7 @@ function ClipNowConnect(platform, set){
   });
   // Save every clip: phones get the share sheet (Save to Photos); computers download each file.
   $('#saveAllBtn').addEventListener('click', function(){
-    var list = S.exports.slice(); if (!list.length) return;
-    var files = window.File ? list.map(function(x){ return new File([x.blob], x.name, { type:x.blob.type || 'video/mp4' }); }) : [];
-    if (MOBILE && files.length && navigator.canShare && navigator.canShare({ files:files })){
-      navigator.share({ files:files }).catch(function(){});   // no title: iOS hides "Save Videos" when text is shared too
-      toast('Tap “Save ' + files.length + ' Videos” to put them in Photos.');
-      return;
-    }
-    list.forEach(function(x, i){ setTimeout(function(){ var a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 700); });
-    toast('Downloading ' + list.length + ' clip' + (list.length === 1 ? '' : 's') + '. Your browser may ask to allow several downloads.');
+    saveClips(S.exports.slice());
   });
 })();
 
