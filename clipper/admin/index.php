@@ -811,6 +811,21 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     <?php endif; ?>
   </div>
   <div class="panel">
+    <h2>Questions asked in the Ask ClipNow chat</h2>
+    <?php
+      $cf = CN_DATA . '/chat-log.jsonl';
+      $chats = is_file($cf) ? array_reverse(array_values(array_filter(array_map(fn($l) => json_decode($l, true), array_slice(file($cf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), -30))))) : [];
+    ?>
+    <?php if (!$chats): ?><p>None yet. Questions visitors ask the chat on the home and coming-soon pages show here, with the answer they got. Use them to spot gaps in the FAQ.</p><?php else: ?>
+    <p>The last <?= count($chats) ?> questions, newest first. Visitors' IP addresses aren't stored.</p>
+    <table class="members"><thead><tr><th>When</th><th>Question</th><th>Answer</th></tr></thead><tbody>
+    <?php foreach ($chats as $c): ?>
+      <tr><td><?= e(date('M j, g:i a', (int)$c['at'])) ?></td><td><?= e($c['q'] ?? '') ?></td><td><?= e(($c['a'] ?? '') !== '' ? $c['a'] : 'No answer: ' . ($c['note'] ?? '')) ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table>
+    <?php endif; ?>
+  </div>
+  <div class="panel">
     <h2>Recent emails</h2>
     <?php $ml = cn_mail_recent(15); ?>
     <?php if (!$ml): ?><p>No emails sent yet.</p><?php else: ?>
