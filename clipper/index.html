@@ -941,6 +941,7 @@
           <button class="btn btn-ghost btn-sm" type="button" id="saveAllBtn" hidden>Save all clips</button>
         </div>
         <p class="note keep-note" id="keepNote" hidden></p>
+        <p class="note" id="cloudNote" hidden></p>
         <div class="bulk-status" id="bulkStatus" role="status" aria-live="polite" hidden></div>
         <div class="exports" id="exports"><p class="note">Export clips in step 2 and they'll appear here.</p></div>
 
@@ -2065,7 +2066,7 @@ var Keep = (function(){
       t.oncomplete = function(){ res(req && req.result); }; t.onerror = t.onabort = function(){ rej(t.error); };
     }); });
   }
-  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, manual:x.manual || null, only:x.only || null, postKey:x.postKey || null, at:x.at || Date.now() }; }
+  function meta(x){ return { id:x.id, name:x.name, size:x.size, dur:x.dur, hook:x.hook || '', type:x.blob.type, sent:x.sent || null, manual:x.manual || null, only:x.only || null, postKey:x.postKey || null, at:x.at || Date.now(), cloud:x.cloud || 0 }; }
   var kept = {};
   return {
     sync: function(){
@@ -2079,6 +2080,7 @@ var Keep = (function(){
         kept[x.id] = js;
       });
       Object.keys(kept).forEach(function(id){ if (!live[id]){ delete kept[id]; op('blobs', 'readwrite', function(st){ return st.delete(id); }).catch(function(){}); op('meta', 'readwrite', function(st){ return st.delete(id); }).catch(function(){}); } });
+      if (typeof Cloud !== 'undefined') Cloud.push();
     },
     load: function(){
       return op('meta', 'readonly', function(st){ return st.getAll(); }).then(function(list){
@@ -2096,6 +2098,133 @@ var Keep = (function(){
     setState: function(k, v){ return op('state', 'readwrite', function(st){ return v == null ? st.delete(k) : st.put(v, k); }).catch(function(){}); },
     getState: function(k){ return op('state', 'readonly', function(st){ return st.get(k); }).catch(function(){ return null; }); }
   };
+})();
+
+/* ---------- Clip sync: the same clips on the member's phone and computer ----------
+ * New clips upload in the background (straight to storage with a signed link from /api/clips.php);
+ * opening the Studio downloads clips added on other devices. Posting status follows the clip, and
+ * removing a clip removes it everywhere. Off when storage isn't set up or the member has no plan. */
+var Cloud = (function(){
+  var info = null, pulled = false, pulling = false, up = null, q = [], synced = {}, failed = {}, metaT = null, getting = 0;
+  function api(body){
+    return fetch('/api/clips.php', { method: body ? 'POST' : 'GET', credentials:'same-origin', headers: body ? { 'Content-Type':'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+      .then(function(r){ return r.json(); }).catch(function(){ return { ok:false }; });
+  }
+  function cmeta(x){ return { sent:x.sent || null, manual:x.manual || null, only:x.only || null, postKey:x.postKey || null }; }
+  function sig(x){ return JSON.stringify(cmeta(x)) + '|' + (x.hook || ''); }
+  function on(){ return IS_STUDIO && info && info.available; }
+  function tooOld(at){ return info && at < Date.now() - info.days * 864e5 + 36e5; }
+  function status(){
+    var n = $('#cloudNote'); if (!n) return;
+    if (!on()){ n.hidden = true; return; }
+    var waiting = q.length + (up ? 1 : 0);
+    n.textContent = getting ? '☁ Getting ' + getting + ' clip' + (getting === 1 ? '' : 's') + ' from your other devices…'
+      : waiting ? '☁ Syncing ' + waiting + ' clip' + (waiting === 1 ? '' : 's') + ' to your other devices…'
+      : '☁ Your clips sync to your phone and computer when you’re signed in (kept ' + info.days + ' days).';
+    n.hidden = false;
+  }
+  function pull(){
+    if (!IS_STUDIO || pulling) return Promise.resolve();
+    pulling = true;
+    return api(null).then(function(j){
+      pulling = false;
+      if (!j || !j.ok){ return; }
+      info = j;
+      if (!j.available){ pulled = true; status(); return; }
+      var byId = {}; j.items.forEach(function(it){ byId[it.id] = it; });
+      var changed = false;
+      // Removed on another device (but never drop a clip just because storage let it expire)
+      S.exports.slice().forEach(function(x){
+        if (x.cloud && !byId[x.id] && up !== x){
+          if (tooOld(x.at || 0)) { x.cloud = 0; failed[x.id] = 1; return; }
+          S.exports.splice(S.exports.indexOf(x), 1); try { URL.revokeObjectURL(x.url); } catch(e){} changed = true;
+        }
+      });
+      var have = {}; S.exports.forEach(function(x){ have[x.id] = x; });
+      var need = [];
+      j.items.forEach(function(it){
+        var m = it.meta || {}, x = have[it.id];
+        synced[it.id] = JSON.stringify({ sent:m.sent || null, manual:m.manual || null, only:m.only || null, postKey:m.postKey || null }) + '|' + (it.hook || '');
+        if (!x){ need.push(it); return; }
+        x.cloud = 1;
+        if (m.sent && !x.sent){ x.sent = m.sent; x.manual = m.manual || null; x.only = m.only || null; x.postKey = m.postKey || x.postKey; changed = true; }   // posted on another device
+      });
+      getting = need.length; status();
+      var chain = Promise.resolve();
+      need.forEach(function(it){
+        chain = chain.then(function(){
+          return fetch(it.url).then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){
+            if (b.type !== it.type) b = new Blob([b], { type:it.type });
+            var m = it.meta || {};
+            S.exports.push({ id:it.id, clip:null, name:it.name, blob:b, url:URL.createObjectURL(b), size:it.size, dur:it.dur, hook:it.hook, sent:m.sent || null, manual:m.manual || null, only:m.only || null, postKey:m.postKey || null, at:it.at * 1000, cloud:1 });
+            S.exports.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
+            changed = true;
+          }).catch(function(){ delete synced[it.id]; }).then(function(){ getting--; status(); });
+        });
+      });
+      return chain.then(function(){
+        pulled = true;
+        if (changed){
+          renderExports(); renderPlatforms();
+          if (need.length) goStage(3);
+          if (need.length) toast('Got ' + need.length + ' clip' + (need.length === 1 ? '' : 's') + ' from your other devices');
+        }
+        push(); status();
+      });
+    });
+  }
+  function push(){
+    if (!pulled || !on()) return;
+    var live = {};
+    S.exports.forEach(function(x){
+      live[x.id] = 1;
+      if (!x.cloud){
+        if (!failed[x.id] && up !== x && q.indexOf(x) < 0){ if (tooOld(x.at || Date.now())) failed[x.id] = 1; else q.push(x); }
+        return;
+      }
+      if (synced[x.id] !== sig(x)){ clearTimeout(metaT); metaT = setTimeout(sendMeta, 1200); }
+    });
+    var gone = Object.keys(synced).filter(function(id){ return !live[id] && !(up && up.id === id); });
+    if (gone.length){ gone.forEach(function(id){ delete synced[id]; }); api({ action:'delete', ids:gone }); }
+    q = q.filter(function(x){ return live[x.id]; });
+    next(); status();
+  }
+  function sendMeta(){
+    S.exports.forEach(function(x){
+      if (!x.cloud || synced[x.id] === sig(x)) return;
+      var now = sig(x);
+      api({ action:'meta', id:x.id, meta:cmeta(x), hook:x.hook || '' }).then(function(j){
+        if (j && j.ok) synced[x.id] = now;
+        else if (j && j.gone){ x.cloud = 0; failed[x.id] = 1; delete synced[x.id]; }
+      });
+    });
+  }
+  function next(){
+    if (up || !q.length) return;
+    var x = up = q.shift(), sent = sig(x); status();
+    api({ action:'start', id:x.id, name:x.name, size:x.blob.size, type:x.blob.type || 'video/mp4', dur:x.dur, hook:x.hook || '', at:x.at || Date.now(), meta:cmeta(x) }).then(function(j){
+      if (!j || !j.ok || !j.put){ failed[x.id] = 1; if (j && j.full) toast(j.error); throw 0; }
+      return new Promise(function(res, rej){
+        var r = new XMLHttpRequest(); r.open('PUT', j.put); r.setRequestHeader('Content-Type', x.blob.type || 'video/mp4');
+        r.onload = function(){ r.status >= 200 && r.status < 300 ? res() : rej(); }; r.onerror = rej; r.send(x.blob);
+      });
+    }).then(function(){ return api({ action:'done', id:x.id }); }).then(function(j){
+      if (!j || !j.ok){ failed[x.id] = 1; return; }
+      x.cloud = 1; synced[x.id] = sent;
+      if (S.exports.indexOf(x) < 0){ delete synced[x.id]; api({ action:'delete', ids:[x.id] }); }
+      Keep.sync();
+    }).catch(function(){ failed[x.id] = 1; }).then(function(){ up = null; next(); push(); status(); });
+  }
+  /** Stats: the member's synced clips, by the post request ids they went out under. */
+  function byRequest(){
+    return api(null).then(function(j){
+      var map = {};
+      ((j && j.ok && j.items) || []).forEach(function(it){ var s = (it.meta || {}).sent || {}, rids = (s.rids && s.rids.length) ? s.rids : (s.rid ? [s.rid] : []); rids.forEach(function(r){ map[r] = { url:it.url, name:it.name, type:it.type }; }); });
+      return map;
+    });
+  }
+  window.addEventListener('beforeunload', function(e){ if (up || q.length){ e.preventDefault(); e.returnValue = ''; } });
+  return { pull:pull, push:push, byRequest:byRequest, busy:function(){ return !!(up || q.length); } };
 })();
 
 /* ---------- Stage 3: exports + captions ---------- */
@@ -3658,22 +3787,22 @@ function ClipNowConnect(platform, set){
 if (IS_STUDIO) Keep.load().then(function(list){
   if (!list.length || S.exports.length) return;
   list.forEach(function(k){
-    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, manual:m.manual || null, only:m.only || null, postKey:m.postKey, at:m.at };
+    var m = k.m, x = { id:m.id, clip:null, name:m.name, blob:k.b, url:URL.createObjectURL(k.b), size:m.size, dur:m.dur, hook:m.hook, sent:m.sent, manual:m.manual || null, only:m.only || null, postKey:m.postKey, at:m.at, cloud:m.cloud || 0 };
     Keep.mark(x.id, JSON.stringify(Keep.metaOf(x)));
     S.exports.push(x);
   });
   renderExports(); renderPlatforms();
   goStage(3);
   var n = list.length, note = $('#keepNote');
-  note.innerHTML = 'Your ' + n + ' clip' + (n === 1 ? ' is' : 's are') + ' still here from last time. ClipNow keeps your clips on this device for 30 days. Tap <b>Save all</b> to keep copies in your photos or downloads. <button type="button">Clear them</button>';
+  note.innerHTML = 'Your ' + n + ' clip' + (n === 1 ? ' is' : 's are') + ' still here from last time. ClipNow keeps your clips on this device for 30 days. Tap <b>Save all</b> to keep copies in your photos or downloads. <button type="button">Remove them all</button>';
   note.hidden = false;
   $('button', note).addEventListener('click', function(){
-    if (!confirm('Remove all saved clips from this device? Clips you already posted stay posted.')) return;
+    if (!confirm('Remove all your clips from ClipNow, on this device and your other devices? Clips you already posted stay posted.')) return;
     S.exports.forEach(function(x){ try { URL.revokeObjectURL(x.url); } catch(e){} });
     S.exports = []; Keep.clear(); note.hidden = true; $('#bulkStatus').hidden = true; renderExports();
   });
   if (window.AutoPost) AutoPost.resumeOffer();
-});
+}).then(function(){ Cloud.pull(); });
 
 /* ---------- Pricing ---------- */
 var bill = 'm';
@@ -4301,8 +4430,12 @@ if ('IntersectionObserver' in window){
   function localCopies(clips){
     return localClips().then(function(map){
       var seen = {}, out = [];
-      clips.forEach(function(c){ var l = c && c.request_id && map[c.request_id]; if (l && !seen[c.request_id]){ seen[c.request_id] = 1; out.push({ blob:l.blob, name:l.name || 'clip.mp4', url:URL.createObjectURL(l.blob) }); } });
-      return out;
+      clips.forEach(function(c){ var l = c && c.request_id && map[c.request_id]; if (l && !seen[c.request_id]){ seen[c.request_id] = 1; out.push(l); } });
+      // Copies from other devices are downloaded first (Save to Photos needs the file itself)
+      return Promise.all(out.map(function(l){
+        var b = l.blob ? Promise.resolve(l.blob) : fetch(l.url).then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){ l.blob = b.type ? b : new Blob([b], { type:l.type || 'video/mp4' }); return l.blob; });
+        return b.then(function(b){ return { blob:b, name:l.name || 'clip.mp4', url:URL.createObjectURL(b) }; }, function(){ return null; });
+      })).then(function(a){ return a.filter(Boolean); });
     });
   }
   var stSel = {}, stPlat = '';
@@ -4310,8 +4443,10 @@ if ('IntersectionObserver' in window){
   var stLocal = null, wBox = null, wUrl = '';
   function localClips(){
     if (stLocal) return Promise.resolve(stLocal);
-    return Keep.load().then(function(list){
+    return Promise.all([Keep.load(), Cloud.byRequest().catch(function(){ return {}; })]).then(function(r){
+      var list = r[0], cloud = r[1];
       stLocal = {};
+      Object.keys(cloud).forEach(function(id){ stLocal[id] = cloud[id]; });   // saved from another device
       list.forEach(function(k){
         var sent = k.m.sent || {}, rids = (sent.rids && sent.rids.length) ? sent.rids : (sent.rid ? [sent.rid] : []);
         rids.forEach(function(r){ stLocal[r] = { blob:k.b, name:k.m.name }; });
@@ -4345,12 +4480,15 @@ if ('IntersectionObserver' in window){
     localClips().then(function(map){
       var loc = c.request_id && map[c.request_id];
       if (loc){
-        wUrl = URL.createObjectURL(loc.blob);
+        var fromCloud = !loc.blob;
+        if (!fromCloud) wUrl = URL.createObjectURL(loc.blob);
         body.innerHTML = '<video controls playsinline autoplay></video>';
-        $('video', body).src = wUrl;
-        acts.innerHTML = '<button class="btn btn-green btn-sm" type="button">' + SAVE_LABEL + '</button>' + open + '<span class="note">Playing the copy saved on this device.</span>';
+        $('video', body).src = fromCloud ? loc.url : wUrl;
+        acts.innerHTML = '<button class="btn btn-green btn-sm" type="button">' + SAVE_LABEL + '</button>' + open + '<span class="note">' + (fromCloud ? 'Playing your synced copy.' : 'Playing the copy saved on this device.') + '</span>';
         var nm = loc.name || 'clip.mp4', sv = $('button', acts);
-        sv.addEventListener('click', function(){ saveClip({ blob:loc.blob, name:nm, url:wUrl }); });
+        sv.addEventListener('click', function(){
+          localCopies([c]).then(function(l){ if (l.length) saveClip(l[0]); else toast('Couldn’t get this clip. Check your connection and try again.'); });
+        });
         return;
       }
       var src = embedFor(c);

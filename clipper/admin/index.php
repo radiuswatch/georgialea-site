@@ -64,6 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($do === 'logout') { $_SESSION = []; session_destroy(); header('Location: ./'); exit; }
 
+  if ($do === 'r2_setup') {
+    $err = cn_admin_r2_fields($cfg);
+    if ($err !== '') { flash($err, false); back('settings'); }
+    cn_save_config($cfg);
+    [$ok, $lines] = cn_r2_setup();
+    $cfg = cn_config(); $cfg['r2_ok'] = $ok; $cfg['r2_checked'] = time(); cn_save_config($cfg);
+    flash(($ok ? 'Clip storage is ready. Members\' clips now sync across their devices. ' : 'Clip storage isn\'t working yet. ') . implode(' · ', $lines), $ok);
+    back('settings');
+  }
   if ($do === 'corporate_create') {
     try {
       $live = str_starts_with((string)$cfg['stripe_key'], 'sk_live') || str_starts_with((string)$cfg['stripe_key'], 'rk_live');
@@ -240,6 +249,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cfg['resend_key'] = $rk;
     }
     if (!empty($_POST['resend_key_remove'])) $cfg['resend_key'] = '';
+    $err = cn_admin_r2_fields($cfg);
+    if ($err !== '') { flash($err, false); back('settings'); }
     foreach (['from_email', 'reply_to'] as $f) {
       $v = trim((string)($_POST[$f] ?? ''));
       if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) { flash("“$v” isn't a valid email address.", false); back('settings'); }
@@ -766,6 +777,20 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
       <label for="rsk">Resend API key (leave blank to keep the current one)</label>
       <input id="rsk" name="resend_key" type="password" autocomplete="off" spellcheck="false" placeholder="re_…">
       <?php if ($rk !== ''): ?><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" name="resend_key_remove" value="1" style="width:auto"> Remove the key (go back to the web host's mail queue)</label><?php endif; ?>
+    </div>
+    <div class="panel">
+      <h2>Clip storage (Cloudflare R2)</h2>
+      <?php $r2on = cn_r2() !== null; ?>
+      <p>Lets members see the same clips on their phone and computer. Clips upload straight from their device to your Cloudflare R2 bucket and are deleted after 7 days (Silver), 14 days (Gold) or 30 days (Platinum and Corporate). In Cloudflare: <b>R2 → Create bucket</b> (for example <code>clipnow-clips</code>), then <b>R2 → Manage API tokens → Create API token</b> with <b>Admin Read &amp; Write</b> (it lets ClipNow set the bucket up for you), and copy the Access Key ID, Secret Access Key and your Account ID below. Status:
+        <b style="color:<?= $r2on && !empty($cfg['r2_ok']) ? 'var(--green, #31C971)' : '#F5C451' ?>"><?= e(!$r2on ? 'Not set up: clips stay on each device' : (!empty($cfg['r2_ok']) ? 'On (bucket ' . $cfg['r2_bucket'] . ')' : 'Keys saved, but the last test failed. Tap Set up and test.')) ?></b></p>
+      <div class="grid2">
+        <div><label for="r2a">Account ID</label><input id="r2a" name="r2_account" value="<?= e((string)($cfg['r2_account'] ?? '')) ?>" autocomplete="off" spellcheck="false" placeholder="32 letters and numbers"></div>
+        <div><label for="r2b">Bucket name</label><input id="r2b" name="r2_bucket" value="<?= e((string)($cfg['r2_bucket'] ?? '')) ?>" autocomplete="off" spellcheck="false" placeholder="clipnow-clips"></div>
+        <div><label for="r2k">Access Key ID</label><input id="r2k" name="r2_key" value="<?= e((string)($cfg['r2_key'] ?? '')) ?>" autocomplete="off" spellcheck="false"></div>
+        <div><label for="r2s">Secret Access Key (leave blank to keep the current one)</label><input id="r2s" name="r2_secret" type="password" autocomplete="off" spellcheck="false" placeholder="<?= e(($cfg['r2_secret'] ?? '') !== '' ? 'Saved' : '') ?>"></div>
+      </div>
+      <p style="margin-top:14px"><button class="btn go" type="submit" name="do" value="r2_setup" formnovalidate>Set up and test</button></p>
+      <?php if ($r2on): ?><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" name="r2_remove" value="1" style="width:auto"> Turn clip sync off (forget these keys; clips already stored stay in your bucket until it deletes them)</label><?php endif; ?>
     </div>
     <div class="panel">
       <h2>Late-payment notices</h2>

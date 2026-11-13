@@ -1410,3 +1410,155 @@ function cn_aff_sync(): array {
   cn_write('aff-sync.json', ['last' => $now, 'report' => $rep]);
   return $rep;
 }
+
+/* ---------- Clip sync: members' clips in Cloudflare R2 (S3-compatible) ----------
+ * Phones and computers upload clips straight to R2 with short-lived signed links, so the web host's
+ * upload limits and firewall aren't involved. Each member has a list on our server
+ * (~/clipnow-data/clips/<hash>.json); clips expire by plan. Keys: admin portal → Settings → Clip storage.
+ */
+const CN_CLIP_DAYS = ['starter' => 7, 'pro' => 14, 'agency' => 30, 'corporate' => 30];
+const CN_CLIP_GB = ['starter' => 2, 'pro' => 10, 'agency' => 25, 'corporate' => 100];
+const CN_CLIP_MAX_BYTES = 60 * 1048576;
+
+/** The R2 settings, or null when clip storage isn't set up. */
+function cn_r2(): ?array {
+  $c = cn_config();
+  foreach (['r2_account', 'r2_key', 'r2_secret', 'r2_bucket'] as $k) if ((string)($c[$k] ?? '') === '') return null;
+  return $c;
+}
+/** [scheme, host] of the R2 endpoint (CLIPNOW_R2_BASE overrides it for local tests). */
+function cn_r2_base(array $c): array {
+  $b = getenv('CLIPNOW_R2_BASE');
+  if ($b) { $u = parse_url($b); return [$u['scheme'], $u['host'] . (isset($u['port']) ? ':' . $u['port'] : '')]; }
+  return ['https', $c['r2_account'] . '.r2.cloudflarestorage.com'];
+}
+function cn_r2_uri(array $c, string $key): string {
+  return '/' . rawurlencode($c['r2_bucket']) . ($key === '' ? '' : '/' . implode('/', array_map('rawurlencode', explode('/', $key))));
+}
+function cn_r2_query(array $q): string {
+  ksort($q, SORT_STRING); $o = [];
+  foreach ($q as $k => $v) $o[] = rawurlencode((string)$k) . '=' . rawurlencode((string)$v);
+  return implode('&', $o);
+}
+function cn_r2_signing_key(array $c, string $date): string {
+  $k = hash_hmac('sha256', $date, 'AWS4' . $c['r2_secret'], true);
+  $k = hash_hmac('sha256', 'auto', $k, true);
+  $k = hash_hmac('sha256', 's3', $k, true);
+  return hash_hmac('sha256', 'aws4_request', $k, true);
+}
+/** A signed link anyone can use for $expires seconds (GET to download, PUT to upload). AWS Signature V4. */
+function cn_r2_presign(array $c, string $method, string $key, int $expires = 3600, ?int $now = null): string {
+  [$scheme, $host] = cn_r2_base($c);
+  $now = $now ?? time(); $amz = gmdate('Ymd\THis\Z', $now); $date = gmdate('Ymd', $now);
+  $scope = "$date/auto/s3/aws4_request";
+  $q = ['X-Amz-Algorithm' => 'AWS4-HMAC-SHA256', 'X-Amz-Credential' => $c['r2_key'] . '/' . $scope, 'X-Amz-Date' => $amz, 'X-Amz-Expires' => $expires, 'X-Amz-SignedHeaders' => 'host'];
+  $uri = cn_r2_uri($c, $key); $qs = cn_r2_query($q);
+  $creq = "$method\n$uri\n$qs\nhost:$host\n\nhost\nUNSIGNED-PAYLOAD";
+  $sts = "AWS4-HMAC-SHA256\n$amz\n$scope\n" . hash('sha256', $creq);
+  $sig = hash_hmac('sha256', $sts, cn_r2_signing_key($c, $date));
+  return "$scheme://$host$uri?$qs&X-Amz-Signature=$sig";
+}
+/** A request from our server to R2 (signed in the Authorization header). Returns [http code, body, headers]. */
+/** Headers for a request signed in the Authorization header (AWS Signature V4). Returns [headers (name => value), uri, query string]. */
+function cn_r2_sign(array $c, string $method, string $key, array $query, string $body, array $extra, int $now): array {
+  [, $host] = cn_r2_base($c);
+  $amz = gmdate('Ymd\THis\Z', $now); $date = gmdate('Ymd', $now); $scope = "$date/auto/s3/aws4_request";
+  $hash = hash('sha256', $body);
+  $h = ['host' => $host, 'x-amz-content-sha256' => $hash, 'x-amz-date' => $amz];
+  foreach ($extra as $k => $v) $h[strtolower($k)] = trim((string)$v);
+  ksort($h, SORT_STRING);
+  $canon = ''; foreach ($h as $k => $v) $canon .= "$k:$v\n";
+  $signed = implode(';', array_keys($h));
+  $uri = cn_r2_uri($c, $key); $qs = cn_r2_query($query);
+  $creq = "$method\n$uri\n$qs\n$canon\n$signed\n$hash";
+  $sts = "AWS4-HMAC-SHA256\n$amz\n$scope\n" . hash('sha256', $creq);
+  $sig = hash_hmac('sha256', $sts, cn_r2_signing_key($c, $date));
+  $h['authorization'] = 'AWS4-HMAC-SHA256 Credential=' . $c['r2_key'] . "/$scope, SignedHeaders=$signed, Signature=$sig";
+  return [$h, $uri, $qs];
+}
+function cn_r2_request(array $c, string $method, string $key, array $query = [], string $body = '', array $extra = []): array {
+  [$scheme, $host] = cn_r2_base($c);
+  [$h, $uri, $qs] = cn_r2_sign($c, $method, $key, $query, $body, $extra, time());
+  $hdr = []; foreach ($h as $k => $v) if ($k !== 'host') $hdr[] = "$k: $v";
+  $ch = curl_init("$scheme://$host$uri" . ($qs !== '' ? "?$qs" : ''));
+  $rh = [];
+  curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $hdr, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 6,
+    CURLOPT_NOBODY => $method === 'HEAD',
+    CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$rh) { $p = strpos($line, ':'); if ($p) $rh[strtolower(trim(substr($line, 0, $p)))] = trim(substr($line, $p + 1)); return strlen($line); }]);
+  if ($body !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+  $res = curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
+  if ($res === false) return [0, "Couldn't reach Cloudflare R2: $err", []];
+  return [$code, (string)$res, $rh];
+}
+/** Set up the bucket for ClipNow (browser uploads from the site, a 31-day safety expiry) and test it. Returns [ok, report lines]. */
+function cn_r2_setup(): array {
+  $c = cn_r2(); if (!$c) return [false, ['Fill in all four Clip storage fields first.']];
+  $out = []; $ok = true;
+  $origins = array_unique([CN_SITE, 'https://clipnow.vip', 'https://www.clipnow.vip']);
+  $cors = '<?xml version="1.0" encoding="UTF-8"?><CORSConfiguration><CORSRule>' . implode('', array_map(fn($o) => '<AllowedOrigin>' . htmlspecialchars($o) . '</AllowedOrigin>', $origins))
+    . '<AllowedMethod>GET</AllowedMethod><AllowedMethod>PUT</AllowedMethod><AllowedMethod>HEAD</AllowedMethod><AllowedHeader>*</AllowedHeader><ExposeHeader>ETag</ExposeHeader><MaxAgeSeconds>3600</MaxAgeSeconds></CORSRule></CORSConfiguration>';
+  [$code, $body] = cn_r2_request($c, 'PUT', '', ['cors' => ''], $cors, ['content-type' => 'application/xml', 'content-md5' => base64_encode(md5($cors, true))]);
+  $out[] = ($code === 200 ? '✓' : '✗') . ' Allow uploads from clipnow.vip' . ($code === 200 ? '' : ': ' . cn_r2_error($code, $body)); $ok = $ok && $code === 200;
+  $life = '<?xml version="1.0" encoding="UTF-8"?><LifecycleConfiguration><Rule><ID>clipnow-31-days</ID><Filter><Prefix>c/</Prefix></Filter><Status>Enabled</Status><Expiration><Days>31</Days></Expiration></Rule></LifecycleConfiguration>';
+  [$code, $body] = cn_r2_request($c, 'PUT', '', ['lifecycle' => ''], $life, ['content-type' => 'application/xml', 'content-md5' => base64_encode(md5($life, true))]);
+  $out[] = ($code === 200 ? '✓' : '•') . ' Safety rule: delete any clip after 31 days' . ($code === 200 ? '' : ' (not set: ' . cn_r2_error($code, $body) . '. ClipNow still deletes expired clips itself.)');
+  $k = 'test/clipnow-check-' . bin2hex(random_bytes(4)) . '.txt';
+  [$code, $body] = cn_r2_request($c, 'PUT', $k, [], 'ClipNow storage check', ['content-type' => 'text/plain']);
+  $put = $code === 200; $out[] = ($put ? '✓' : '✗') . ' Save a test file' . ($put ? '' : ': ' . cn_r2_error($code, $body)); $ok = $ok && $put;
+  if ($put) {
+    $g = @file_get_contents(cn_r2_presign($c, 'GET', $k, 120), false, stream_context_create(['http' => ['timeout' => 15, 'ignore_errors' => true]]));
+    $out[] = ($g === 'ClipNow storage check' ? '✓' : '✗') . ' Download it with a signed link'; $ok = $ok && $g === 'ClipNow storage check';
+    [$code] = cn_r2_request($c, 'DELETE', $k);
+    $out[] = ($code === 204 || $code === 200 ? '✓' : '✗') . ' Delete it'; $ok = $ok && ($code === 204 || $code === 200);
+  }
+  return [$ok, $out];
+}
+function cn_r2_error(int $code, string $body): string {
+  if ($code === 0) return $body;
+  if (preg_match('#<Code>([^<]+)</Code>#', $body, $m)) {
+    $map = ['SignatureDoesNotMatch' => 'the Secret Access Key is wrong', 'InvalidAccessKeyId' => 'the Access Key ID is wrong', 'NoSuchBucket' => 'there is no bucket with that name', 'AccessDenied' => 'the API token isn\'t allowed to do this (give it Object Read & Write and, for the setup, Admin Read & Write)'];
+    return $map[$m[1]] ?? $m[1];
+  }
+  return "HTTP $code";
+}
+
+/** A member's synced clip list (file on our server). */
+function cn_clip_file(array $m): string { return cn_dir('clips') . '/' . hash('sha256', 'clips|' . ($m['customer_id'] ?: strtolower($m['email']))) . '.json'; }
+function cn_clip_prefix(array $m): string { return 'c/' . substr(hash('sha256', 'r2|' . ($m['customer_id'] ?: strtolower($m['email'])) . '|' . cn_config()['secret']), 0, 24) . '/'; }
+function cn_clip_days(array $m): int { return CN_CLIP_DAYS[$m['plan_key'] ?? ''] ?? 7; }
+function cn_clip_cap(array $m): int { return (CN_CLIP_GB[$m['plan_key'] ?? ''] ?? 2) * 1073741824; }
+/** Load the list, deleting clips past the plan's limit and uploads that never finished. */
+function cn_clip_list(array $m, ?array $c = null): array {
+  $f = cn_clip_file($m);
+  $list = cn_json_file($f, ['items' => []]);
+  $items = is_array($list['items'] ?? null) ? $list['items'] : [];
+  $old = time() - cn_clip_days($m) * 86400; $gone = false;
+  foreach ($items as $id => $it) {
+    if ((int)$it['at'] < $old || (empty($it['ready']) && (int)($it['started'] ?? 0) < time() - 7200)) {
+      if ($c) cn_r2_request($c, 'DELETE', $it['key']);
+      unset($items[$id]); $gone = true;
+    }
+  }
+  if ($gone) cn_clip_save($m, $items);
+  return $items;
+}
+function cn_clip_save(array $m, array $items): void { file_put_contents(cn_clip_file($m), json_encode(['items' => $items], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX); }
+
+/** Admin Settings: read the Clip storage fields into $cfg. Returns an error message, or '' if fine. */
+function cn_admin_r2_fields(array &$cfg): string {
+  if (!empty($_POST['r2_remove'])) { foreach (['r2_account', 'r2_key', 'r2_secret', 'r2_bucket'] as $k) $cfg[$k] = ''; $cfg['r2_ok'] = false; return ''; }
+  $acct = strtolower(trim((string)($_POST['r2_account'] ?? '')));
+  $acct = preg_replace('#^https?://([a-f0-9]{32})\.r2\.cloudflarestorage\.com.*$#', '$1', $acct);   // the S3 endpoint pasted instead of the ID
+  $bucket = strtolower(trim((string)($_POST['r2_bucket'] ?? '')));
+  $key = trim((string)($_POST['r2_key'] ?? '')); $secret = trim((string)($_POST['r2_secret'] ?? ''));
+  if ($acct === '' && $bucket === '' && $key === '' && $secret === '' && (string)($cfg['r2_account'] ?? '') === '') return '';   // not using it
+  if ($acct !== '' && !preg_match('/^[a-f0-9]{32}$/', $acct)) return 'The R2 Account ID is 32 letters and numbers. Copy it from the right side of Cloudflare\'s R2 page.';
+  if ($bucket !== '' && !preg_match('/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/', $bucket)) return 'Bucket names use lowercase letters, numbers and dashes, like clipnow-clips.';
+  if ($key !== '' && !preg_match('/^[A-Za-z0-9]{16,128}$/', $key)) return 'That doesn\'t look like an R2 Access Key ID. Copy it again from the API token page.';
+  if ($secret !== '' && !preg_match('/^[A-Za-z0-9\/+=]{20,128}$/', $secret)) return 'That doesn\'t look like an R2 Secret Access Key. Copy it again from the API token page.';
+  if ($acct !== '') $cfg['r2_account'] = $acct;
+  if ($bucket !== '') $cfg['r2_bucket'] = $bucket;
+  if ($key !== '') $cfg['r2_key'] = $key;
+  if ($secret !== '') $cfg['r2_secret'] = $secret;
+  return '';
+}
