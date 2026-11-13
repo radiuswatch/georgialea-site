@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!$price) $price = cn_stripe('POST', '/v1/prices', ['product' => $prod['id'], 'unit_amount' => 29999, 'currency' => 'usd', 'recurring' => ['interval' => 'month'], 'nickname' => 'Corporate monthly', 'metadata' => ['plan' => 'corporate']]);
       $pl = cn_stripe('POST', '/v1/payment_links', ['line_items' => [['price' => $price['id'], 'quantity' => 1]], 'allow_promotion_codes' => 'true',
         'subscription_data' => ['metadata' => ['plan' => 'corporate']], 'metadata' => ['plan' => 'corporate'],
-        'after_completion' => ['type' => 'redirect', 'redirect' => ['url' => CN_SITE . '/api/welcome.php?session_id={CHECKOUT_SESSION_ID}']]], '2025-03-31.basil');   // Stripe Managed Payments needs this API version or newer
+        'after_completion' => ['type' => 'redirect', 'redirect' => ['url' => CN_SITE . '/api/welcome.php?cs={CHECKOUT_SESSION_ID}']]], '2025-03-31.basil');   // Stripe Managed Payments needs this API version or newer
       $cfg['corporate_link'] = (string)$pl['url']; $cfg['corporate_price'] = $price['id']; $cfg['corporate_mode'] = $live ? 'live' : 'test';
       cn_save_config($cfg);
       flash('Corporate plan created in Stripe (' . ($live ? 'live' : 'test') . ' mode). The Corporate button on the pricing page now opens its checkout.');

@@ -1,11 +1,12 @@
 <?php
-// GET /api/welcome.php?session_id=cs_… → where Stripe sends new members after checkout.
+// GET /api/welcome.php?cs=cs_… → where Stripe sends new members after checkout.
 // Confirms the checkout with Stripe, then signs the member in on this device.
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
 header('Cache-Control: no-store');
 header('Referrer-Policy: no-referrer');
-$id = (string)($_GET['session_id'] ?? '');
+// 'cs' (not 'session_id'): the web host's firewall blocks a 'session_id' link coming from another site.
+$id = (string)($_GET['cs'] ?? $_GET['session_id'] ?? '');
 try {
   if (!preg_match('/^cs_(test|live)_\w+$/', $id)) throw new RuntimeException('bad id');
   $cs = cn_stripe('GET', '/v1/checkout/sessions/' . $id);
