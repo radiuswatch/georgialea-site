@@ -76,7 +76,8 @@ function cn_recent_log(int $n = 100): array {
 
 /* ---------- Stripe ---------- */
 
-function cn_stripe(string $method, string $path, array $params = []): array {
+/** $version: the Stripe API version for this one request (ClipNow's reads are written for 2024-06-20). */
+function cn_stripe(string $method, string $path, array $params = [], string $version = '2024-06-20'): array {
   $key = cn_config()['stripe_key'];
   if ($key === '') throw new RuntimeException('Stripe secret key is not set yet. Add it under Settings.');
   $base = getenv('CLIPNOW_STRIPE_BASE') ?: 'https://api.stripe.com';
@@ -87,7 +88,7 @@ function cn_stripe(string $method, string $path, array $params = []): array {
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_TIMEOUT => 30,
     CURLOPT_USERPWD => $key . ':',
-    CURLOPT_HTTPHEADER => ['Stripe-Version: 2024-06-20'],
+    CURLOPT_HTTPHEADER => ['Stripe-Version: ' . $version],
   ];
   if ($method === 'GET') { $opts[CURLOPT_URL] = $url . ($q ? "?$q" : ''); }
   else { $opts[CURLOPT_URL] = $url; $opts[CURLOPT_POST] = true; $opts[CURLOPT_POSTFIELDS] = $q; }

@@ -76,11 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($do === 'corporate_create') {
     try {
       $live = str_starts_with((string)$cfg['stripe_key'], 'sk_live') || str_starts_with((string)$cfg['stripe_key'], 'rk_live');
-      $prod = cn_stripe('POST', '/v1/products', ['name' => 'ClipNow Corporate', 'description' => 'Everything in Silver, Gold and Platinum, with unlimited campaigns.', 'metadata' => ['plan' => 'corporate'], 'tax_code' => 'txcd_10103000']);   // SaaS, personal use (Stripe Managed Payments requires a tax code)
-      $price = cn_stripe('POST', '/v1/prices', ['product' => $prod['id'], 'unit_amount' => 29999, 'currency' => 'usd', 'recurring' => ['interval' => 'month'], 'nickname' => 'Corporate monthly', 'metadata' => ['plan' => 'corporate']]);
+      // Reuse the Corporate product and $299.99 monthly price if an earlier try already made them.
+      $prod = null; $price = null;
+      foreach (cn_stripe('GET', '/v1/products', ['active' => 'true', 'limit' => 100])['data'] as $p) if (($p['metadata']['plan'] ?? '') === 'corporate') { $prod = $p; break; }
+      if (!$prod) $prod = cn_stripe('POST', '/v1/products', ['name' => 'ClipNow Corporate', 'description' => 'Everything in Silver, Gold and Platinum, with unlimited campaigns.', 'metadata' => ['plan' => 'corporate'], 'tax_code' => 'txcd_10103000']);   // SaaS, personal use (Stripe Managed Payments requires a tax code)
+      elseif (($prod['tax_code'] ?? '') !== 'txcd_10103000') $prod = cn_stripe('POST', '/v1/products/' . $prod['id'], ['tax_code' => 'txcd_10103000']);
+      foreach (cn_stripe('GET', '/v1/prices', ['product' => $prod['id'], 'active' => 'true', 'limit' => 100])['data'] as $pr) if ((int)$pr['unit_amount'] === 29999 && ($pr['recurring']['interval'] ?? '') === 'month') { $price = $pr; break; }
+      if (!$price) $price = cn_stripe('POST', '/v1/prices', ['product' => $prod['id'], 'unit_amount' => 29999, 'currency' => 'usd', 'recurring' => ['interval' => 'month'], 'nickname' => 'Corporate monthly', 'metadata' => ['plan' => 'corporate']]);
       $pl = cn_stripe('POST', '/v1/payment_links', ['line_items' => [['price' => $price['id'], 'quantity' => 1]], 'allow_promotion_codes' => 'true',
         'subscription_data' => ['metadata' => ['plan' => 'corporate']], 'metadata' => ['plan' => 'corporate'],
-        'after_completion' => ['type' => 'redirect', 'redirect' => ['url' => CN_SITE . '/api/welcome.php?session_id={CHECKOUT_SESSION_ID}']]]);
+        'after_completion' => ['type' => 'redirect', 'redirect' => ['url' => CN_SITE . '/api/welcome.php?session_id={CHECKOUT_SESSION_ID}']]], '2025-03-31.basil');   // Stripe Managed Payments needs this API version or newer
       $cfg['corporate_link'] = (string)$pl['url']; $cfg['corporate_price'] = $price['id']; $cfg['corporate_mode'] = $live ? 'live' : 'test';
       cn_save_config($cfg);
       flash('Corporate plan created in Stripe (' . ($live ? 'live' : 'test') . ' mode). The Corporate button on the pricing page now opens its checkout.');
