@@ -4281,12 +4281,27 @@ if ('IntersectionObserver' in window){
       return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
         '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div></div>' +
         '<div class="st-views"><b>' + num(c.views) + '</b><span>' + (c.week ? '+' + num(c.week) + ' this week' : 'views') + '</span></div></div>' + line +
-        '<div class="cp-acts"><button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
+        '<div class="cp-acts"><button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button><button class="cp-link st-watch-btn" type="button" data-act="save" hidden>' + SAVE_LABEL + '</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
         '<div class="st-edit" data-edit="views" hidden><div class="cp-acts"><input type="text" inputmode="numeric" placeholder="Views now" data-v><button class="btn btn-green btn-sm" type="button" data-act="views">Save</button></div></div>' +
         '<div class="st-edit" data-edit="camp" hidden><div class="field"><select data-c>' + campOptions(tagKey(c.campaign)) + '</select></div><div class="cp-2" data-other hidden><div class="field"><input type="text" maxlength="80" placeholder="Campaign name" data-cn></div><div class="field"><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-cr></div></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="camp">Save</button></div></div>' +
         '<p class="cp-msg"></p></div>';
     }).join('') : '<p class="cp-empty">No clips yet. Clips you post with ClipNow’s Post now or Schedule show up here by themselves, or tap <b>Add a clip by link</b>.</p>';
     stUpd();
+    // "Save to Photos" only on clips whose file is still kept on this device (the Studio keeps them 30 days).
+    localClips().then(function(map){
+      $$('#stClips .st-clip').forEach(function(row){ var c = clipById(row.dataset.id), sb = row.querySelector('[data-act="save"]'); if (sb) sb.hidden = !(c && c.request_id && map[c.request_id]); });
+      stUpd();
+    });
+  }
+  var SAVE_LABEL = (MOBILE && navigator.canShare) ? 'Save to Photos' : 'Download';
+  function clipById(id){ return (D.clips || []).filter(function(x){ return x.id === id; })[0]; }
+  /** The local copies of these Stats clips, as Studio-style clips that saveClip/saveClips understand. */
+  function localCopies(clips){
+    return localClips().then(function(map){
+      var seen = {}, out = [];
+      clips.forEach(function(c){ var l = c && c.request_id && map[c.request_id]; if (l && !seen[c.request_id]){ seen[c.request_id] = 1; out.push({ blob:l.blob, name:l.name || 'clip.mp4', url:URL.createObjectURL(l.blob) }); } });
+      return out;
+    });
   }
   var stSel = {}, stPlat = '';
   /* ---- Watch a clip: the copy saved on this device, else the platform's own player, else the post's page ---- */
@@ -4331,8 +4346,9 @@ if ('IntersectionObserver' in window){
         wUrl = URL.createObjectURL(loc.blob);
         body.innerHTML = '<video controls playsinline autoplay></video>';
         $('video', body).src = wUrl;
-        acts.innerHTML = '<a class="btn btn-green btn-sm" download>Save a copy</a>' + open + '<span class="note">Playing the copy saved on this device.</span>';
-        var a = $('a[download]', acts); a.href = wUrl; a.download = loc.name || 'clip.mp4';
+        acts.innerHTML = '<button class="btn btn-green btn-sm" type="button">' + SAVE_LABEL + '</button>' + open + '<span class="note">Playing the copy saved on this device.</span>';
+        var nm = loc.name || 'clip.mp4', sv = $('button', acts);
+        sv.addEventListener('click', function(){ saveClip({ blob:loc.blob, name:nm, url:wUrl }); });
         return;
       }
       var src = embedFor(c);
@@ -4379,7 +4395,7 @@ if ('IntersectionObserver' in window){
     var bad = clips.filter(stDidntPost).length;
     return '<div class="st-bar"><label><input type="checkbox" class="x-sel" data-sel-all> Select all</label><span class="bulk-n" data-sel-n></span>' +
       (bad ? '<button class="btn btn-ghost btn-sm" type="button" data-bulk="bad">Select the ' + bad + ' that didn’t post</button>' : '') +
-      '<button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
+      '<button class="btn btn-green btn-sm" type="button" data-bulk="save">' + SAVE_LABEL + '</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
       '<div class="st-bcamp" data-bcamp hidden><select data-bc>' + campOptions('') + '</select><input type="text" maxlength="80" placeholder="Campaign name" data-bcn hidden><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-bcr hidden><button class="btn btn-green btn-sm" type="button" data-bulk="camp">Save</button></div></div>';
   }
   function stUpd(){
@@ -4388,6 +4404,9 @@ if ('IntersectionObserver' in window){
     var all = $('[data-sel-all]', bar); all.checked = k > 0 && k === n; all.indeterminate = k > 0 && k < n;
     $$('#stClips [data-bulk="camp-open"], #stClips [data-bulk="remove"]').forEach(function(b){ b.disabled = !k; });
     $('[data-bulk="remove"]', bar).textContent = k ? 'Remove ' + k : 'Remove';
+    // Save only counts selected clips whose file is on this device
+    var have = Object.keys(stSel).filter(function(id){ var r = $('#stClips .st-clip[data-id="' + id + '"] [data-act="save"]'); return r && !r.hidden; }).length;
+    var sb = $('[data-bulk="save"]', bar); sb.disabled = !have; sb.textContent = SAVE_LABEL.replace(/^(Save|Download)/, '$1' + (have ? ' ' + have : ''));
   }
   $('#stClips').addEventListener('change', function(e){
     var t = e.target;
@@ -4400,6 +4419,7 @@ if ('IntersectionObserver' in window){
     var act = b.dataset.bulk, ids = Object.keys(stSel);
     if (act === 'bad'){ stSel = {}; visClips().filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
     if (act === 'camp-open'){ $('#stClips [data-bcamp]').hidden = false; return; }
+    if (act === 'save'){ localCopies(ids.map(clipById)).then(function(l){ if (l.length) saveClips(l); else toast('None of these clips are saved on this device.'); }); return; }
     if (!ids.length) return;
     if (act === 'remove'){
       if (!confirm('Stop tracking ' + ids.length + ' clip' + (ids.length === 1 ? '' : 's') + '? ' + (ids.length === 1 ? 'It stays' : 'They stay') + ' on the platform; this only removes ' + (ids.length === 1 ? 'it' : 'them') + ' from your stats.')) return;
@@ -4436,6 +4456,7 @@ if ('IntersectionObserver' in window){
     var row = b.closest('.st-clip'), id = row.dataset.id, msg = row.querySelector('.cp-msg'), act = b.dataset.act;
     function run(body, ok){ b.disabled = true; return post(body).then(function(j){ b.disabled = false; if (!j.ok) return say(msg, j.error || 'Something went wrong.', true); show(j); if (ok) toast(ok); }); }
     if (act === 'watch'){ var cc = (D.clips || []).filter(function(x){ return x.id === id; })[0]; if (cc) watch(cc); return; }
+    if (act === 'save'){ localCopies([clipById(id)]).then(function(l){ if (l.length) saveClip(l[0]); else toast('This clip isn’t saved on this device anymore.'); }); return; }
     if (act === 'views-open'){ row.querySelector('[data-edit="views"]').hidden = false; row.querySelector('[data-v]').focus(); return; }
     if (act === 'camp-open'){ row.querySelector('[data-edit="camp"]').hidden = false; return; }
     if (act === 'views'){ var v = row.querySelector('[data-v]').value; if (!/\d/.test(v)) return say(msg, 'Enter the views.', true); return run({ action:'views', id:id, views:v }, 'Views saved'); }
