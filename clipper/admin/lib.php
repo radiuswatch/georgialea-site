@@ -280,9 +280,11 @@ function cn_member_lookup(string $email): ?array {
     }
   }
   $first = reset($customers);
+  $cid = $best['customer_id'] ?? $first['id'];
   return [
     'email' => $email,
-    'customer_id' => $best['customer_id'] ?? $first['id'],
+    'customer_id' => $cid,
+    'data_id' => cn_member_data_id($email, $cid),
     'name' => $best['name'] ?? ($first['name'] ?? ''),
     'plan' => $best['plan'] ?? '',
     'plan_key' => $best['plan_key'] ?? '',
@@ -460,7 +462,7 @@ function cn_account_sets(array $member): int {
 }
 /** The member's Upload-Post profile name for one account set (set 1 keeps the original name). */
 function cn_up_username(array $member, int $set = 1): string {
-  $base = 'cn_' . preg_replace('/[^a-z0-9_]/', '', strtolower((string)$member['customer_id']));
+  $base = 'cn_' . preg_replace('/[^a-z0-9_]/', '', strtolower(cn_data_id($member)));
   return $set > 1 ? $base . '_s' . $set : $base;
 }
 /** Every account set the member may use: [set => accounts], from one Upload-Post call. */
@@ -552,12 +554,12 @@ function cn_up_facebook_page(string $username): string {
 }
 
 function cn_post_log(array $member, array $entry): void {
-  $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.jsonl';
+  $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($member)) . '.jsonl';
   file_put_contents($f, json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
 }
 /** Where each post really ended up, per request_id, as Upload-Post reported it (final results are kept). */
 function cn_post_status_file(array $member): string {
-  return cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.status.json';
+  return cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($member)) . '.status.json';
 }
 /** Upload-Post's per-platform results for one post, normalized: [['platform','ok','url','error'], ...]. */
 function cn_post_results(array $s, bool $learn = true): array {
@@ -639,7 +641,7 @@ function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1
   return [false, $t + 86400];
 }
 function cn_post_history(array $member, int $n = 20): array {
-  $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$member['customer_id']) . '.jsonl';
+  $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($member)) . '.jsonl';
   if (!is_file($f)) return [];
   $lines = array_slice(file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), -$n);
   return array_reverse(array_values(array_filter(array_map(fn($l) => json_decode($l, true), $lines))));
@@ -1109,7 +1111,7 @@ function cn_trending_clean(array $list): array {
 const CN_STATS_REFRESH = 6 * 3600;
 const CN_UP_ANALYTICS_PER_5MIN = 80;
 
-function cn_stats_file(array $m): string { return cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$m['customer_id']) . '.json'; }
+function cn_stats_file(array $m): string { return cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($m)) . '.json'; }
 function cn_stats_load(array $m): array { $s = cn_json_file(cn_stats_file($m), []); $s += ['clips' => [], 'imported' => []]; return $s; }
 function cn_stats_save(array $m, array $s): void { file_put_contents(cn_stats_file($m), json_encode($s, JSON_UNESCAPED_SLASHES), LOCK_EX); }
 
@@ -1524,8 +1526,8 @@ function cn_r2_error(int $code, string $body): string {
 }
 
 /** A member's synced clip list (file on our server). */
-function cn_clip_file(array $m): string { return cn_dir('clips') . '/' . hash('sha256', 'clips|' . ($m['customer_id'] ?: strtolower($m['email']))) . '.json'; }
-function cn_clip_prefix(array $m): string { return 'c/' . substr(hash('sha256', 'r2|' . ($m['customer_id'] ?: strtolower($m['email'])) . '|' . cn_config()['secret']), 0, 24) . '/'; }
+function cn_clip_file(array $m): string { return cn_dir('clips') . '/' . hash('sha256', 'clips|' . (cn_data_id($m) ?: strtolower($m['email']))) . '.json'; }
+function cn_clip_prefix(array $m): string { return 'c/' . substr(hash('sha256', 'r2|' . (cn_data_id($m) ?: strtolower($m['email'])) . '|' . cn_config()['secret']), 0, 24) . '/'; }
 function cn_clip_days(array $m): int { return CN_CLIP_DAYS[$m['plan_key'] ?? ''] ?? 7; }
 function cn_clip_cap(array $m): int { return (CN_CLIP_GB[$m['plan_key'] ?? ''] ?? 2) * 1073741824; }
 /** Load the list, deleting clips past the plan's limit and uploads that never finished. */
@@ -1562,4 +1564,38 @@ function cn_admin_r2_fields(array &$cfg): string {
   if ($key !== '') $cfg['r2_key'] = $key;
   if ($secret !== '') $cfg['r2_secret'] = $secret;
   return '';
+}
+
+/* ---------- A member's data stays theirs when their Stripe customer changes ----------
+ * Post history, connected accounts (Upload-Post profile), stats and synced clips are filed under the
+ * Stripe customer id the member first had. If they later get a new customer id (for example after
+ * moving to another Stripe account, or buying again), we keep using the first one, matched by email.
+ * The map is ~/clipnow-data/member-ids.json (email → id).
+ */
+function cn_data_id(array $m): string { return (string)(($m['data_id'] ?? '') ?: ($m['customer_id'] ?? '')); }
+function cn_member_data_id(string $email, string $cid): string {
+  $email = strtolower(trim($email));
+  if ($email === '') return $cid;
+  $map = cn_read('member-ids.json', []);
+  if (!empty($map[$email])) return (string)$map[$email];
+  $id = cn_find_old_customer($email) ?: $cid;
+  if ($id !== '') { $map[$email] = $id; cn_write('member-ids.json', $map); }
+  return $id;
+}
+/** The first customer id this email used, from the posting logs (which record both, oldest first). */
+function cn_find_old_customer(string $email): string {
+  $found = '';
+  foreach (['attempts.jsonl', 'refused.jsonl'] as $f) {
+    $p = cn_dir('posts') . '/' . $f;
+    if (!is_file($p)) continue;
+    $h = fopen($p, 'r');
+    while (($line = fgets($h)) !== false) {
+      if (stripos($line, $email) === false) continue;
+      $j = json_decode($line, true);
+      if (is_array($j) && strtolower((string)($j['email'] ?? '')) === $email && preg_match('/^cus_[A-Za-z0-9]+$/', (string)($j['customer'] ?? ''))) { $found = $j['customer']; break; }   // the oldest one
+    }
+    fclose($h);
+    if ($found !== '') break;
+  }
+  return $found;
 }

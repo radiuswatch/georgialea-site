@@ -10,7 +10,7 @@ try {
   $m = cn_current_member();
   if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
   // Entries the member cleared from the list. The post log itself is kept (it counts toward daily limits).
-  $hf = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', (string)$m['customer_id']) . '.hidden.json';
+  $hf = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($m)) . '.hidden.json';
   $hidden = cn_json_file($hf, []);
   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);

@@ -21,7 +21,7 @@ try {
     cn_json_out(['ok' => true, 'url' => cn_up_connect_url($m, $plat, (string)($in['back'] ?? '/studio'), $set)]);
   }
   $configured = (string)(cn_config()['uploadpost_key'] ?? '') !== '';
-  $sets = ($configured && $limit > 0 && !empty($m['customer_id'])) ? cn_up_sets($m) : [1 => cn_up_accounts(null)];
+  $sets = ($configured && $limit > 0 && cn_data_id($m) !== '') ? cn_up_sets($m) : [1 => cn_up_accounts(null)];
   $list = [];
   foreach ($sets as $i => $acc) $list[] = ['set' => $i, 'accounts' => $acc];
   // 'accounts' = set 1 (kept for older pages); 'connectedAny' = connected on at least one set.

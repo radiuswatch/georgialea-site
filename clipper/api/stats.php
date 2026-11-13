@@ -120,7 +120,7 @@ function st_out(array $m, array $s): array {
 try {
   $m = cn_current_member();
   if (!$m) cn_json_out(['ok' => false, 'signedIn' => false, 'error' => 'Please sign in first.'], 401);
-  if (empty($m['active']) || ($m['customer_id'] ?? '') === '') cn_json_out(['ok' => false, 'signedIn' => true, 'error' => 'My stats are included with every ClipNow plan.'], 403);
+  if (empty($m['active']) || cn_data_id($m) === '') cn_json_out(['ok' => false, 'signedIn' => true, 'error' => 'My stats are included with every ClipNow plan.'], 403);
   $me = strtolower($m['email']);
   $s = cn_stats_load($m);
   cn_stats_import($m, $s);
