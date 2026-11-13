@@ -120,5 +120,10 @@ cn_chat_log(end($msgs)['content'], $reply, (string)($r['stop_reason'] ?? ''));
 cn_json_out(['ok' => true, 'reply' => $reply]);
 
 function cn_chat_log(string $q, string $a, string $note): void {
-  @file_put_contents(CN_DATA . '/chat-log.jsonl', json_encode(['at' => time(), 'q' => mb_substr($q, 0, 500), 'a' => mb_substr($a, 0, 800), 'note' => $note], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+  $f = CN_DATA . '/chat-log.jsonl';
+  if (is_file($f) && filesize($f) > 3000000) {   // keep only the most recent questions (the Privacy Policy says so)
+    $lines = file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+    file_put_contents($f, implode("\n", array_slice($lines, -2000)) . "\n", LOCK_EX);
+  }
+  @file_put_contents($f, json_encode(['at' => time(), 'q' => mb_substr($q, 0, 500), 'a' => mb_substr($a, 0, 800), 'note' => $note], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
 }

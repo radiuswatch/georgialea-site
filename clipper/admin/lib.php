@@ -734,8 +734,8 @@ function cn_send_mail(string $to, string $subject, string $body, string $button 
   $t0 = microtime(true);
   // Fast path: Resend's API hands the message straight to the inbox provider (seconds, not minutes).
   if (($c['resend_key'] ?? '') !== '') {
-    [$ok, $err] = cn_resend_send($c, $to, $subject, $body, $html);
-    cn_mail_log($to, $subject, 'resend', $ok, $t0, $err);
+    [$ok, $err, $rid] = cn_resend_send($c, $to, $subject, $body, $html);
+    cn_mail_log($to, $subject, 'resend', $ok, $t0, $err, $rid);
     if ($ok) return true;
   }
   // Fallback: the web host's mail queue (can take minutes on shared hosting).
@@ -744,7 +744,7 @@ function cn_send_mail(string $to, string $subject, string $body, string $button 
   return $ok;
 }
 
-/** Send one email through Resend (resend.com). Returns [ok, error]. */
+/** Send one email through Resend (resend.com). Returns [ok, error, Resend's email id]. */
 function cn_resend_send(array $c, string $to, string $subject, string $text, string $html): array {
   $base = getenv('CLIPNOW_RESEND_BASE') ?: 'https://api.resend.com';
   $payload = ['from' => sprintf('%s <%s>', $c['from_name'], $c['from_email']), 'to' => [$to], 'subject' => $subject, 'text' => $text, 'html' => $html];
@@ -756,18 +756,44 @@ function cn_resend_send(array $c, string $to, string $subject, string $text, str
     CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
   ]);
   $res = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); $cerr = curl_error($ch); curl_close($ch);
-  if ($res === false) return [false, "Couldn't reach Resend: $cerr"];
+  if ($res === false) return [false, "Couldn't reach Resend: $cerr", ''];
   $j = json_decode((string)$res, true);
-  if ($code >= 200 && $code < 300 && !empty($j['id'])) return [true, ''];
-  return [false, 'Resend: ' . (is_array($j) ? ($j['message'] ?? $j['error'] ?? "HTTP $code") : "HTTP $code")];
+  if ($code >= 200 && $code < 300 && !empty($j['id'])) return [true, '', (string)$j['id']];
+  return [false, 'Resend: ' . (is_array($j) ? ($j['message'] ?? $j['error'] ?? "HTTP $code") : "HTTP $code"), ''];
+}
+
+/**
+ * What happened to an email after Resend took it: 'delivered', 'bounced', 'complained' (marked as spam),
+ * 'delivery_delayed', 'sent' (still on its way) and so on, or '' if unknown. Final answers are cached;
+ * others are re-checked at most once a minute.
+ */
+function cn_resend_status(string $id): string {
+  if (!preg_match('/^[A-Za-z0-9-]{8,80}$/', $id)) return '';
+  $cache = cn_read('mail-status.json', []);
+  $hit = $cache[$id] ?? null;
+  $final = ['delivered', 'bounced', 'complained', 'failed', 'canceled'];
+  if ($hit && (in_array($hit['s'], $final, true) || time() - $hit['t'] < 60)) return $hit['s'];
+  $c = cn_config(); if (($c['resend_key'] ?? '') === '') return $hit['s'] ?? '';
+  $ch = curl_init((getenv('CLIPNOW_RESEND_BASE') ?: 'https://api.resend.com') . '/emails/' . $id);
+  curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4,
+    CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $c['resend_key'], 'User-Agent: ClipNow']]);
+  $res = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+  $j = $res !== false && $code === 200 ? json_decode((string)$res, true) : null;
+  $st = is_array($j) ? (string)($j['last_event'] ?? '') : '';
+  if ($st === '') return $hit['s'] ?? '';
+  $cache[$id] = ['s' => $st, 't' => time()];
+  if (count($cache) > 300) $cache = array_slice($cache, -200, null, true);
+  cn_write('mail-status.json', $cache);
+  return $st;
 }
 
 /** Keep a short record of each email sent (how, how long, any error) for the admin Settings page. */
-function cn_mail_log(string $to, string $subject, string $via, bool $ok, float $t0, string $err): void {
+function cn_mail_log(string $to, string $subject, string $via, bool $ok, float $t0, string $err, string $rid = ''): void {
   if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
   $at = strpos($to, '@'); $masked = $at > 2 ? substr($to, 0, 2) . str_repeat('•', min(6, $at - 2)) . substr($to, $at) : $to;
   $e = ['at' => time(), 'to' => $masked, 'subject' => mb_substr($subject, 0, 80), 'via' => $via, 'ok' => $ok, 'ms' => (int)round((microtime(true) - $t0) * 1000)];
   if ($err !== '') $e['error'] = mb_substr($err, 0, 200);
+  if ($rid !== '') $e['rid'] = $rid;
   $p = CN_DATA . '/mail-log.jsonl';
   file_put_contents($p, json_encode($e, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
   if (filesize($p) > 400000) { $lines = array_slice(file($p), -500); file_put_contents($p, implode('', $lines), LOCK_EX); }

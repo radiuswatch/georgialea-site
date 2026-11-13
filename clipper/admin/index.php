@@ -829,10 +829,14 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     <h2>Recent emails</h2>
     <?php $ml = cn_mail_recent(15); ?>
     <?php if (!$ml): ?><p>No emails sent yet.</p><?php else: ?>
-    <p>"Sent" means the email left ClipNow. Through Resend it reaches the inbox within seconds; through the web host's queue it can take minutes.</p>
-    <table class="members"><thead><tr><th>When</th><th>To</th><th>Email</th><th>Sent by</th><th>Time</th><th>Result</th></tr></thead><tbody>
+    <p>"Sent" means the email left ClipNow. Through Resend it reaches the inbox within seconds; through the web host's queue it can take minutes. "Delivery" is what Resend reports back from the inbox provider: <b>Delivered</b> means it reached the inbox (or the spam folder), <b>Still on its way</b> or <b>Delayed</b> means the inbox provider hasn't accepted it yet, <b>Bounced</b> means the address refused it, and <b>Marked as spam</b> means the reader reported it.</p>
+    <table class="members"><thead><tr><th>When</th><th>To</th><th>Email</th><th>Sent by</th><th>Time</th><th>Result</th><th>Delivery</th></tr></thead><tbody>
     <?php foreach ($ml as $m): ?>
-      <tr><td><?= e(date('M j, g:i:s a', (int)$m['at'])) ?></td><td><?= e($m['to']) ?></td><td><?= e($m['subject']) ?></td><td><?= e($m['via'] === 'resend' ? 'Resend' : 'Web host queue') ?></td><td><?= e(number_format($m['ms'] / 1000, 1)) ?>s</td><td><?= $m['ok'] ? 'Sent' : e('Failed: ' . ($m['error'] ?? '')) ?></td></tr>
+      <tr><td><?= e(date('M j, g:i:s a', (int)$m['at'])) ?></td><td><?= e($m['to']) ?></td><td><?= e($m['subject']) ?></td><td><?= e($m['via'] === 'resend' ? 'Resend' : 'Web host queue') ?></td><td><?= e(number_format($m['ms'] / 1000, 1)) ?>s</td><td><?= $m['ok'] ? 'Sent' : e('Failed: ' . ($m['error'] ?? '')) ?></td><td><?php
+        $ds = !empty($m['rid']) ? cn_resend_status((string)$m['rid']) : '';
+        $dl = ['delivered' => 'Delivered', 'sent' => 'Still on its way', 'queued' => 'Still on its way', 'scheduled' => 'Still on its way', 'delivery_delayed' => 'Delayed', 'bounced' => 'Bounced', 'complained' => 'Marked as spam', 'failed' => 'Failed', 'opened' => 'Delivered (opened)', 'clicked' => 'Delivered (link tapped)', 'canceled' => 'Canceled'];
+        echo e($ds === '' ? (empty($m['rid']) ? '–' : 'Unknown') : ($dl[$ds] ?? $ds));
+      ?></td></tr>
     <?php endforeach; ?>
     </tbody></table>
     <?php endif; ?>
