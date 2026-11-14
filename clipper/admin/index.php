@@ -150,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($do === 'camp_delete') {
       foreach ($c['submissions'] as $sub) if (($sub['shot'] ?? '') !== '') @unlink(cn_dir('campaign-shots') . '/' . basename($sub['shot']));
       if (!empty($c['image'])) @unlink(cn_dir('campaign-images') . '/' . basename($c['image']));
+      if (!empty($c['clip'])) @unlink(cn_dir('campaign-images') . '/' . basename($c['clip']));
       @unlink(cn_camp_file($cid));
       cn_camp_log(['event' => 'deleted by admin', 'id' => $cid, 'title' => $c['title'], 'email' => $c['owner']]);
       flash('Deleted "' . $c['title'] . '" and its screenshots.');

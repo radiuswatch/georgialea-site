@@ -172,7 +172,9 @@
   .cp-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0;display:flex;flex-direction:column;cursor:pointer;text-align:left;color:inherit;font:inherit;overflow:hidden}
   .cp-item-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px}
   .cp-cover{aspect-ratio:16/9;width:100%;background:linear-gradient(135deg,#0F3B23,#13283F);display:grid;place-items:center;overflow:hidden;position:relative}
-  .cp-cover img{width:100%;height:100%;object-fit:cover;display:block}
+  .cp-cover img,.cp-cover video{width:100%;height:100%;object-fit:cover;display:block}
+  .cf-cover video{width:100%;height:100%;object-fit:cover;display:block}
+  .cp-banner video{width:100%;display:block;border-radius:14px;max-height:420px;background:#000}
   .cp-cover b{font-family:var(--serif);font-size:34px;color:rgba(233,237,233,.85)}
   .cp-cover .cp-ratebadge{position:absolute;left:10px;bottom:10px;background:rgba(11,13,11,.85);color:var(--green);font:600 13px var(--mono);border-radius:8px;padding:5px 9px}
   .cp-budget{display:flex;flex-direction:column;gap:5px}
@@ -1059,10 +1061,10 @@
         <button type="button" class="cp-back" data-back>← All campaigns</button>
         <h3 id="cpFormTitle">Create a campaign</h3>
         <div class="fields">
-          <div class="field"><span class="lbl">Cover image (shows on your campaign card)</span>
-            <label class="cf-cover" for="cfImage"><img id="cfImgPrev" alt="" hidden><span id="cfImgHint">Tap to add an image<br><small>JPG, PNG or WebP · wide images look best (16:9)</small></span></label>
-            <input type="file" id="cfImage" accept="image/jpeg,image/png,image/webp" hidden>
-            <button type="button" class="cp-link" id="cfImgRemove" hidden>Remove image</button>
+          <div class="field"><span class="lbl">Photo or short clip about your campaign (shows on your campaign card)</span>
+            <label class="cf-cover" for="cfImage"><img id="cfImgPrev" alt="" hidden><video id="cfClipPrev" muted loop playsinline hidden></video><span id="cfImgHint">Tap to add a photo or a short clip<br><small>Photo: JPG, PNG or WebP · Clip: up to 30 seconds and 40 MB</small></span></label>
+            <input type="file" id="cfImage" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" hidden>
+            <button type="button" class="cp-link" id="cfImgRemove" hidden>Remove</button>
           </div>
           <div class="field"><label for="cfTitle">Campaign title</label><input type="text" id="cfTitle" name="title" maxlength="100" placeholder="e.g. Best moments from my Friday streams"></div>
           <div class="field"><label for="cfCreator">Your creator name (channel or show)</label><input type="text" id="cfCreator" name="creator" maxlength="60" placeholder="e.g. Wil Hat Live"></div>
@@ -4079,7 +4081,8 @@ if ('IntersectionObserver' in window){
     return '<span class="cp-st ' + t[1] + '">' + esc(t[0]) + '</span>' + (c.mine ? ' <span class="cp-st me">Yours</span>' : c.joined ? ' <span class="cp-st me">Joined</span>' : '');
   }
   function cover(c){
-    var inner = c.image ? '<img loading="lazy" alt="" src="' + esc(c.image) + '">' : '<b>' + esc((c.creator || c.title || '?').trim().charAt(0).toUpperCase()) + '</b>';
+    var inner = c.clip ? '<video muted loop autoplay playsinline preload="metadata"' + (c.image ? ' poster="' + esc(c.image) + '"' : '') + ' src="' + esc(c.clip) + '" aria-label="Campaign clip"></video>'
+      : c.image ? '<img loading="lazy" alt="" src="' + esc(c.image) + '">' : '<b>' + esc((c.creator || c.title || '?').trim().charAt(0).toUpperCase()) + '</b>';
     return '<div class="cp-cover">' + inner + '<span class="cp-ratebadge">' + money(c.rate_cents) + ' / 1K views</span></div>';
   }
   function budgetBar(c){
@@ -4209,7 +4212,8 @@ if ('IntersectionObserver' in window){
   function renderCamp(){
     var c = CUR, box = $('#cpDetail'), h = '';
     h += '<button type="button" class="cp-back" data-back>← All campaigns</button>';
-    if (c.image) h += '<div class="cp-banner"><img alt="" src="' + esc(c.image) + '"></div>';
+    if (c.clip) h += '<div class="cp-banner"><video controls playsinline preload="metadata"' + (c.image ? ' poster="' + esc(c.image) + '"' : '') + ' src="' + esc(c.clip) + '" aria-label="About this campaign"></video></div>';
+    else if (c.image) h += '<div class="cp-banner"><img alt="" src="' + esc(c.image) + '"></div>';
     h += '<div class="cp-head"><div class="cp-meta">' + statusTag(c) + '</div><h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · started ' + esc(day(c.created)) + (c.ends ? ' · ends ' + esc(day(c.ends)) : '') + '</div>' +
       '<div class="cp-rate">' + money(c.rate_cents) + ' per 1,000 views' + (c.budget_cents ? ' · ' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' budget left' : ' · no budget cap') + '</div>' +
       '<div class="cp-meta">' + platTags(c.platforms) + (c.tags ? '<span class="cp-tag">Tags: ' + esc(c.tags) + '</span>' : '') + '</div></div>';
@@ -4336,14 +4340,29 @@ if ('IntersectionObserver' in window){
 
   /* ----- Create / edit form ----- */
   $('#cfPlats').innerHTML = Object.keys(PLATS).map(function(p){ return '<label><input type="checkbox" value="' + p + '"' + (p !== 'snapchat' && p !== 'x' ? ' checked' : '') + '> ' + esc(PLATS[p]) + '</label>'; }).join('');
-  var IMG = { file:null, remove:false };
-  function setPreview(src){ var im = $('#cfImgPrev'); im.hidden = !src; if (src) im.src = src; $('#cfImgHint').hidden = !!src; $('#cfImgRemove').hidden = !src; }
+  var IMG = { file:null, remove:false, clip:null, clipRemove:false };
+  function setPreview(src, isClip){
+    var im = $('#cfImgPrev'), vd = $('#cfClipPrev');
+    im.hidden = !src || isClip; vd.hidden = !src || !isClip;
+    if (src && !isClip) im.src = src;
+    if (src && isClip){ vd.src = src; var pr = vd.play(); if (pr && pr.catch) pr.catch(function(){}); } else { try { vd.pause(); } catch(e){} vd.removeAttribute('src'); }
+    $('#cfImgHint').hidden = !!src; $('#cfImgRemove').hidden = !src;
+  }
   $('#cfImage').addEventListener('change', function(){
-    var f = this.files[0]; if (!f) return;
-    if (!/^image\//.test(f.type || 'image/')){ $('#cfErr').textContent = 'The cover must be a JPG, PNG or WebP image.'; this.value = ''; return; }
-    if (f.size > 40 * 1048576){ $('#cfErr').textContent = 'That image is too big. Try a smaller one.'; this.value = ''; return; }
+    var f = this.files[0], inp = this; if (!f) return;
+    var isClip = /^video\//.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name);
+    if (!isClip && !/^image\//.test(f.type || 'image/')){ $('#cfErr').textContent = 'Add a photo (JPG, PNG or WebP) or a short clip (MP4 or MOV).'; inp.value = ''; return; }
+    if (f.size > 40 * 1048576){ $('#cfErr').textContent = isClip ? 'That clip is too big (40 MB max). Try a shorter one.' : 'That image is too big. Try a smaller one.'; inp.value = ''; return; }
     $('#cfErr').textContent = '';
-    IMG.file = f; IMG.remove = false; setPreview(URL.createObjectURL(f));
+    if (!isClip){ IMG.file = f; IMG.remove = false; IMG.clip = null; IMG.clipRemove = true; setPreview(URL.createObjectURL(f)); return; }
+    var u = URL.createObjectURL(f), probe = document.createElement('video');
+    probe.preload = 'metadata'; probe.muted = true;
+    probe.onloadedmetadata = function(){
+      if (isFinite(probe.duration) && probe.duration > 30.5){ URL.revokeObjectURL(u); $('#cfErr').textContent = 'Keep the clip to 30 seconds or less (this one is ' + Math.round(probe.duration) + ' s).'; inp.value = ''; return; }
+      IMG.clip = f; IMG.clipRemove = false; IMG.file = null; IMG.remove = true; setPreview(u, true);
+    };
+    probe.onerror = function(){ IMG.clip = f; IMG.clipRemove = false; IMG.file = null; IMG.remove = true; setPreview(u, true); };
+    probe.src = u;
   });
   /* Shrink big photos in the browser (max 1600px wide, JPEG) so they fit under the host's upload limit. */
   function shrinkCover(f){
@@ -4368,10 +4387,10 @@ if ('IntersectionObserver' in window){
       im.src = url;
     });
   }
-  $('#cfImgRemove').addEventListener('click', function(){ IMG.file = null; IMG.remove = true; $('#cfImage').value = ''; setPreview(''); });
+  $('#cfImgRemove').addEventListener('click', function(){ IMG.file = null; IMG.remove = true; IMG.clip = null; IMG.clipRemove = true; $('#cfImage').value = ''; setPreview(''); });
   function showForm(c){
     var f = $('#cpForm'); f.hidden = false; f.dataset.id = c ? c.id : '';
-    IMG = { file:null, remove:false }; $('#cfImage').value = ''; setPreview(c && c.image ? c.image : '');
+    IMG = { file:null, remove:false, clip:null, clipRemove:false }; $('#cfImage').value = ''; setPreview(c && c.clip ? c.clip : c && c.image ? c.image : '', !!(c && c.clip));
     $('#cpFormTitle').textContent = c ? 'Edit campaign' : 'Create a campaign';
     $('#cfSave').textContent = c ? 'Save changes' : 'Publish campaign';
     $('#cfErr').textContent = '';
@@ -4394,10 +4413,22 @@ if ('IntersectionObserver' in window){
       btn.disabled = false;
       if (!j.ok){ $('#cfErr').textContent = j.error || 'Something went wrong. Please try again.'; return; }
       var cid = j.campaign.id;
+      var had = j.campaign || {};
       var after = IMG.file ? shrinkCover(IMG.file).then(function(img){ var fd = new FormData(); fd.append('action', 'image'); fd.append('id', cid); fd.append('image', img, img.name || 'cover.jpg'); return postForm(fd); })
-        : IMG.remove && id ? post({ action:'image_remove', id:cid }) : Promise.resolve(j);
+        : IMG.remove && id && had.image ? post({ action:'image_remove', id:cid }) : Promise.resolve(j);
+      // then the clip (a photo and a clip replace each other)
+      after = after.then(function(k){
+        if (k && !k.ok) return k;
+        if (IMG.clip){
+          toast('Uploading your clip…');
+          var fd2 = new FormData(); fd2.append('action', 'clip'); fd2.append('id', cid); fd2.append('clip', IMG.clip, IMG.clip.name || 'clip.mp4');
+          return postForm(fd2);
+        }
+        if (IMG.clipRemove && (had.clip || (k && k.campaign && k.campaign.clip))) return post({ action:'clip_remove', id:cid });
+        return k;
+      });
       after.then(function(k){
-        if (k && !k.ok){ toast(k.error || 'The image didn’t upload.'); }
+        if (k && !k.ok){ toast(k.error || 'The photo or clip didn’t upload.'); }
         mergeList(k && k.ok ? k.campaign : j.campaign);
         if (!id && QUOTA && QUOTA.limit !== null){ QUOTA.left = Math.max(0, QUOTA.left - 1); showQuota(); }
         toast(id ? 'Campaign saved' : 'Your campaign is live');

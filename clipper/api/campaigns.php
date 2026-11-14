@@ -35,6 +35,7 @@ function camp_public(array $c, string $me): array {
     'clippers' => count($c['clippers']), 'approved_views' => $approvedViews,
     'mine' => $mine, 'joined' => $joined,
     'image' => !empty($c['image']) ? 'api/campaigns.php?img=' . $c['id'] . '&v=' . (int)($c['image_at'] ?? 0) : '',
+    'clip' => !empty($c['clip']) ? 'api/campaigns.php?clip=' . $c['id'] . '&v=' . (int)($c['clip_at'] ?? 0) : '',
   ];
   if ($mine || $joined) $out['source'] = $c['source'];
   if ($joined) {
@@ -126,6 +127,25 @@ try {
       header('Content-Type: image/jpeg'); header('Cache-Control: private, max-age=604800'); header('X-Content-Type-Options: nosniff');
       readfile($file); exit;
     }
+    if (isset($_GET['clip'])) {   // the campaign's short cover clip; byte ranges so phones can play it
+      $c = cn_camp_load((string)$_GET['clip']);
+      if (!$c || empty($c['clip']) || (!empty($c['hidden']) && $c['owner'] !== $me)) { http_response_code(404); exit; }
+      $file = cn_dir('campaign-images') . '/' . basename($c['clip']);
+      if (!is_file($file)) { http_response_code(404); exit; }
+      $size = filesize($file); $from = 0; $to = $size - 1;
+      $type = ['mp4' => 'video/mp4', 'mov' => 'video/quicktime', 'webm' => 'video/webm'][pathinfo($file, PATHINFO_EXTENSION)] ?? 'video/mp4';
+      header('Content-Type: ' . $type); header('Accept-Ranges: bytes'); header('Cache-Control: private, max-age=604800'); header('X-Content-Type-Options: nosniff');
+      if (preg_match('/bytes=(\d*)-(\d*)/', (string)($_SERVER['HTTP_RANGE'] ?? ''), $rg)) {
+        if ($rg[1] === '' && $rg[2] !== '') { $from = max(0, $size - (int)$rg[2]); }
+        else { $from = (int)$rg[1]; if ($rg[2] !== '') $to = min($to, (int)$rg[2]); }
+        if ($from > $to || $from >= $size) { http_response_code(416); header("Content-Range: bytes */$size"); exit; }
+        http_response_code(206); header("Content-Range: bytes $from-$to/$size");
+      }
+      header('Content-Length: ' . ($to - $from + 1));
+      $fh = fopen($file, 'rb'); fseek($fh, $from); $left = $to - $from + 1;
+      while ($left > 0 && !feof($fh)) { $chunk = fread($fh, min(1048576, $left)); echo $chunk; $left -= strlen($chunk); }
+      fclose($fh); exit;
+    }
     if (isset($_GET['shot'])) {
       $c = cn_camp_load((string)($_GET['id'] ?? ''));
       $sid = (string)$_GET['shot'];
@@ -208,6 +228,29 @@ try {
     if ($f['size'] > CN_CAMP_IMG_BYTES) cn_json_out(['ok' => false, 'error' => 'That image is too big (8 MB max).'], 413);
     $name = cn_camp_save_image($id, $f['tmp_name']);
     $c = cn_camp_update($id, function (&$c) use ($name) { $c['image'] = $name; $c['image_at'] = time(); });
+    cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
+  }
+
+  if ($act === 'clip' || $act === 'clip_remove') {   // a short clip about the campaign (instead of, or with, the photo)
+    if (!$owner) cn_json_out(['ok' => false, 'error' => 'Only the campaign\'s creator can change its clip.'], 403);
+    $dir = cn_dir('campaign-images');
+    if (!empty($c['clip'])) @unlink($dir . '/' . basename($c['clip']));
+    if ($act === 'clip_remove') {
+      $c = cn_camp_update($id, function (&$c) { $c['clip'] = ''; $c['clip_at'] = time(); });
+      cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
+    }
+    $f = $_FILES['clip'] ?? null;
+    $err = $f['error'] ?? null;
+    if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) cn_json_out(['ok' => false, 'error' => 'That clip is too large (40 MB max).'], 413);
+    if (!$f || $err !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'The clip didn\'t upload. Please try again.'], 422);
+    if ($f['size'] > 40 * 1048576) cn_json_out(['ok' => false, 'error' => 'That clip is too large (40 MB max).'], 413);
+    $mime = (string)(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+    $ext = ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm', 'video/x-m4v' => 'mp4', 'application/octet-stream' => ''][$mime] ?? '';
+    if ($ext === '') cn_json_out(['ok' => false, 'error' => 'The clip must be a video (MP4, MOV or WebM).'], 422);
+    $name = $id . '-clip-' . bin2hex(random_bytes(4)) . '.' . $ext;
+    if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) cn_json_out(['ok' => false, 'error' => 'The clip didn\'t save. Please try again.'], 500);
+    @chmod($dir . '/' . $name, 0600);
+    $c = cn_camp_update($id, function (&$c) use ($name) { $c['clip'] = $name; $c['clip_at'] = time(); });
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
   }
 
