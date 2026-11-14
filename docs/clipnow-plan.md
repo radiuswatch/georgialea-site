@@ -249,6 +249,10 @@ and never a bare `git log`, which opens a pager that swallows the next commands)
 cd C:\Users\memph\georgialea-site; git pull origin claude/video-clipping-platform-eghmf6; git --no-pager log --oneline -1; $env:CLIPNOW_DOCROOT = "/home1/thrypjmy/public_html/website_05f463c5"; npx --yes tsx scripts/deploy-clipnow.ts
 ```
 
+Links for the owner or clients must never show the tools behind them (no claude.ai links).
+Previews and mockups go on ClipNow's own site under `clipper/preview/` (noindex), e.g.
+`https://clipnow.vip/preview/app-options.html`, and are given as clickable links.
+
 The Stats view-count job (`admin/views-cron.php`) runs from cPanel cron every 5 minutes (`*/5 * * * *`).
 
 ## 13. Push notifications (live)
