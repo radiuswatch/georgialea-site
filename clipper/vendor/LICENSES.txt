@@ -1,0 +1,4 @@
+Third-party libraries used by ClipNow's fast export (fastexport.js):
+
+mp4box.all.min.js  mp4box.js 0.5.3   BSD-3-Clause   https://github.com/gpac/mp4box.js
+mp4-muxer.js       mp4-muxer 5.2.1   MIT            https://github.com/Vanilagy/mp4-muxer

@@ -1717,7 +1717,7 @@ function pickClips(E, dur, len, count){
 /* ---------- Rendering frames (shared by thumbnails, preview and export) ---------- */
 function drawFrame(ctx, v, W, H, clip, t){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
-  var vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+  var vw = v.videoWidth || v.displayWidth || v.width || 16, vh = v.videoHeight || v.displayHeight || v.height || 9;   // a <video>, a decoded VideoFrame or an upright canvas copy (fast export)
   var crop = (clip.crop==null ? 50 : clip.crop)/100;
   if (S.frame === 'fit'){
     // blurred cover behind, sharp fit on top
@@ -2016,6 +2016,21 @@ function renderClip(clip, H, onProgress, R, onState){
   });
 }
 
+/** Fast export (fastexport.js): resolves to the FastExport helper if this browser can make clips from this video
+ *  faster than real time, else null (then the real-time recorder is used). Loaded only when needed. */
+var fastLoad = null;
+function fastExporter(){
+  if (!S.file || !window.VideoDecoder || !window.VideoEncoder) return Promise.resolve(null);
+  if (!fastLoad) fastLoad = new Promise(function(res){
+    if (window.FastExport) return res();
+    var sc = document.createElement('script'); sc.src = '/fastexport.js?v=1'; sc.onload = res; sc.onerror = res; document.head.appendChild(sc);
+  });
+  return fastLoad.then(function(){
+    if (!window.FastExport) return null;
+    return Promise.race([FastExport.prepare(S.file), new Promise(function(r){ setTimeout(function(){ r(false); }, 15000); })]).then(function(ok){ return ok ? FastExport : null; });
+  }, function(){ return null; });
+}
+
 $('#exportBtn').addEventListener('click', function(){
   var btn = this, H = +$('#quality').value, st = $('#exStatus');
   var picked = S.clips.filter(function(c){ return c.picked; });
@@ -2034,17 +2049,35 @@ $('#exportBtn').addEventListener('click', function(){
   var skipped = picked.length - todo.length;
   var intro = 'Making ' + todo.length + ' clip' + (todo.length>1?'s':'') + (skipped ? ' (' + skipped + ' already made)' : '') + '. This plays in real time, about ' + fmt(total) + '. ' + (MOBILE ? 'Keep the screen on and stay on this page.' : 'Keep this tab open.');
   st.textContent = intro;
-  var chain = Promise.resolve();
+  var fastOff = false;
+  var fastP = fastExporter().then(function(F){
+    if (F) st.textContent = 'Making ' + todo.length + ' clip' + (todo.length>1?'s':'') + (skipped ? ' (' + skipped + ' already made)' : '') + ' with fast export. It usually takes a few seconds per clip.';
+    return F;
+  });
+  var chain = fastP;
   todo.forEach(function(c, i){
     chain = chain.then(function(){
       st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + '…' + (i ? ' Finished clips are already in step 3.' : '');
-      function attempt(n){
-        return renderClip(c, H, function(p){ setProg('#exProg', (doneSec + p*(c.end-c.start))/total); }, R, function(state){
+      var prog = function(p){ setProg('#exProg', (doneSec + p*(c.end-c.start))/total); };
+      function realtime(n){
+        return renderClip(c, H, prog, R, function(state){
           if (state === 'away') st.textContent = 'Paused at clip ' + (i+1) + ' of ' + todo.length + ' while you were away. It carries on when you come back to this page.';
           else { st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + '…'; getLock(); }
-        }).catch(function(err){ if (n < 1) return attempt(n + 1); throw err; });   // one retry per clip
+        }).catch(function(err){ if (n < 1) return realtime(n + 1); throw err; });   // one retry per clip
       }
-      return attempt(0).then(function(out){
+      // Fast export first; if it can't make this clip, the real-time recorder does (and the rest use it too).
+      function attempt(){
+        return fastP.then(function(F){
+          if (!F || fastOff) return realtime(0);
+          return F.render(c, H, prog, drawFrame).catch(function(e){
+            fastOff = true;
+            try { console.warn('Fast export fell back to real time:', e && e.message); } catch(x){}
+            st.textContent = 'Making clip ' + (i+1) + ' of ' + todo.length + ' in real time…';
+            return realtime(0);
+          });
+        });
+      }
+      return attempt().then(function(out){
         doneSec += c.end-c.start; made++;
         var name = slug($('#topic').value || 'clip') + '-' + (S.clips.indexOf(c)+1) + '.' + out.ext;
         S.exports = S.exports.filter(function(x){ if (x.clip === c){ try { URL.revokeObjectURL(x.url); } catch(e){} return false; } return true; });
