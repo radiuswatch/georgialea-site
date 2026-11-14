@@ -265,3 +265,17 @@ to `push-log.jsonl`. Kinds: **campaigns** (new post to review → creator; views
 approved and payment recorded → clipper; tracked posts with new views → creator, at most every 6 h)
 and **views** (a clip passes 1K / 10K / 100K / 1M, from the 5-minute views job). Code: `cn_push*`
 in `admin/lib.php`, `api/push.php`, push handlers in `sw.js`.
+
+## 14. Later: ClipNow in the App Store (two options, not started)
+
+Mockup: https://clipnow.vip/preview/app-options.html (source: `clipper/preview/app-options.html`).
+
+1. **Wrap the website (Capacitor).** The current site inside an iOS/Android app shell. Same
+   screens and code; website updates reach the app without a new review for most changes; adds an
+   App Store listing and push notifications on every iPhone (no Add to Home Screen step).
+2. **Rebuild in React Native.** Every screen rebuilt as native: large titles, slide-up sheets
+   (e.g. Submit a post picking from "Your ClipNow posts"), swipe actions. New code kept separately
+   from the website; every update goes through review.
+
+Both need an Apple Developer account ($99/year) and Google Play ($25 once), and a decision on
+Apple's in-app purchase rules for subscriptions. Recommendation when picked up: start with option 1.
