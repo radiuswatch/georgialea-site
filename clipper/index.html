@@ -1419,7 +1419,7 @@
 
 <footer>
   <div class="wrap foot">
-    <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/">App Planet</a></span>
+    <span><span data-brand>ClipNow</span> · by <a href="https://georgialea.com/apps/" target="_blank" rel="noopener">App Planet</a></span>
     <nav class="foot-legal" aria-label="Help"><b>Help</b><a href="#faq">FAQ</a><a href="#contact" data-contact>Contact us</a><a href="/affiliates">Affiliates: earn 50%</a><a href="#install" data-install hidden>Get the app</a></nav>
     <nav class="foot-legal" aria-label="Policies"><b>Policies</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="refunds.html">Refunds &amp; Cancellation</a></nav>
   </div>
@@ -1860,7 +1860,7 @@ function suggestHook(topic, i){
   return (i % 3 === 1 && topic) ? topic + ': ' + h.toLowerCase() : h;
 }
 
-/* ---------- AI titles: a few stills per clip → Claude → one accurate hook per clip ---------- */
+/* ---------- AI titles: a few stills per clip → AI → one accurate hook per clip ---------- */
 function clipStills(c){
   var pts = [0.15, 0.5, 0.85].map(function(f){ return c.start + (c.end - c.start) * f; });
   var out = [];
