@@ -57,6 +57,9 @@ Features marked coming soon are included at no extra cost when they launch. Paym
 == Campaigns (create: Platinum and Corporate; join: every plan) ==
 Creators on Platinum (3 a month) or Corporate (unlimited) post a paid clipping campaign: what to clip, rules, a link to the content, the rate per 1,000 views, an optional budget and end date, platforms and required tags. Any paying member (Silver, Gold, Platinum, Corporate) can join, make clips (the "Clip it in the Studio" button carries the required tags over), post them, then submit each post: pick it from "Your ClipNow posts" or paste its link. Posts on accounts connected in Auto-post are "Tracked by ClipNow": their views update by themselves every few minutes, no screenshot needed. Other posts need the view count and a screenshot. The creator reviews and approves views and pays the clipper directly using the payout method the clipper gave. ClipNow never holds or sends the money. Gold and above also get the AI Top 10: every day AI searches the web for the best-paying clipping campaigns running now.
 
+== Notifications ==
+Every plan can turn on push notifications in Account → Notifications: view milestones (a clip passes 1K, 10K, 100K or 1M views) and campaign news (a new post to review, views approved, a payment recorded). Each kind can be switched off. On iPhone/iPad (iOS 16.4 or later) ClipNow must be added to the Home Screen first (Share → Add to Home Screen) and opened from that icon; then turn notifications on there. Works in Chrome, Edge, Firefox and Android browsers too.
+
 == Stats ==
 My stats shows views (and likes, comments and shares where the platform reports them) for every clip posted with ClipNow, broken down by platform, plus what they could earn at campaign rates ("From campaigns") or an estimated rate per 1,000 views you can set ("Could earn"). You can also add clips by link and type in views yourself, watch a clip, and tag clips with a campaign.
 

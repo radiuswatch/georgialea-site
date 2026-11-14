@@ -301,6 +301,14 @@
   .acct-dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:16px 0 20px;font-size:15.5px}
   .acct-dl dt{color:var(--muted)} .acct-dl dd{margin:0;overflow-wrap:anywhere}
   .acct-actions{display:flex;gap:10px;flex-wrap:wrap} .acct-actions .btn{flex:1}
+  .pn{border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 18px;background:var(--bg)}
+  .pn-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .pn-state{font:600 12px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:3px 9px}
+  .pn-state.on{color:var(--green);border-color:var(--green-deep);background:var(--green-deep)}
+  .pn-sub{font-size:13.5px;color:var(--muted);margin:8px 0 10px}
+  .pn-opts{display:grid;gap:8px;margin:0 0 12px;font-size:14px} #acct .pn-opts label{display:flex;align-items:center;gap:8px;margin:0;color:var(--text);font-size:14px} #acct .pn-opts input{accent-color:var(--green);width:18px;height:18px;margin:0;padding:0;flex:none}
+  .pn-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .pn-msg{font-size:13.5px;margin:10px 0 0;color:var(--muted)} .pn-msg.bad{color:#ff8a80}
   .btn-ghost:hover{border-color:var(--muted)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
 
@@ -1516,6 +1524,16 @@
       <dt>Plan</dt><dd id="acctPlan"></dd>
       <dt>Status</dt><dd id="acctStatus"></dd>
     </dl>
+    <div class="pn" id="pnBox">
+      <div class="pn-top"><b>Notifications</b><span class="pn-state" id="pnState">Off</span></div>
+      <p class="pn-sub" id="pnSub">Get a notification on this device when a clip passes 1K, 10K or 100K views, and about your campaigns: new posts to review, approved views and payments.</p>
+      <div class="pn-opts" id="pnOpts" hidden>
+        <label><input type="checkbox" data-pn="campaigns" checked> Campaigns (posts, approvals, payments)</label>
+        <label><input type="checkbox" data-pn="views" checked> View milestones on my clips</label>
+      </div>
+      <div class="pn-acts"><button class="btn btn-green btn-sm" id="pnOn" type="button">Turn on notifications</button><button class="btn btn-ghost btn-sm" id="pnTest" type="button" hidden>Send a test</button><button class="btn btn-ghost btn-sm" id="pnOff" type="button" hidden>Turn off on this device</button></div>
+      <p class="pn-msg" id="pnMsg" hidden></p>
+    </div>
     <p class="acct-err" id="acctInErr" hidden></p>
     <div class="acct-actions">
       <button class="btn btn-green" id="acctBilling" type="button">Manage billing</button>
@@ -3075,6 +3093,7 @@ renderTrial();
       $('#acctStatus').textContent = st;
       $('#acctBilling').hidden = MEMBER.status === 'none';
     }
+    if (window.Push) Push.render();
     renderTrial();
     if (window.AutoPost) AutoPost.refresh();
     if (window.Campaigns) Campaigns.refresh();
@@ -3085,6 +3104,7 @@ renderTrial();
     $('#acctSent').hidden = true; $('#acctForm').hidden = false; $('#acctErr').hidden = true; $('#acctInErr').hidden = true;
     if (msg) $('#acctMsg').textContent = msg;
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    if (window.Push) Push.render();
     if (!(MEMBER && MEMBER.signedIn)) setTimeout(function(){ $('#acctEmail').focus(); }, 50);
   }
   btn.addEventListener('click', function(){ open(); });
@@ -4052,6 +4072,91 @@ if ('IntersectionObserver' in window){
   els.forEach(function(el){ io.observe(el); });
 } else els.forEach(function(el){ el.classList.add('in'); });
 
+/* ---------- Push notifications (Account → Notifications) ----------
+ * Works in Chrome, Edge, Firefox and Android browsers, and on iPhone/iPad (iOS 16.4+) once
+ * ClipNow is added to the Home Screen and opened from there. */
+window.Push = (function(){
+  var ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  var STATE = null, busy = false;
+  function api(body, endpoint){
+    var url = 'api/push.php' + (body ? '' : '?endpoint=' + encodeURIComponent(endpoint || ''));
+    return fetch(url, body ? { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) } : { credentials:'same-origin' })
+      .then(function(r){ return r.json().catch(function(){ return { ok:false, error:'ClipNow couldn’t reach the server. Please try again.' }; }); }, function(){ return { ok:false, error:'You seem to be offline. Please try again.' }; });
+  }
+  function reg(){ return navigator.serviceWorker.register('sw.js').then(function(){ return navigator.serviceWorker.ready; }); }
+  function current(){ return supported ? reg().then(function(r){ return r.pushManager.getSubscription(); }).catch(function(){ return null; }) : Promise.resolve(null); }
+  function keyBytes(b64){ var s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((b64.length + 3) % 4)); var a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
+  function msg(t, bad){ var m = $('#pnMsg'); m.textContent = t || ''; m.hidden = !t; m.className = 'pn-msg' + (bad ? ' bad' : ''); }
+  function show(on){
+    $('#pnState').textContent = on ? 'On' : 'Off'; $('#pnState').classList.toggle('on', !!on);
+    $('#pnOn').hidden = !!on; $('#pnTest').hidden = $('#pnOff').hidden = !on; $('#pnOpts').hidden = !on;
+    if (STATE && STATE.prefs) $$('#pnOpts [data-pn]').forEach(function(i){ i.checked = STATE.prefs[i.dataset.pn] !== false; });
+  }
+  function render(){
+    if (!$('#pnBox')) return;
+    if (!(MEMBER && MEMBER.signedIn && MEMBER.active)){ $('#pnBox').hidden = true; return; }
+    $('#pnBox').hidden = false;
+    if (ios && !standalone){
+      show(false); $('#pnOn').hidden = true;
+      msg('On iPhone, add ClipNow to your Home Screen first: tap Share, then “Add to Home Screen”. Open ClipNow from the new icon and turn notifications on here.');
+      return;
+    }
+    if (!supported){ show(false); $('#pnOn').hidden = true; msg('This browser can’t show notifications. Try Chrome, Edge, Firefox or Safari.'); return; }
+    if (Notification.permission === 'denied'){ show(false); $('#pnOn').hidden = true; msg('Notifications are blocked for ClipNow in this browser’s settings. Allow them there, then come back.', true); return; }
+    current().then(function(sub){
+      return api(null, sub ? sub.endpoint : '').then(function(j){ if (j.ok){ STATE = j; show(j.on && !!sub); if (!busy) msg(''); } });
+    });
+  }
+  function turnOn(){
+    if (busy) return; busy = true; var b = $('#pnOn'); b.disabled = true; msg('Turning on…');
+    Notification.requestPermission().then(function(p){
+      if (p !== 'granted'){ throw new Error(p === 'denied' ? 'Notifications are blocked. Allow them for ClipNow in your browser’s settings.' : 'Notifications weren’t allowed. Tap Turn on and choose Allow.'); }
+      return api(null, '').then(function(j){
+        if (!j.ok) throw new Error(j.error);
+        return reg().then(function(r){ return r.pushManager.getSubscription().then(function(old){ return old || r.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:keyBytes(j.key) }); }); });
+      });
+    }).then(function(sub){
+      return api({ action:'subscribe', sub:sub.toJSON() });
+    }).then(function(j){
+      busy = false; b.disabled = false;
+      if (!j.ok){ msg(j.error || 'Couldn’t turn on notifications.', true); return; }
+      STATE = j; show(true); msg(j.sent ? 'Notifications are on. You should see a welcome notification now.' : 'Notifications are on.');
+    }).catch(function(e){ busy = false; b.disabled = false; msg((e && e.message) || 'Couldn’t turn on notifications.', true); });
+  }
+  function turnOff(){
+    current().then(function(sub){
+      var ep = sub ? sub.endpoint : '';
+      return (sub ? sub.unsubscribe().catch(function(){}) : Promise.resolve()).then(function(){ return api({ action:'unsubscribe', endpoint:ep }); });
+    }).then(function(j){ if (j.ok){ STATE = j; } show(false); msg('Notifications are off on this device.'); });
+  }
+  document.addEventListener('click', function(e){
+    if (e.target.closest('#pnOn')) turnOn();
+    else if (e.target.closest('#pnOff')) turnOff();
+    else if (e.target.closest('#pnTest')){ var b = $('#pnTest'); b.disabled = true; current().then(function(sub){ return api({ action:'test', endpoint:sub ? sub.endpoint : '' }); }).then(function(j){ b.disabled = false; msg(j.ok ? j.message : (j.error || 'Couldn’t send a test.'), !(j.ok && j.sent)); }); }
+    else if (e.target.closest('[data-pn-open]')){ e.preventDefault(); if (window.openSignIn) window.openSignIn(); }
+  });
+  document.addEventListener('change', function(e){
+    var i = e.target.closest('[data-pn]'); if (!i) return;
+    var prefs = {}; prefs[i.dataset.pn] = i.checked;
+    current().then(function(sub){ return api({ action:'prefs', prefs:prefs, endpoint:sub ? sub.endpoint : '' }); }).then(function(j){ if (j.ok){ STATE = j; msg('Saved.'); } else msg(j.error || 'Couldn’t save.', true); });
+  });
+  /* A one-line nudge on Campaigns for members who haven't turned notifications on. */
+  function nudge(box){
+    if (!box || !(MEMBER && MEMBER.active) || (!supported && !ios)) return;
+    try { if (localStorage.getItem('cn_pn_nudge') === 'no') return; } catch(e){}
+    current().then(function(sub){
+      if (sub || box.querySelector('.pn-nudge')) return;
+      var d = document.createElement('p'); d.className = 'note pn-nudge'; d.style.margin = '0 0 14px';
+      d.innerHTML = '<a href="#" data-pn-open>Turn on notifications</a> to hear when your views are approved, you get paid, or a clip takes off. <a href="#" data-pn-hide style="color:var(--faint)">Not now</a>';
+      d.querySelector('[data-pn-hide]').addEventListener('click', function(ev){ ev.preventDefault(); try { localStorage.setItem('cn_pn_nudge', 'no'); } catch(err){} d.hidden = true; });
+      box.insertBefore(d, box.firstChild);
+    });
+  }
+  return { render:render, nudge:nudge };
+})();
+
 /* ---------- Campaigns (create: Platinum & Corporate; join: every plan): /campaigns ---------- */
 (function(){
   var sec = document.getElementById('campaigns'); if (!sec) return;
@@ -4158,6 +4263,7 @@ if ('IntersectionObserver' in window){
       if (!j.ok){ if (j._status === 401) return gate('out'); if (j._status === 403) return gate('plan'); $('#cpList').innerHTML = '<p class="cp-empty">' + esc(j.error || 'Campaigns couldn’t load.') + '</p>'; return; }
       $('#cpLoading').hidden = true; $('#cpGate').hidden = true; $('#cpApp').hidden = false;
       LIST = j.campaigns || []; loaded = true; QUOTA = j.quota || null; CAN_CREATE = !!j.can_create; showQuota(); route();
+      if (window.Push) Push.nudge($('#cpApp'));
     });
   }
   function route(){

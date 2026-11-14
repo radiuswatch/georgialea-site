@@ -250,3 +250,14 @@ cd C:\Users\memph\georgialea-site; git pull origin claude/video-clipping-platfor
 ```
 
 The Stats view-count job (`admin/views-cron.php`) runs from cPanel cron every 5 minutes (`*/5 * * * *`).
+
+## 13. Push notifications (live)
+
+Account → Notifications turns them on per device (Web Push; iPhone needs ClipNow on the Home
+Screen, iOS 16.4+). Sent from PHP with no outside service: messages are encrypted (RFC 8291,
+aes128gcm) and signed with ClipNow's VAPID key (made on first use, `~/clipnow-data/push-keys.json`).
+Subscriptions: `~/clipnow-data/push/<data id>.json`; dead ones (404/410) are removed; failures go
+to `push-log.jsonl`. Kinds: **campaigns** (new post to review → creator; views approved / not
+approved and payment recorded → clipper; tracked posts with new views → creator, at most every 6 h)
+and **views** (a clip passes 1K / 10K / 100K / 1M, from the 5-minute views job). Code: `cn_push*`
+in `admin/lib.php`, `api/push.php`, push handlers in `sw.js`.

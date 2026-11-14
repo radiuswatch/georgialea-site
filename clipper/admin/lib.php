@@ -1052,7 +1052,18 @@ function cn_camp_sync_all(): int {
     $has = false; foreach ($c['submissions'] ?? [] as $s) if (!empty($s['clip'])) { $has = true; break; }
     if (!$has) continue;
     $copy = $c; if (!cn_camp_sync($copy)) continue;
-    try { cn_camp_update($c['id'], function (&$x) { cn_camp_sync($x); }); $n++; } catch (Throwable $e) {}
+    $tell = false;
+    try {
+      cn_camp_update($c['id'], function (&$x) use (&$tell) {
+        $was = array_column(array_filter($x['submissions'], fn($s) => $s['status'] === 'pending'), 'id');
+        cn_camp_sync($x);
+        $now = array_column(array_filter($x['submissions'], fn($s) => $s['status'] === 'pending'), 'id');
+        if (array_diff($now, $was) && (int)($x['pushed_views_at'] ?? 0) < time() - 6 * 3600) { $tell = true; $x['pushed_views_at'] = time(); }
+      });
+      $n++;
+    } catch (Throwable $e) {}
+    if ($tell) cn_push_email($c['owner'], 'campaigns', ['title' => 'New views to review', 'tag' => 'camp-review-' . $c['id'], 'url' => '/campaigns#c=' . $c['id'],
+      'body' => 'Posts in “' . mb_substr($c['title'], 0, 60) . '” have new views waiting for your approval.']);
   }
   return $n;
 }
@@ -1308,7 +1319,9 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
           if (!empty($pd['post_url'])) $o['url'] = (string)$pd['post_url'];
           if (!empty($pd['platform_post_id'])) $o['post_id'] = (string)$pd['platform_post_id'];
           if (isset($pd['post_metrics']['views'])) {
+            $before = [(int)$o['views'], count($o['history'])];
             cn_stats_set_views($o, cn_stats_views($pd['post_metrics']), 'auto');
+            cn_stats_milestone($m, $o, $before);
             $o['likes'] = isset($pd['post_metrics']['likes']) ? (int)$pd['post_metrics']['likes'] : null;
             $o['comments'] = isset($pd['post_metrics']['comments']) ? (int)$pd['post_metrics']['comments'] : null;
             cn_stats_extra($o, $pd['post_metrics']);
@@ -1324,7 +1337,9 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
         $pm = is_array($pd) ? ($pd['post_metrics'] ?? null) : null;
         $s['clips'][$i]['checked'] = $now;
         if (is_array($pm) && isset($pm['views'])) {
+          $before = [(int)$s['clips'][$i]['views'], count($s['clips'][$i]['history'])];
           cn_stats_set_views($s['clips'][$i], cn_stats_views($pm), 'auto');
+          cn_stats_milestone($m, $s['clips'][$i], $before);
           $s['clips'][$i]['likes'] = isset($pm['likes']) ? (int)$pm['likes'] : null;
           $s['clips'][$i]['comments'] = isset($pm['comments']) ? (int)$pm['comments'] : null;
           cn_stats_extra($s['clips'][$i], $pm);
@@ -1346,6 +1361,20 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
     }
   }
   return $calls;
+}
+
+/** A push when a clip passes 1K, 10K, 100K or 1M views (once per milestone; not for old clips seen the first time). */
+const CN_VIEW_MILESTONES = [1000, 10000, 100000, 1000000];
+function cn_stats_milestone(array $m, array &$c, array $before): void {
+  [$old, $hist] = $before; $new = (int)$c['views']; $hit = 0;
+  foreach (CN_VIEW_MILESTONES as $t) if ($old < $t && $new >= $t && $t > (int)($c['milestone'] ?? 0)) $hit = $t;
+  if (!$hit) return;
+  $c['milestone'] = $hit;
+  if ($hist === 0 && (int)($c['posted'] ?? 0) < time() - 3 * 86400) return;   // an old clip just added: no news
+  $names = ['tiktok' => 'TikTok', 'youtube' => 'YouTube', 'instagram' => 'Instagram', 'facebook' => 'Facebook', 'x' => 'X', 'threads' => 'Threads', 'snapchat' => 'Snapchat'];
+  $what = trim((string)($c['title'] ?? '')) !== '' ? '“' . mb_substr(trim($c['title']), 0, 60) . '”' : 'Your clip';
+  cn_push(cn_data_id($m), 'views', ['title' => 'Your clip hit ' . cn_short_num($hit) . ' views', 'tag' => 'views-' . $c['id'], 'url' => '/stats',
+    'body' => $what . ' on ' . ($names[$c['platform']] ?? ucfirst((string)$c['platform'])) . ' just passed ' . number_format($hit) . ' views.']);
 }
 
 /**
@@ -1752,4 +1781,157 @@ function cn_find_old_customer(string $email): string {
     if ($found !== '') break;
   }
   return $found;
+}
+
+/* ---------- Push notifications (Web Push: RFC 8030, 8291, 8292) ----------
+ * Members turn notifications on per device (Account → Notifications). The browser gives a
+ * subscription (an endpoint at Apple, Google or Mozilla plus two keys); ClipNow saves it in
+ * ~/clipnow-data/push/<data id>.json and sends each message encrypted (aes128gcm) and signed
+ * with ClipNow's own VAPID key (made on first use, ~/clipnow-data/push-keys.json).
+ * Kinds a member can switch off: campaigns (posts, approvals, payments) and views (milestones).
+ */
+const CN_PUSH_KINDS = ['campaigns' => true, 'views' => true];
+const CN_PUSH_HOSTS = ['push.apple.com', 'fcm.googleapis.com', 'android.googleapis.com', 'push.services.mozilla.com', 'notify.windows.com', 'push.api.chrome.google.com'];
+
+function cn_b64u(string $s): string { return rtrim(strtr(base64_encode($s), '+/', '-_'), '='); }
+function cn_b64u_dec(string $s): string { return (string)base64_decode(strtr($s, '-_', '+/') . str_repeat('=', (4 - strlen($s) % 4) % 4), true); }
+
+/** P-256 public key (65 bytes, uncompressed) as an OpenSSL key. */
+function cn_ec_pub(string $raw) {
+  $der = hex2bin('3059301306072a8648ce3d020106082a8648ce3d030107034200') . $raw;
+  return openssl_pkey_get_public("-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n");
+}
+/** A new P-256 key pair: [OpenSSL private key, 65-byte public key]. */
+function cn_ec_new(): array {
+  $k = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+  if (!$k) throw new RuntimeException('Couldn’t make a key.');
+  $d = openssl_pkey_get_details($k)['ec'];
+  return [$k, "\x04" . str_pad($d['x'], 32, "\0", STR_PAD_LEFT) . str_pad($d['y'], 32, "\0", STR_PAD_LEFT)];
+}
+/** ClipNow's VAPID key, made once. ['public' => base64url, 'pem' => private key]. */
+function cn_push_keys(): array {
+  $k = cn_read('push-keys.json', []);
+  if (!empty($k['public']) && !empty($k['pem'])) return $k;
+  $h = fopen(CN_DATA . '/push-keys.lock', 'c'); if ($h) flock($h, LOCK_EX);
+  try {
+    $k = cn_read('push-keys.json', []);
+    if (empty($k['public'])) {
+      [$priv, $pub] = cn_ec_new();
+      openssl_pkey_export($priv, $pem);
+      $k = ['public' => cn_b64u($pub), 'pem' => $pem, 'created' => time()];
+      cn_write('push-keys.json', $k);
+    }
+    return $k;
+  } finally { if ($h) { flock($h, LOCK_UN); fclose($h); } }
+}
+/** Is this a real push service address (https, a known push host)? */
+function cn_push_endpoint_ok(string $url): bool {
+  $test = getenv('CLIPNOW_PUSH_TEST_BASE');   // local tests only
+  if ($test && str_starts_with($url, $test)) return true;
+  $p = parse_url($url);
+  if (!$p || ($p['scheme'] ?? '') !== 'https' || empty($p['host']) || strlen($url) > 1000) return false;
+  $host = strtolower($p['host']);
+  foreach (CN_PUSH_HOSTS as $h) if ($host === $h || str_ends_with($host, '.' . $h)) return true;
+  return false;
+}
+/** VAPID Authorization header for a push service (a JWT signed ES256, valid 12 hours). */
+function cn_push_vapid(string $endpoint): string {
+  $k = cn_push_keys(); $p = parse_url($endpoint);
+  $aud = $p['scheme'] . '://' . $p['host'] . (isset($p['port']) ? ':' . $p['port'] : '');
+  $data = cn_b64u(json_encode(['typ' => 'JWT', 'alg' => 'ES256'])) . '.' . cn_b64u(json_encode(['aud' => $aud, 'exp' => time() + 12 * 3600, 'sub' => 'mailto:helpdesk@clipnow.vip']));
+  openssl_sign($data, $der, openssl_pkey_get_private($k['pem']), OPENSSL_ALGO_SHA256);
+  // DER (SEQUENCE of two INTEGERs) → raw r||s, 32 bytes each
+  $o = 3; $o += ord($der[1]) > 0x80 ? ord($der[1]) - 0x80 : 0;
+  $rl = ord($der[$o]); $r = substr($der, $o + 1, $rl); $o += 1 + $rl + 1;
+  $sl = ord($der[$o]); $s = substr($der, $o + 1, $sl);
+  $fix = fn($x) => str_pad(ltrim($x, "\0"), 32, "\0", STR_PAD_LEFT);
+  return 'vapid t=' . $data . '.' . cn_b64u($fix($r) . $fix($s)) . ', k=' . $k['public'];
+}
+/** Encrypt a message for one subscription (RFC 8291, aes128gcm, one record). */
+function cn_push_encrypt(string $payload, string $p256dh, string $auth): string {
+  $ua = cn_b64u_dec($p256dh); $secret = cn_b64u_dec($auth);
+  if (strlen($ua) !== 65 || strlen($secret) < 16) throw new InvalidArgumentException('Bad subscription keys.');
+  [$asPriv, $asPub] = cn_ec_new();
+  $ecdh = openssl_pkey_derive(cn_ec_pub($ua), $asPriv, 32);
+  if ($ecdh === false) throw new RuntimeException('Key exchange failed.');
+  $prkKey = hash_hmac('sha256', $ecdh, $secret, true);
+  $ikm = hash_hmac('sha256', "WebPush: info\0" . $ua . $asPub . "\x01", $prkKey, true);
+  $salt = random_bytes(16);
+  $prk = hash_hmac('sha256', $ikm, $salt, true);
+  $cek = substr(hash_hmac('sha256', "Content-Encoding: aes128gcm\0\x01", $prk, true), 0, 16);
+  $nonce = substr(hash_hmac('sha256', "Content-Encoding: nonce\0\x01", $prk, true), 0, 12);
+  $ct = openssl_encrypt($payload . "\x02", 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag);
+  return $salt . pack('N', 4096) . chr(65) . $asPub . $ct . $tag;
+}
+
+function cn_push_file(string $dataId): string { return cn_dir('push') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', $dataId) . '.json'; }
+function cn_push_load(string $dataId): array {
+  $p = cn_json_file(cn_push_file($dataId), []);
+  $p += ['subs' => [], 'prefs' => CN_PUSH_KINDS];
+  $p['prefs'] += CN_PUSH_KINDS;
+  return $p;
+}
+function cn_push_save(string $dataId, array $p): void {
+  $f = cn_push_file($dataId);
+  file_put_contents($f, json_encode($p, JSON_UNESCAPED_SLASHES), LOCK_EX); @chmod($f, 0600);
+}
+/** The data id for a member's email (campaign owners and clippers are stored by email). */
+function cn_push_id_for(string $email): string {
+  $email = strtolower(trim($email));
+  $map = cn_read('push-emails.json', []);
+  return (string)($map[$email] ?? (cn_read('member-ids.json', [])[$email] ?? ''));
+}
+function cn_push_remember_email(string $email, string $dataId): void {
+  $email = strtolower(trim($email)); if ($email === '' || $dataId === '') return;
+  $map = cn_read('push-emails.json', []);
+  if (($map[$email] ?? '') !== $dataId) { $map[$email] = $dataId; cn_write('push-emails.json', $map); }
+}
+
+/**
+ * Send a notification to every device a member turned notifications on for.
+ * $msg = ['title', 'body', 'url' (path on ClipNow), 'tag' (replaces an older one with the same tag)].
+ * Returns how many devices accepted it. Never throws: notifications must not break the action.
+ */
+function cn_push(string $dataId, string $kind, array $msg): int {
+  if ($dataId === '' || !function_exists('openssl_pkey_derive')) return 0;
+  try {
+    $p = cn_push_load($dataId);
+    if (!$p['subs'] || (isset(CN_PUSH_KINDS[$kind]) && empty($p['prefs'][$kind]))) return 0;
+    $payload = json_encode(['title' => mb_substr((string)($msg['title'] ?? 'ClipNow'), 0, 80), 'body' => mb_substr((string)($msg['body'] ?? ''), 0, 240),
+      'url' => (string)($msg['url'] ?? '/'), 'tag' => (string)($msg['tag'] ?? '')], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $ok = 0; $gone = [];
+    foreach ($p['subs'] as $i => $s) {
+      try {
+        $body = cn_push_encrypt($payload, $s['p256dh'], $s['auth']);
+        $ch = curl_init($s['endpoint']);
+        curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_CONNECTTIMEOUT => 5,
+          CURLOPT_HTTPHEADER => ['Content-Type: application/octet-stream', 'Content-Encoding: aes128gcm', 'TTL: 86400', 'Urgency: normal',
+            'Authorization: ' . cn_push_vapid($s['endpoint'])]]);
+        curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        if ($code >= 200 && $code < 300) $ok++;
+        elseif (in_array($code, [404, 410], true)) $gone[] = $i;         // the device turned it off or the subscription expired
+        else cn_push_log(['to' => $dataId, 'code' => $code, 'host' => parse_url($s['endpoint'], PHP_URL_HOST)]);
+      } catch (Throwable $e) { cn_push_log(['to' => $dataId, 'error' => $e->getMessage()]); }
+    }
+    if ($gone) {
+      $h = fopen(cn_push_file($dataId) . '.lock', 'c'); if ($h) flock($h, LOCK_EX);
+      $p = cn_push_load($dataId);
+      $ends = []; foreach ($gone as $i) $ends[] = $p['subs'][$i]['endpoint'] ?? '';
+      $p['subs'] = array_values(array_filter($p['subs'], fn($s) => !in_array($s['endpoint'], $ends, true)));
+      cn_push_save($dataId, $p);
+      if ($h) { flock($h, LOCK_UN); fclose($h); }
+    }
+    return $ok;
+  } catch (Throwable $e) { cn_push_log(['to' => $dataId, 'error' => $e->getMessage()]); return 0; }
+}
+function cn_push_email(string $email, string $kind, array $msg): int { return cn_push(cn_push_id_for($email), $kind, $msg); }
+function cn_push_log(array $entry): void {
+  if (!is_dir(CN_DATA)) return;
+  @file_put_contents(CN_DATA . '/push-log.jsonl', json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+}
+/** "1.2K" style counts for notifications. */
+function cn_short_num(int $n): string {
+  if ($n >= 1000000) return rtrim(rtrim(number_format($n / 1000000, 1), '0'), '.') . 'M';
+  if ($n >= 1000) return rtrim(rtrim(number_format($n / 1000, 1), '0'), '.') . 'K';
+  return (string)$n;
 }

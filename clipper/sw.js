@@ -8,7 +8,7 @@
  *
  * Bump VERSION when this file changes so phones drop the old saved copies.
  */
-const VERSION = 'clipnow-v14';
+const VERSION = 'clipnow-v15';
 const PAGES = ['./', 'studio', 'campaigns', 'stats', 'affiliates', 'privacy.html', 'terms.html', 'refunds.html'];
 const ASSETS = ['manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'explainer-poster.jpg'];
 
@@ -85,4 +85,28 @@ self.addEventListener('fetch', (e) => {
   if (skip(e.request, url)) return;
   if (e.request.mode === 'navigate') e.respondWith(page(e, url));
   else e.respondWith(asset(e));
+});
+
+/* Push notifications (campaign activity, view milestones). The server sends an encrypted
+ * message {title, body, url, tag}; tapping it opens (or focuses) ClipNow at that page. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
+  const opts = { body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', data: { url: d.url || '/' } };
+  if (d.tag) { opts.tag = d.tag; opts.renotify = true; }
+  e.waitUntil(self.registration.showNotification(d.title || 'ClipNow', opts));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin);
+  if (url.origin !== self.location.origin) return;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) {
+      if (new URL(c.url).origin === url.origin && 'focus' in c) {
+        return c.focus().then((w) => (w && 'navigate' in w ? w.navigate(url.href) : w)).catch(() => self.clients.openWindow(url.href));
+      }
+    }
+    return self.clients.openWindow(url.href);
+  }));
 });

@@ -334,6 +334,11 @@ try {
       if ($shotName !== '') @unlink(cn_dir('campaign-shots') . '/' . $shotName);
       cn_json_out(['ok' => false, 'error' => $e->getMessage()], 422);
     }
+    if ($sid === '') {
+      $who = $c['clippers'][$me]['name'] ?? 'A clipper';
+      cn_push_email($c['owner'], 'campaigns', ['title' => 'New post to review', 'tag' => 'camp-review-' . $c['id'], 'url' => '/campaigns#c=' . $c['id'],
+        'body' => $who . ' posted to “' . mb_substr($c['title'], 0, 60) . '” on ' . (CN_CAMP_PLATFORMS[$platform] ?? $platform) . '.']);
+    }
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me), 'auto' => $auto]);
   }
 
@@ -343,6 +348,7 @@ try {
     $ok = ($in['decision'] ?? '') === 'approve';
     $av = (int)preg_replace('/\D/', '', (string)($in['approved_views'] ?? '0'));
     $note = camp_line($in['note'] ?? '', 200);
+    $subFor = null; foreach ($c['submissions'] as $x) if ($x['id'] === $sid) $subFor = $x;
     $c = cn_camp_update($id, function (&$c) use ($sid, $ok, $av, $note) {
       foreach ($c['submissions'] as $i => $s) {
         if ($s['id'] !== $sid) continue;
@@ -366,6 +372,14 @@ try {
       }
       return 'That post wasn\'t found.';
     });
+    if ($subFor) {
+      $earned = (int)round($av * (int)$c['rate_cents'] / 1000);
+      cn_push_email($subFor['email'], 'campaigns', $ok
+        ? ['title' => 'Views approved', 'tag' => 'camp-sub-' . $sid, 'url' => '/campaigns#c=' . $c['id'],
+           'body' => '“' . mb_substr($c['title'], 0, 60) . '”: ' . number_format($av) . ' views approved on your ' . (CN_CAMP_PLATFORMS[$subFor['platform']] ?? '') . ' post (' . cn_money($earned) . ').']
+        : ['title' => 'A post wasn’t approved', 'tag' => 'camp-sub-' . $sid, 'url' => '/campaigns#c=' . $c['id'],
+           'body' => '“' . mb_substr($c['title'], 0, 60) . '”: the creator didn’t approve the latest views on your post' . ($note !== '' ? ': ' . $note : '.')]);
+    }
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
   }
 
@@ -380,6 +394,8 @@ try {
       $c['paid'][$who] = (int)($c['paid'][$who] ?? 0) + $amt;
       $c['payments'][] = ['email' => $who, 'cents' => $amt, 'at' => time()];
     });
+    cn_push_email($who, 'campaigns', ['title' => 'You got paid', 'tag' => 'camp-paid-' . $c['id'], 'url' => '/campaigns#c=' . $c['id'],
+      'body' => $c['creator'] . ' recorded a ' . cn_money($amt) . ' payment to you for “' . mb_substr($c['title'], 0, 60) . '”.']);
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
   }
 
