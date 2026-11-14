@@ -273,6 +273,11 @@
   .ap-up h5{margin:18px 0 4px;font-size:14px;color:var(--muted);font-weight:600}
   .ap-day{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin:12px 0 2px}
   .ap-up .ap-post .t{font-family:var(--mono);font-size:13px;color:var(--text);min-width:72px}
+  .ap-where{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .ap-where h5{margin:0 0 4px;font-size:15px}
+  .ap-where-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;font-size:14.5px}
+  .ap-where-row span{font-weight:600}
+  .ap-where-row select{max-width:62%;flex:1;background:var(--card-2,#181C18);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px}
   .xp-msg{font-size:13.5px;color:var(--muted)} .xp-msg.ok{color:var(--green)} .xp-msg.bad{color:#F0706A}
   .export-item{flex-wrap:wrap}
   /* Account / sign-in */
@@ -3187,6 +3192,11 @@ function ClipNowConnect(platform, set){
   function setList(){ return (info && info.sets) ? info.sets : [{ set:1, accounts:(info && info.accounts) || {} }]; }
   function ready(){ return !!(info && info.available && info.limit > 0 && connected().length); }
   function targets(){ return connected().filter(function(p){ return platOn[p]; }); }
+  /** The account chosen for each platform under "Where posts go" ({tiktok:2}); missing = Automatic. */
+  function acctPicks(){ try { return JSON.parse(localStorage.getItem('cn_acct_pick') || '{}') || {}; } catch(e){ return {}; } }
+  function setAcctPick(p, set){ var a = acctPicks(); if (set) a[p] = set; else delete a[p]; try { localStorage.setItem('cn_acct_pick', JSON.stringify(a)); } catch(e){} }
+  /** Connected accounts for a platform: [{set, name}] */
+  function accountsFor(p){ return setList().filter(function(st){ return st.accounts && st.accounts[p] && st.accounts[p].connected; }).map(function(st){ return { set:st.set, name:st.accounts[p].name || ('Account set ' + st.set) }; }); }
 
   function render(){
     var accts = $('#apAccts'), act = $('#apActions'), note = $('#apNote'), sub = $('#apSub');
@@ -3249,6 +3259,24 @@ function ClipNowConnect(platform, set){
     } else if (canConnect && connected().indexOf('tiktok') > -1){
       var tip = el('p', 'note', 'Need to post more than 15 TikToks a day? Platinum connects up to 3 accounts per platform and Corporate up to 10, and ClipNow spreads posts across them.');
       tip.style.marginTop = '10px'; accts.appendChild(tip);
+    }
+    // Where posts go: pick the account per platform when there's more than one
+    var multi = canConnect ? Object.keys(NAMES).filter(function(k){ return accountsFor(k).length > 1; }) : [];
+    if (multi.length){
+      var wp = el('div', 'ap-where'), picks = acctPicks();
+      wp.appendChild(el('h5', '', 'Where posts go'));
+      wp.appendChild(el('p', 'note', 'Choose the account each post goes to, or leave it on Automatic and ClipNow spreads posts across your accounts so none hits its daily limit.'));
+      multi.forEach(function(k){
+        var row = el('label', 'ap-where-row'), sel = el('select');
+        row.appendChild(el('span', '', NAMES[k]));
+        var o0 = el('option', '', 'Automatic'); o0.value = ''; sel.appendChild(o0);
+        accountsFor(k).forEach(function(a){ var o = el('option', '', a.name + (a.set > 1 ? ' · set ' + a.set : '')); o.value = String(a.set); sel.appendChild(o); });
+        sel.value = picks[k] && accountsFor(k).some(function(a){ return a.set === picks[k]; }) ? String(picks[k]) : '';
+        sel.setAttribute('aria-label', 'Account for ' + NAMES[k] + ' posts');
+        sel.addEventListener('change', function(){ setAcctPick(k, +sel.value || 0); toast(NAMES[k] + ': ' + (sel.value ? 'posts go to ' + sel.options[sel.selectedIndex].text : 'Automatic')); });
+        row.appendChild(sel); wp.appendChild(row);
+      });
+      accts.appendChild(wp);
     }
     function button(cls, text, fn){ var b = el('button', 'btn btn-sm ' + cls, text); b.type = 'button'; b.addEventListener('click', fn); act.appendChild(b); return b; }
     if (!signed){
@@ -3532,8 +3560,10 @@ function ClipNowConnect(platform, set){
       if (/webm/.test(x.blob.type) && (t.indexOf('instagram') > -1 || t.indexOf('facebook') > -1)) return resolve({ ok:false, error:'Instagram and Facebook need MP4. Export this clip again in Chrome, Edge or Safari, or switch those off.' });
       var fd = new FormData();
       fd.append('video', x.blob, x.name);
+      var picks = acctPicks();
       t.forEach(function(p){
         fd.append('platforms[]', p);
+        if (picks[p] && accountsFor(p).some(function(a){ return a.set === picks[p]; })) fd.append('acct[' + p + ']', String(picks[p]));
         fd.append('caption64[' + p + ']', b64url(clipCaption(p, x)));   // encoded: the host's firewall blocks text like "1 x 1 = 2"
       });
       if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }

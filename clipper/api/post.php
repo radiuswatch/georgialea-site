@@ -6,6 +6,7 @@
 //   schedule     optional local date-time "2026-11-06T18:30" + tz (IANA name, e.g. America/New_York)
 //   key          a random id from the browser so a retry doesn't post twice
 //   set          optional account set to post from (otherwise ClipNow picks a connected account with room)
+//   acct[<platform>]  optional account set per platform (the member's choice under Where posts go)
 //   tiktok_mode  "draft" sends the clip to the member's TikTok drafts/inbox to finish posting in the app
 //                (used when TikTok's daily posting limit is reached; captions can't be passed to a draft)
 declare(strict_types=1);
@@ -79,6 +80,9 @@ try {
   $draftTk = ($_POST['tiktok_mode'] ?? '') === 'draft' && in_array('tiktok', $want, true);
   $pin = (int)($_POST['set'] ?? 0);
   if ($pin > 0 && !isset($sets[$pin])) $pin = 0;
+  // The member can choose the account per platform (acct[tiktok]=2); otherwise ClipNow spreads posts across accounts.
+  $pick = [];
+  foreach ((array)($_POST['acct'] ?? []) as $p => $i) { $i = (int)$i; if (isset(CN_POST_PLATFORMS[$p]) && isset($sets[$i]) && $sets[$i][$p]['connected']) $pick[$p] = $i; }
 
   // The Studio sends captions base64url-encoded (caption64[...]): the host's firewall turns away plain
   // form text that looks like code, e.g. "1 x 1 = 2" from a math clip, before it ever reaches ClipNow.
@@ -107,7 +111,8 @@ try {
   $groups = []; $used = [];
   foreach ($want as $p) {
     $cands = [];
-    foreach ($sets as $i => $acc) if ($acc[$p]['connected'] && (!$pin || $pin === $i)) $cands[] = $i;
+    $only = $pick[$p] ?? $pin;
+    foreach ($sets as $i => $acc) if ($acc[$p]['connected'] && (!$only || $only === $i)) $cands[] = $i;
     if (!$cands) post_refuse(['ok' => false, 'error' => 'Connect ' . CN_POST_PLATFORMS[$p] . ' first.'], 422);
     $best = 0; $bestN = PHP_INT_MAX; $soonest = 0;
     foreach ($cands as $i) {
@@ -122,6 +127,11 @@ try {
         'error' => 'TikTok drafts are full for now (TikTok allows about ' . CN_DRAFT_CAPS['tiktok'] . ' clips waiting in drafts per account in 24 hours).'], 429);
     }
     if (!$best) {
+      if (isset($pick[$p])) {   // the account they chose is full: say which, and that Automatic would use another
+        $nm = $sets[$pick[$p]][$p]['name'] ?: ('account set ' . $pick[$p]);
+        post_refuse(['ok' => false, 'cap' => $p, 'next_slot' => $soonest, 'picked' => true,
+          'error' => 'Your ' . CN_POST_PLATFORMS[$p] . ' account ' . $nm . ' is at ' . CN_POST_PLATFORMS[$p] . '\'s limit of ' . cn_daily_caps()[$p] . ' posts in 24 hours. Pick another account under Where posts go (or Automatic), or schedule it for later.'], 429);
+      }
       $nAcc = count($cands); $max = cn_account_sets($m);
       $more = $nAcc < $max ? ' Or connect another ' . CN_POST_PLATFORMS[$p] . ' account (your plan allows ' . $max . ') to post more.'
         : ($max < 3 ? ' Platinum connects up to 3 ' . CN_POST_PLATFORMS[$p] . ' accounts, and Corporate up to 10.' : '');
