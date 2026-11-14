@@ -74,6 +74,15 @@
   .btn-green{background:var(--green);color:#06230F}
   .btn-green:hover{background:#3BD97F}
   .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  /* Stats: live tally */
+  .st-live{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:13.5px;margin:10px 0 0}
+  .st-live b{color:var(--green);font-weight:600}
+  .st-live .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(49,201,113,.6);animation:stPulse 2s infinite}
+  @keyframes stPulse{0%{box-shadow:0 0 0 0 rgba(49,201,113,.55)}70%{box-shadow:0 0 0 8px rgba(49,201,113,0)}100%{box-shadow:0 0 0 0 rgba(49,201,113,0)}}
+  .cp-stat.st-gain b{color:var(--green)}
+  .cp-stat.st-up b{animation:stFlash 1.6s ease-out}
+  @keyframes stFlash{0%{color:var(--green);transform:scale(1.06)}100%{color:inherit;transform:none}}
+  @media (prefers-reduced-motion:reduce){.st-live .dot,.cp-stat.st-up b{animation:none}}
   /* Auto-post */
   .autopost{background:var(--card-2);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:22px}
   .ap-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -1094,6 +1103,7 @@
     <div id="stGate" class="cp-gate" hidden><p class="cp-gate-msg" id="stGateMsg"></p><div class="cta-row" id="stGateBtns"></div></div>
     <div id="stApp" hidden>
       <div class="cp-stats" id="stTotals"></div>
+      <p class="st-live" id="stLive" hidden></p>
       <p class="note" id="stSync" hidden></p>
 
       <h3 class="st-h">By platform</h3>
@@ -4361,7 +4371,7 @@ if ('IntersectionObserver' in window){
   // Ask the server to update views a few clips at a time until nothing is due.
   function sync(rounds){
     rounds = rounds || 0;
-    if (!D || !D.due || !D.auto_ready || syncing || rounds > 5){ $('#stSync').hidden = true; return; }
+    if (!D || !D.due || !D.auto_ready || syncing || rounds > 0){ $('#stSync').hidden = true; return; }   // one round; the 5-minute background job does the rest
     syncing = true; $('#stSync').hidden = false; $('#stSync').textContent = 'Updating views from your platforms…';
     post({ action:'refresh' }).then(function(j){
       syncing = false;
@@ -4386,10 +4396,40 @@ if ('IntersectionObserver' in window){
   }
   function tagKey(t){ return !t ? '' : t.kind === 'clipnow' ? 'cn:' + t.id : 'o:' + t.name + '|' + t.rate_cents; }
 
+  // Totals tiles and the "live" line. Called on every refresh, including the quiet 60-second ones.
+  var lastTotal = null;
+  function totals(j){
+    var t = j.totals, up = lastTotal !== null && t.views > lastTotal; lastTotal = t.views;
+    function tile(v, label, cls){ return '<div class="cp-stat' + (cls ? ' ' + cls : '') + '"><b>' + v + '</b><span>' + label + '</span></div>'; }
+    $('#stTotals').innerHTML = tile(num(t.views), 'Total views', up ? 'st-up' : '')
+      + tile((t.hour ? '+' : '') + num(t.hour || 0), 'Last hour', t.hour ? 'st-gain' : '')
+      + tile((t.day ? '+' : '') + num(t.day || 0), 'Last 24 hours', t.day ? 'st-gain' : '')
+      + tile(num(t.week), 'Last 7 days') + tile(num(t.clips), 'Clips tracked') + tile(money(t.potential_cents), 'Potential earnings');
+    var live = $('#stLive');
+    if (!j.auto_ready || !j.updated){ live.hidden = true; return; }
+    var age = Math.max(0, (j.now || Date.now() / 1000) - j.updated);
+    live.hidden = false;
+    live.innerHTML = '<span class="dot"></span><b>Live</b> · views updated ' + (age < 90 ? 'just now' : ago(j.updated)) + ' · new clips are re-checked every 5–10 minutes, older ones less often';
+  }
+  // While the page is open: quietly reload the numbers every minute. If the member is typing in
+  // a form, only the totals change so nothing they're doing gets reset.
+  var poller = null;
+  function poll(){
+    if (!IS_STATS || document.hidden || busy || syncing || !D) return;
+    req('api/stats.php').then(function(j){
+      if (!j || !j.ok) return;
+      var a = document.activeElement;
+      if (a && a.closest && a.closest('#stApp') && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { D = j; totals(j); }
+      else show(j);
+    });
+  }
+  function startPoll(){ if (!poller) poller = setInterval(poll, 60000); }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && IS_STATS && D) poll(); });
+
   function show(j){
-    D = j; $('#stLoading').hidden = true; $('#stGate').hidden = true; $('#stApp').hidden = false;
+    D = j; startPoll(); $('#stLoading').hidden = true; $('#stGate').hidden = true; $('#stApp').hidden = false;
     var t = j.totals;
-    $('#stTotals').innerHTML = '<div class="cp-stat"><b>' + num(t.views) + '</b><span>Total views</span></div><div class="cp-stat"><b>' + num(t.week) + '</b><span>Views in the last 7 days</span></div><div class="cp-stat"><b>' + num(t.clips) + '</b><span>Clips tracked</span></div><div class="cp-stat"><b>' + money(t.potential_cents) + '</b><span>Potential earnings</span></div>';
+    totals(j);
     $('#stCamps').innerHTML = j.campaigns.length ? j.campaigns.map(function(g){
       var cn = g.kind === 'clipnow';
       return '<div class="st-camp"><div class="cp-meta">' + (cn ? '<span class="cp-st me">ClipNow campaign</span>' : '<span class="cp-tag">Other campaign</span>') + '</div><h4>' + esc(g.name) + '</h4>' +

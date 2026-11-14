@@ -2,7 +2,7 @@
 DirectoryIndex index.php
 Options -Indexes
 
-<FilesMatch "^(lib|cron)\.php$|\.(json|jsonl|log|md)$">
+<FilesMatch "^(lib|cron|views-cron)\.php$|\.(json|jsonl|log|md)$">
   Require all denied
 </FilesMatch>
 

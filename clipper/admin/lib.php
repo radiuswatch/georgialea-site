@@ -1108,7 +1108,32 @@ function cn_trending_clean(array $list): array {
  * All members share one Upload-Post key, limited to 100 live analytics calls per 5 minutes,
  * so ClipNow keeps itself under 80 and refreshes each clip at most every 6 hours.
  */
-const CN_STATS_REFRESH = 6 * 3600;
+const CN_STATS_REFRESH = 6 * 3600; // the slowest a clip ClipNow can read is checked (older clips: once a day)
+/**
+ * How often a clip's views are re-checked: new clips often, old ones rarely, so the shared
+ * Upload-Post budget (about 960 live checks an hour) goes where views are still moving.
+ * Clips on a member's open Stats page are checked twice as often.
+ */
+function cn_stats_interval(array $c, bool $watched = false): int {
+  $age = time() - (int)($c['posted'] ?? $c['created'] ?? 0);
+  $i = $age < 2 * 3600 ? 300 : ($age < 12 * 3600 ? 600 : ($age < 2 * 86400 ? 1800 : ($age < 7 * 86400 ? 7200 : ($age < 30 * 86400 ? 8 * 3600 : 86400))));
+  return $watched ? max(300, intdiv($i, 2)) : $i;
+}
+function cn_stats_is_due(array $c, int $now, bool $watched = false): bool {
+  return !empty($c['auto']) && empty($c['hidden']) && ($c['posted'] ?? 0) <= $now - 120 && (int)$c['checked'] < $now - cn_stats_interval($c, $watched);
+}
+/** Mark that the member has their Stats page open (checked twice as often for 10 minutes). */
+function cn_stats_watching(array $m): void { @touch(cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($m)) . '.watch'); }
+function cn_stats_is_watched(string $dataId): bool {
+  $f = cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', $dataId) . '.watch';
+  return is_file($f) && filemtime($f) > time() - 600;
+}
+/** One writer at a time per member's stats file (the Stats page and the background job). */
+function cn_stats_lock(array $m) {
+  $h = fopen(cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($m)) . '.lock', 'c');
+  if ($h) flock($h, LOCK_EX);
+  return $h;
+}
 const CN_UP_ANALYTICS_PER_5MIN = 80;
 
 function cn_stats_file(array $m): string { return cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($m)) . '.json'; }
@@ -1173,7 +1198,7 @@ function cn_stats_set_views(array &$c, int $views, string $how): void {
   $c['views'] = max(0, $views);
   $last = end($c['history']) ?: null;
   if (!$last || $last['views'] !== $c['views'] || $last['at'] < time() - 20 * 3600) $c['history'][] = ['at' => time(), 'views' => $c['views'], 'how' => $how];
-  if (count($c['history']) > 40) $c['history'] = array_slice($c['history'], -40);
+  if (count($c['history']) > 160) $c['history'] = array_slice($c['history'], -160); // ~13 h at 5-minute checks: enough for 'last hour' / 'last 24 h'
 }
 
 /**
@@ -1184,7 +1209,8 @@ function cn_stats_set_views(array &$c, int $views, string $how): void {
 function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''): int {
   if ((string)(cn_config()['uploadpost_key'] ?? '') === '') return 0;
   $now = time(); $calls = 0; $done = [];
-  $due = array_keys(array_filter($s['clips'], fn($c) => !empty($c['auto']) && empty($c['hidden']) && ($onlyId === '' ? $c['checked'] < $now - CN_STATS_REFRESH : $c['id'] === $onlyId) && ($c['posted'] ?? 0) <= $now - 120));
+  $watched = cn_stats_is_watched(cn_data_id($m));
+  $due = array_keys(array_filter($s['clips'], fn($c) => $onlyId === '' ? cn_stats_is_due($c, $now, $watched) : (!empty($c['auto']) && empty($c['hidden']) && $c['id'] === $onlyId && ($c['posted'] ?? 0) <= $now - 120)));
   usort($due, fn($a, $b) => $s['clips'][$a]['checked'] <=> $s['clips'][$b]['checked']);
   foreach ($due as $i) {
     if ($calls >= $max) break;
@@ -1242,6 +1268,56 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
     }
   }
   return $calls;
+}
+
+/**
+ * Background view refresh, run every 5 minutes by admin/views-cron.php. Looks at every member's
+ * tracked clips, picks the most overdue (by how far past their check interval they are), and
+ * spends up to $budget live checks on them. Stops early if the shared budget runs out.
+ * Returns ['members' => n, 'due' => n, 'checked' => n].
+ */
+function cn_stats_background(int $budget = 70): array {
+  $now = time(); $cands = []; $mine = []; $members = 0;
+  // Members who have used Stats, plus anyone who auto-posted (their clips are tracked from the start).
+  $ids = array_map(fn($f) => basename($f, '.json'), glob(cn_dir('stats') . '/*.json') ?: []);
+  foreach (glob(cn_dir('posts') . '/*.jsonl') ?: [] as $f) if (filemtime($f) > $now - 45 * 86400) $ids[] = basename($f, '.jsonl');
+  foreach (array_unique($ids) as $id) {
+    if ($id === '' || !preg_match('/^[A-Za-z0-9_]+$/', $id)) continue;
+    $m = ['data_id' => $id]; $members++;
+    $lock = cn_stats_lock($m);
+    $s = cn_stats_load($m); $before = count($s['clips']);
+    cn_stats_import($m, $s);                           // pick up clips posted since the page was last opened
+    if (count($s['clips']) !== $before) cn_stats_save($m, $s);
+    if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+    $watched = cn_stats_is_watched($id); $seen = [];
+    foreach ($s['clips'] as $c) {
+      if (!cn_stats_is_due($c, $now, $watched)) continue;
+      $key = $c['source'] === 'autopost' ? 'r:' . $c['request_id'] : 'c:' . $c['id'];
+      if (isset($seen[$key])) continue; $seen[$key] = true;      // one check covers every platform of a post
+      // Never-checked clips first (newest first), then by how far past their interval they are.
+      $age = max(0, $now - (int)($c['posted'] ?? $now));
+      $score = $c['checked'] ? ($now - (int)$c['checked']) / cn_stats_interval($c, $watched) : 1e9 - $age / 60;
+      $mine[] = ['id' => $id, 'clip' => $c['id'], 'score' => $score];
+    }
+    // Members take turns: rank each member's clips, so everyone's most urgent clip goes before anyone's second.
+    usort($mine, fn($a, $b) => $b['score'] <=> $a['score']);
+    foreach ($mine as $rank => $x) $cands[] = $x + ['rank' => $rank];
+    $mine = [];
+  }
+  usort($cands, fn($a, $b) => [$a['rank'], -$a['score']] <=> [$b['rank'], -$b['score']]);
+  $checked = 0;
+  foreach ($cands as $k) {
+    if ($checked >= $budget) break;
+    $m = ['data_id' => $k['id']];
+    $lock = cn_stats_lock($m);
+    $s = cn_stats_load($m);
+    $n = cn_stats_refresh($m, $s, 1, $k['clip']);
+    if ($n > 0) cn_stats_save($m, $s);
+    if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+    if ($n === 0) break;                               // shared budget used up for now
+    $checked += $n;
+  }
+  return ['members' => $members, 'due' => count($cands), 'checked' => $checked];
 }
 
 /* ---------- Affiliate program ----------

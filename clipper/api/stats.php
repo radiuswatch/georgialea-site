@@ -32,7 +32,14 @@ function st_campaign($in, string $me): array|string|null {
 
 function st_out(array $m, array $s): array {
   $me = strtolower($m['email']); $now = time();
-  $clips = []; $groups = []; $totViews = 0; $totWeek = 0; $perClip = [];
+  $clips = []; $groups = []; $totViews = 0; $totWeek = 0; $perClip = []; $totHour = 0; $totDay = 0; $updated = 0;
+  // Views gained since $t: from the saved history (a clip posted after $t counts all its views).
+  $gain = function (array $c, int $t): int {
+    if ((int)($c['posted'] ?? $c['created'] ?? 0) >= $t) return (int)$c['views'];
+    $base = null; foreach ($c['history'] as $h) { if ($h['at'] <= $t) $base = $h['views']; else break; }
+    if ($base === null) $base = $c['history'][0]['views'] ?? $c['views'];
+    return max(0, (int)$c['views'] - (int)$base);
+  };
   usort($s['clips'], fn($a, $b) => ($b['posted'] ?? $b['created']) <=> ($a['posted'] ?? $a['created']));
   $camps = [];
   foreach ($s['clips'] as $c) {
@@ -41,6 +48,8 @@ function st_out(array $m, array $s): array {
     $first = $c['history'][0]['at'] ?? $now;
     $week = $first > $now - 7 * 86400 ? $c['views'] : max(0, $c['views'] - $base);
     $totViews += $c['views']; $totWeek += $week;
+    $totHour += $gain($c, $now - 3600); $totDay += $gain($c, $now - 86400);
+    if (!empty($c['auto'])) $updated = max($updated, (int)$c['checked']);
     $tag = $c['campaign'] ?? null; $label = null;
     if ($tag && $tag['kind'] === 'clipnow') {
       $camps[$tag['id']] = $camps[$tag['id']] ?? cn_camp_load($tag['id']);
@@ -112,9 +121,10 @@ function st_out(array $m, array $s): array {
   $joined = array_values(array_map(fn($c) => ['id' => $c['id'], 'title' => $c['title'], 'rate_cents' => (int)$c['rate_cents']],
     array_filter($camps, fn($c) => $c && isset($c['clippers'][$me]))));
   return ['ok' => true, 'clips' => $clips, 'campaigns' => $out, 'joined' => $joined, 'platforms' => $plats, 'est_rate_cents' => $est, 'est_rate_auto' => $estAuto,
-    'totals' => ['views' => $totViews, 'week' => $totWeek, 'clips' => count($clips), 'potential_cents' => $totPotential],
+    'totals' => ['views' => $totViews, 'week' => $totWeek, 'hour' => $totHour, 'day' => $totDay, 'clips' => count($clips), 'potential_cents' => $totPotential],
+    'updated' => $updated, 'now' => $now,
     'auto_ready' => (string)(cn_config()['uploadpost_key'] ?? '') !== '',
-    'due' => count(array_filter($s['clips'], fn($c) => !empty($c['auto']) && empty($c['hidden']) && $c['checked'] < $now - CN_STATS_REFRESH && ($c['posted'] ?? 0) <= $now - 120))];
+    'due' => count(array_filter($s['clips'], fn($c) => cn_stats_is_due($c, $now, cn_stats_is_watched(cn_data_id($m)))))];
 }
 
 try {
@@ -122,10 +132,11 @@ try {
   if (!$m) cn_json_out(['ok' => false, 'signedIn' => false, 'error' => 'Please sign in first.'], 401);
   if (empty($m['active']) || cn_data_id($m) === '') cn_json_out(['ok' => false, 'signedIn' => true, 'error' => 'My stats are included with every ClipNow plan.'], 403);
   $me = strtolower($m['email']);
+  $lock = cn_stats_lock($m);           // the background job also writes this file; released when the request ends
   $s = cn_stats_load($m);
   cn_stats_import($m, $s);
 
-  if ($_SERVER['REQUEST_METHOD'] === 'GET') { cn_stats_save($m, $s); cn_json_out(st_out($m, $s)); }
+  if ($_SERVER['REQUEST_METHOD'] === 'GET') { cn_stats_watching($m); cn_stats_save($m, $s); cn_json_out(st_out($m, $s)); }
   if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
   $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
   $act = (string)($in['action'] ?? '');
@@ -134,7 +145,7 @@ try {
 
   if ($act === 'refresh') {
     @set_time_limit(120);
-    $n = cn_stats_refresh($m, $s, 8, $id);
+    $n = cn_stats_refresh($m, $s, $id === '' ? 6 : 1, $id);   // the background job does the rest, every 5 minutes
     cn_stats_save($m, $s);
     cn_json_out(st_out($m, $s) + ['refreshed' => $n]);
   }
