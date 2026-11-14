@@ -178,8 +178,8 @@
   .cp-cover b{font-family:var(--serif);font-size:34px;color:rgba(233,237,233,.85)}
   .cp-cover .cp-ratebadge{position:absolute;left:10px;bottom:10px;background:rgba(11,13,11,.85);color:var(--green);font:600 13px var(--mono);border-radius:8px;padding:5px 9px}
   .cp-budget{display:flex;flex-direction:column;gap:5px}
-  .cp-bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
-  .cp-bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+  .cp-meter{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+  .cp-meter i{display:block;height:100%;background:var(--green);border-radius:99px}
   .cp-budget span{font-size:12.5px;color:var(--muted)}
   .cp-banner{aspect-ratio:16/7;max-height:300px;width:100%;border-radius:14px;overflow:hidden;margin-bottom:14px;background:var(--card)}
   .cp-banner img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1002,8 +1002,8 @@
         </figure>
         <div class="vid-side">
           <h3>Watch: how to create a campaign</h3>
-          <p>60 seconds, sound on. Then follow the step-by-step guides below.</p>
-          <ol><li>Tap <b>Create a campaign</b> and add a cover image.</li><li>Set your pay per 1,000 views, budget and rules.</li><li>Publish. Clippers join, post and report their views.</li></ol>
+          <p>About a minute, sound on. Then follow the step-by-step guides below.</p>
+          <ol><li>Tap <b>Create a campaign</b> and add a photo or a short clip.</li><li>Set your pay per 1,000 views, budget and rules.</li><li>Publish. Clippers join, post and report their views.</li></ol>
         </div>
       </div>
       <div class="cp-guides">
@@ -4088,7 +4088,7 @@ if ('IntersectionObserver' in window){
   function budgetBar(c){
     if (!c.budget_cents) return '<div class="cp-budget"><span>No budget cap</span></div>';
     var used = Math.max(0, Math.min(100, Math.round((c.budget_cents - c.budget_left_cents) / c.budget_cents * 100)));
-    return '<div class="cp-budget"><div class="cp-bar"><i style="width:' + used + '%"></i></div><span>' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' left · ' + used + '% paid out</span></div>';
+    return '<div class="cp-budget"><div class="cp-meter"><i style="width:' + used + '%"></i></div><span>' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' left · ' + used + '% paid out</span></div>';
   }
   function platTags(list){ return list.map(function(p){ return '<span class="cp-tag">' + esc(PLATS[p] || p) + '</span>'; }).join(''); }
 
