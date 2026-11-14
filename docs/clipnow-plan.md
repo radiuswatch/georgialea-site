@@ -182,10 +182,11 @@ Every ClipNow explainer video uses the same narrator so they sound like one bran
   `clipper/schedule-explainer.mp4` (how to schedule a post, 9:16, 52 s, including batch scheduling) and
   `clipper/campaign-explainer.mp4` (how to create a campaign, 9:16, 67 s; step 2 shows adding a photo or short clip).
 
-## 10. Campaigns (Platinum only, live)
+## 10. Campaigns (live)
 
-`clipnow.vip/campaigns`. Only active **Platinum** members can create or join campaigns; everyone
-else sees an explainer with Sign in / Upgrade buttons.
+`clipnow.vip/campaigns`. **Platinum** (3 a month) and **Corporate** (unlimited) members create
+campaigns; **every paying member** (Silver and up) can browse, join and post. Visitors see an
+explainer with Sign in / See plans buttons.
 
 - **Creators** post a campaign: title, creator name, what to make, rules, a content link
   (Drive/Dropbox/channel), rate per 1,000 views, optional budget and end date, platforms,
@@ -193,14 +194,18 @@ else sees an explainer with Sign in / Upgrade buttons.
   approve views (never more than reported, never past the budget), and record payments.
 - **Clippers** join with a display name and payout handle (only the creator sees it), get the
   content link, use "Clip it in the Studio" (carries the required tags into the Studio), then submit
-  each post's link, views and a screenshot. Updating views sends the post back for review; already
-  approved views keep counting.
+  each post: pick it from "Your ClipNow posts" (their My stats) or paste its link.
+- **Automatic views:** each submitted post is linked to a clip in the clipper's My stats (matched by
+  link or post ID, or added). Posts on accounts connected in Auto-post are "Tracked by ClipNow":
+  `admin/views-cron.php` (every 5 min) refreshes them and `cn_camp_sync_all()` copies the new
+  counts into the campaign. Other posts need a typed count and a screenshot. When views grow, the
+  post goes back to "Waiting for review"; already approved views keep counting.
 - **Money:** creators pay clippers directly. ClipNow never holds or sends money (Terms §7).
 - **Admin:** Admin portal → Campaigns: see reports, hide/show, clear reports, delete (removes
   screenshots too). Events go to `~/clipnow-data/campaign-log.jsonl`.
 - **Data:** `~/clipnow-data/campaigns/<id>.json`, screenshots in `~/clipnow-data/campaign-shots/`
   (private, served only to the creator and the clipper who sent them via `api/campaigns.php`).
-- **Later:** automatic view tracking via platform APIs; payouts through Stripe Connect if wanted.
+- **Later:** creators pre-fund budgets and clippers get paid automatically (Stripe Connect), if wanted.
 
 ## 11. AI Top 10 trending campaigns (Gold & Platinum, live)
 

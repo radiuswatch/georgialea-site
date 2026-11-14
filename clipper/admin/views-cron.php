@@ -14,6 +14,7 @@ $lock = fopen(CN_DATA . '/views-cron.lock', 'c');
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 $t = microtime(true);
 $r = cn_stats_background(70);   // leave ~10 of the 80-per-5-minutes budget for the Stats page itself
-if ($r['checked'] > 0 || $r['due'] > 0) {
-  printf("%s members=%d due=%d checked=%d in %.1fs\n", date('c'), $r['members'], $r['due'], $r['checked'], microtime(true) - $t);
+$camps = cn_camp_sync_all();     // copy the new view counts into campaign posts
+if ($r['checked'] > 0 || $r['due'] > 0 || $camps > 0) {
+  printf("%s members=%d due=%d checked=%d campaigns=%d in %.1fs\n", date('c'), $r['members'], $r['due'], $r['checked'], $camps, microtime(true) - $t);
 }

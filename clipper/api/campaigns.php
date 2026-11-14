@@ -1,6 +1,7 @@
 <?php
-// Campaigns (Platinum only). Creators post a campaign; Platinum clippers join, post clips and
-// report views with a screenshot; the creator approves views and pays clippers directly.
+// Campaigns. Platinum and Corporate members create them; any paying member joins, posts clips and
+// submits them. Views of posts ClipNow can read update by themselves (from My stats); other posts
+// are reported with a screenshot. The creator approves views and pays clippers directly.
 //
 // GET  ?list=1                  → campaigns the member can see
 // GET  ?id=<id>                 → one campaign (owners also get every clipper and submission)
@@ -33,7 +34,7 @@ function camp_public(array $c, string $me): array {
     'platforms' => $c['platforms'], 'tags' => $c['tags'], 'ends' => $c['ends'], 'pay_note' => $c['pay_note'],
     'status' => camp_status($c), 'created' => $c['created'],
     'clippers' => count($c['clippers']), 'approved_views' => $approvedViews,
-    'mine' => $mine, 'joined' => $joined,
+    'mine' => $mine, 'joined' => $joined, 'tracked' => count(array_filter($c['submissions'], fn($s) => !empty($s['auto']))),
     'image' => !empty($c['image']) ? 'api/campaigns.php?img=' . $c['id'] . '&v=' . (int)($c['image_at'] ?? 0) : '',
     'clip' => !empty($c['clip']) ? 'api/campaigns.php?clip=' . $c['id'] . '&v=' . (int)($c['clip_at'] ?? 0) : '',
   ];
@@ -62,7 +63,8 @@ function camp_public(array $c, string $me): array {
 }
 function camp_sub_out(array $s): array {
   return ['id' => $s['id'], 'platform' => $s['platform'], 'url' => $s['url'], 'views' => $s['views'], 'status' => $s['status'],
-    'approved_views' => $s['approved_views'], 'note' => $s['note'], 'created' => $s['created'], 'updated' => $s['updated'], 'shot' => $s['shot'] !== ''];
+    'approved_views' => $s['approved_views'], 'note' => $s['note'], 'created' => $s['created'], 'updated' => $s['updated'], 'shot' => $s['shot'] !== '',
+    'auto' => !empty($s['auto']), 'tracked_at' => (int)($s['tracked_at'] ?? 0), 'tracked_error' => (string)($s['tracked_error'] ?? '')];
 }
 function camp_status(array $c): string {
   if (!empty($c['hidden'])) return 'hidden';
@@ -112,12 +114,13 @@ function camp_fields(array $in, bool $editing): array|string {
 try {
   $m = cn_current_member();
   $me = $m ? strtolower($m['email']) : '';
-  $plat = cn_is_platinum($m);
+  $plat = cn_is_platinum($m);           // may create campaigns
+  $can = cn_camp_can_join($m);          // may browse, join and post (every paying member)
 
   /* ---------- Reads ---------- */
   if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (!$m) cn_json_out(['ok' => false, 'signedIn' => false, 'error' => 'Please sign in first.'], 401);
-    if (!$plat) cn_json_out(['ok' => false, 'signedIn' => true, 'platinum' => false, 'error' => 'Campaigns are part of the Platinum plan.'], 403);
+    if (!$can) cn_json_out(['ok' => false, 'signedIn' => true, 'platinum' => false, 'error' => 'Campaigns are included with every ClipNow plan.'], 403);
 
     if (isset($_GET['img'])) {
       $c = cn_camp_load((string)$_GET['img']);
@@ -161,7 +164,8 @@ try {
     if (isset($_GET['id'])) {
       $c = cn_camp_load((string)$_GET['id']);
       if (!$c || (!empty($c['hidden']) && $c['owner'] !== $me)) cn_json_out(['ok' => false, 'error' => 'That campaign isn\'t available.'], 404);
-      cn_json_out(['ok' => true, 'platinum' => true, 'campaign' => camp_public($c, $me)]);
+      $copy = $c; if (cn_camp_sync($copy)) { try { $c = cn_camp_update($c['id'], function (&$x) { cn_camp_sync($x); }); } catch (Throwable $e) {} }
+      cn_json_out(['ok' => true, 'platinum' => $plat, 'can_create' => $plat, 'campaign' => camp_public($c, $me)]);
     }
     $list = [];
     foreach (cn_camp_all() as $c) {
@@ -171,20 +175,21 @@ try {
       $p['about'] = mb_substr($p['about'], 0, 220);
       $list[] = $p;
     }
-    cn_json_out(['ok' => true, 'platinum' => true, 'me' => $me, 'campaigns' => $list, 'quota' => cn_camp_quota($m)]);
+    cn_json_out(['ok' => true, 'platinum' => $plat, 'can_create' => $plat, 'me' => $me, 'campaigns' => $list, 'quota' => $plat ? cn_camp_quota($m) : null]);
   }
 
   /* ---------- Changes ---------- */
   if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);
   if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) cn_json_out(['ok' => false, 'error' => 'That photo is too large. Try a smaller one.'], 413);
   if (!$m) cn_json_out(['ok' => false, 'error' => 'Please sign in first.'], 401);
-  if (!$plat) cn_json_out(['ok' => false, 'error' => 'Campaigns are part of the Platinum plan.'], 403);
+  if (!$can) cn_json_out(['ok' => false, 'error' => 'Campaigns are included with every ClipNow plan.'], 403);
   $in = camp_body();
   $act = (string)($in['action'] ?? '');
   $id = (string)($in['id'] ?? '');
   if (!cn_rate_ok('camp:' . $me, 120)) cn_json_out(['ok' => false, 'error' => 'Too many changes in a short time. Wait a few minutes and try again.'], 429);
 
   if ($act === 'create') {
+    if (!$plat) cn_json_out(['ok' => false, 'error' => 'Creating campaigns is part of Platinum and Corporate. You can still join and post to any campaign.'], 403);
     $f = camp_fields($in, false);
     if (is_string($f)) cn_json_out(['ok' => false, 'error' => $f], 422);
     $q = cn_camp_quota($m);
@@ -260,11 +265,11 @@ try {
     $name = camp_line($in['name'] ?? '', 60);
     if ($name === '') cn_json_out(['ok' => false, 'error' => 'Add the name the creator will see.'], 422);
     if ($handle === '') cn_json_out(['ok' => false, 'error' => 'Add where the creator should pay you (for example PayPal: you@email.com or Cash App: $you).'], 422);
-    $c = cn_camp_update($id, function (&$c) use ($me, $handle, $name) {
+    $c = cn_camp_update($id, function (&$c) use ($me, $handle, $name, $m) {
       $st = camp_status($c);
       if (!isset($c['clippers'][$me]) && $st !== 'open') return 'This campaign isn\'t taking new clippers.';
       $c['clippers'] = (array)$c['clippers'];
-      $c['clippers'][$me] = ['name' => $name, 'handle' => $handle, 'joined' => $c['clippers'][$me]['joined'] ?? time()];
+      $c['clippers'][$me] = ['name' => $name, 'handle' => $handle, 'joined' => $c['clippers'][$me]['joined'] ?? time(), 'data' => cn_data_id($m)];
     });
     cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
   }
@@ -275,29 +280,43 @@ try {
     $views = (int)preg_replace('/\D/', '', (string)($in['views'] ?? ''));
     $platform = (string)($in['platform'] ?? '');
     $url = camp_url($in['url'] ?? '');
+    $track = null;
     if ($sid === '') {
       if (!in_array($platform, $c['platforms'], true)) cn_json_out(['ok' => false, 'error' => 'Pick one of the campaign\'s platforms.'], 422);
       if ($url === '') cn_json_out(['ok' => false, 'error' => 'Paste the link to your post.'], 422);
+      foreach ($c['submissions'] as $s) if (cn_url_key($s['url']) === cn_url_key($url)) cn_json_out(['ok' => false, 'error' => 'That post is already submitted.'], 422);
+      // Link it to the clipper's My stats so its views can update by themselves.
+      try { $track = cn_camp_track($m, $id, $platform, $url); } catch (Throwable $e) { $track = null; }
+    } else {
+      foreach ($c['submissions'] as $s) if ($s['id'] === $sid && $s['email'] === $me && !empty($s['auto'])) cn_json_out(['ok' => false, 'error' => 'This post’s views update automatically.'], 422);
     }
-    if ($views < 1) cn_json_out(['ok' => false, 'error' => 'Enter the post\'s current view count.'], 422);
+    $auto = $track && $track['auto'];
+    if ($auto) $views = max($views, $track['views']);
+    elseif ($views < 1) cn_json_out(['ok' => false, 'error' => 'Enter the post\'s current view count.'], 422);
+    $shotName = '';
     $f = $_FILES['shot'] ?? null;
-    if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'Add a screenshot that shows the view count.'], 422);
-    if ($f['size'] > CN_CAMP_SHOT_BYTES) cn_json_out(['ok' => false, 'error' => 'That screenshot is too big (6 MB max).'], 413);
-    $mime = (string)(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
-    $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/heic' => 'heic', 'image/heif' => 'heic'][$mime] ?? '';
-    if ($ext === '') cn_json_out(['ok' => false, 'error' => 'The screenshot must be a photo (JPG, PNG, WebP or HEIC).'], 422);
-    $shotName = bin2hex(random_bytes(12)) . '.' . $ext;
-    if (!move_uploaded_file($f['tmp_name'], cn_dir('campaign-shots') . '/' . $shotName)) cn_json_out(['ok' => false, 'error' => 'The screenshot didn\'t save. Please try again.'], 500);
-    @chmod(cn_dir('campaign-shots') . '/' . $shotName, 0600);
+    if ($f && ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+      if (($f['error'] ?? 1) !== UPLOAD_ERR_OK) cn_json_out(['ok' => false, 'error' => 'The screenshot didn\'t upload. Please try again.'], 422);
+      if ($f['size'] > CN_CAMP_SHOT_BYTES) cn_json_out(['ok' => false, 'error' => 'That screenshot is too big (6 MB max).'], 413);
+      $mime = (string)(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+      $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/heic' => 'heic', 'image/heif' => 'heic'][$mime] ?? '';
+      if ($ext === '') cn_json_out(['ok' => false, 'error' => 'The screenshot must be a photo (JPG, PNG, WebP or HEIC).'], 422);
+      $shotName = bin2hex(random_bytes(12)) . '.' . $ext;
+      if (!move_uploaded_file($f['tmp_name'], cn_dir('campaign-shots') . '/' . $shotName)) cn_json_out(['ok' => false, 'error' => 'The screenshot didn\'t save. Please try again.'], 500);
+      @chmod(cn_dir('campaign-shots') . '/' . $shotName, 0600);
+    } elseif (!$auto) {
+      cn_json_out(['ok' => false, 'error' => 'ClipNow can’t read this post’s views by itself (it isn’t on an account you connected in Auto-post), so add a screenshot that shows the views.', 'need_shot' => true], 422);
+    }
+    $data = cn_data_id($m);
     try {
-      $c = cn_camp_update($id, function (&$c) use ($me, $sid, $views, $platform, $url, $shotName) {
+      $c = cn_camp_update($id, function (&$c) use ($me, $sid, $views, $platform, $url, $shotName, $track, $data) {
         if ($sid === '') {
-          foreach ($c['submissions'] as $s) if ($s['url'] === $url) return 'That post is already submitted. Update its views instead.';
           $mineN = count(array_filter($c['submissions'], fn($s) => $s['email'] === $me));
           if ($mineN >= 200) return 'You\'ve reached 200 posts in this campaign.';
           if (camp_status($c) !== 'open') return 'This campaign isn\'t taking new posts.';
           $c['submissions'][] = ['id' => 's' . bin2hex(random_bytes(6)), 'email' => $me, 'platform' => $platform, 'url' => $url,
-            'views' => $views, 'shot' => $shotName, 'status' => 'pending', 'approved_views' => 0, 'note' => '', 'created' => time(), 'updated' => time()];
+            'views' => $views, 'shot' => $shotName, 'status' => 'pending', 'approved_views' => 0, 'note' => '', 'created' => time(), 'updated' => time(),
+            'clip' => $track['clip'] ?? '', 'data' => $track ? $data : '', 'auto' => $track && $track['auto'], 'tracked_at' => $track['checked'] ?? 0, 'tracked_error' => ''];
           return null;
         }
         foreach ($c['submissions'] as &$s) {
@@ -312,10 +331,10 @@ try {
         return 'That post wasn\'t found.';
       });
     } catch (InvalidArgumentException $e) {
-      @unlink(cn_dir('campaign-shots') . '/' . $shotName);
+      if ($shotName !== '') @unlink(cn_dir('campaign-shots') . '/' . $shotName);
       cn_json_out(['ok' => false, 'error' => $e->getMessage()], 422);
     }
-    cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me)]);
+    cn_json_out(['ok' => true, 'campaign' => camp_public($c, $me), 'auto' => $auto]);
   }
 
   if ($act === 'review') {

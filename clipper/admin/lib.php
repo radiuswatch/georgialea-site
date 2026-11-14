@@ -872,8 +872,10 @@ function cn_run_auto(array $subs, bool $force = false): array {
 const CN_CAMP_PLATFORMS = ['tiktok' => 'TikTok', 'youtube' => 'YouTube Shorts', 'instagram' => 'Instagram Reels', 'facebook' => 'Facebook Reels', 'snapchat' => 'Snapchat', 'x' => 'X'];
 const CN_CAMP_SHOT_BYTES = 6 * 1048576;
 
-/** Campaigns are for Platinum and Corporate (Corporate includes everything in Platinum). */
+/** Creating campaigns is for Platinum and Corporate (Corporate includes everything in Platinum). */
 function cn_is_platinum(?array $m): bool { return $m !== null && !empty($m['active']) && in_array($m['plan_key'] ?? '', ['agency', 'corporate'], true); }
+/** Browsing and joining campaigns is for every paying member (Silver, Gold, Platinum, Corporate). */
+function cn_camp_can_join(?array $m): bool { return $m !== null && !empty($m['active']) && cn_data_id($m) !== ''; }
 
 /** New campaigns a member may still create this calendar month: null = unlimited (Corporate), else 0-3 (Platinum). */
 const CN_PLATINUM_CAMPAIGNS_PER_MONTH = 3;
@@ -977,6 +979,82 @@ function cn_camp_save_image(string $id, string $tmp): string {
 function cn_camp_log(array $entry): void {
   if (!is_dir(CN_DATA)) mkdir(CN_DATA, 0700, true);
   file_put_contents(CN_DATA . '/campaign-log.jsonl', json_encode(['at' => time()] + $entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+}
+
+/* ---------- Campaign posts: views tracked automatically ----------
+ * When a clipper submits a post, it is linked to a clip in their My stats (the one ClipNow
+ * posted, matched by link, or a new one added by link). The views job (every 5 minutes) reads
+ * those clips, so the post's views update by themselves, like the Stats page. Posts ClipNow
+ * can't read (accounts not connected in Auto-post) still use a typed-in count and screenshot.
+ */
+/** A post link reduced to compare: host without www/m, path without trailing slash, no query. */
+function cn_url_key(string $url): string {
+  $p = parse_url(trim($url)); if (!$p || empty($p['host'])) return '';
+  $host = preg_replace('/^(www|m|vm|mobile)\./', '', strtolower($p['host']));
+  return $host . rtrim((string)($p['path'] ?? ''), '/');
+}
+/** Find or add the clipper's Stats clip for this post. Returns ['clip' => id, 'auto' => bool, 'views' => int, 'checked' => int]. */
+function cn_camp_track(array $m, string $campId, string $platform, string $url): array {
+  $lock = cn_stats_lock($m);
+  try {
+    $s = cn_stats_load($m);
+    cn_stats_import($m, $s);
+    [$pf, $postId] = cn_stats_parse_url($url);
+    $key = cn_url_key($url); $hit = -1;
+    foreach ($s['clips'] as $i => $c) {
+      if (!empty($c['hidden'])) continue;
+      if (($c['url'] ?? '') !== '' && cn_url_key($c['url']) === $key) { $hit = $i; break; }
+      if ($postId !== '' && ($c['post_id'] ?? '') === $postId && ($c['platform'] ?? '') === $pf) { $hit = $i; break; }
+    }
+    if ($hit < 0) {
+      $auto = $postId !== '' && (string)(cn_config()['uploadpost_key'] ?? '') !== '';
+      $s['clips'][] = ['id' => 'k' . bin2hex(random_bytes(6)), 'source' => 'manual', 'request_id' => '', 'platform' => $pf === 'other' ? $platform : $pf,
+        'url' => mb_substr($url, 0, 500), 'post_id' => $postId, 'title' => '', 'views' => 0, 'likes' => null, 'comments' => null,
+        'auto' => $auto, 'checked' => 0, 'error' => '', 'history' => [], 'campaign' => ['kind' => 'clipnow', 'id' => $campId], 'posted' => time() - 3600, 'created' => time()];
+      $hit = count($s['clips']) - 1;
+    } elseif (empty($s['clips'][$hit]['campaign'])) {
+      $s['clips'][$hit]['campaign'] = ['kind' => 'clipnow', 'id' => $campId];   // so My stats shows it under the campaign
+    }
+    $c = $s['clips'][$hit];
+    if (!empty($c['auto']) && !$c['checked']) { cn_stats_refresh($m, $s, 1, $c['id']); $c = $s['clips'][$hit]; }
+    cn_stats_save($m, $s);
+    return ['clip' => $c['id'], 'auto' => !empty($c['auto']), 'views' => (int)$c['views'], 'checked' => (int)$c['checked']];
+  } finally { if ($lock) { flock($lock, LOCK_UN); fclose($lock); } }
+}
+/**
+ * Copy tracked views into a campaign's posts. A post whose views grew goes back to "Waiting for review"
+ * for the new views (already-approved views still count), the same as a clipper's manual update.
+ * Returns true if anything changed.
+ */
+function cn_camp_sync(array &$c): bool {
+  $changed = false; $stats = [];
+  foreach ($c['submissions'] as &$s) {
+    if (empty($s['clip']) || empty($s['data'])) continue;
+    $stats[$s['data']] = $stats[$s['data']] ?? cn_stats_load(['data_id' => $s['data']]);
+    $clip = null; foreach ($stats[$s['data']]['clips'] as $k) if ($k['id'] === $s['clip']) { $clip = $k; break; }
+    $auto = $clip && empty($clip['hidden']) && !empty($clip['auto']);
+    $was = [$s['auto'] ?? false, $s['tracked_at'] ?? 0, $s['tracked_error'] ?? '', $s['views']];
+    $s['auto'] = $auto;
+    if ($clip) { $s['tracked_at'] = (int)$clip['checked']; $s['tracked_error'] = (string)($clip['error'] ?? ''); }
+    if ($auto && (int)$clip['views'] > (int)$s['views'] && $s['status'] !== 'rejected') {
+      $s['views'] = (int)$clip['views']; $s['updated'] = time();
+      if ($s['status'] === 'approved' && $s['views'] > (int)$s['approved_views']) { $s['prev_status'] = 'approved'; $s['status'] = 'pending'; }
+    }
+    if ($was !== [$s['auto'], $s['tracked_at'] ?? 0, $s['tracked_error'] ?? '', $s['views']]) $changed = true;
+  }
+  unset($s);
+  return $changed;
+}
+/** Run cn_camp_sync on every campaign that has tracked posts (from the views job). Returns how many changed. */
+function cn_camp_sync_all(): int {
+  $n = 0;
+  foreach (cn_camp_all() as $c) {
+    $has = false; foreach ($c['submissions'] ?? [] as $s) if (!empty($s['clip'])) { $has = true; break; }
+    if (!$has) continue;
+    $copy = $c; if (!cn_camp_sync($copy)) continue;
+    try { cn_camp_update($c['id'], function (&$x) { cn_camp_sync($x); }); $n++; } catch (Throwable $e) {}
+  }
+  return $n;
 }
 
 /* ---------- Trending paid campaigns (AI, Gold & Platinum) ----------
