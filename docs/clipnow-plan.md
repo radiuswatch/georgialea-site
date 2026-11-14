@@ -234,3 +234,14 @@ Platinum by `api/trending.php`. Silver/visitors see a blurred, locked preview.
   pay per 1,000). Potential = views × rate, capped at the campaign budget; ClipNow campaigns also
   show approved / paid / owed. Data in `~/clipnow-data/stats/<customer>.json`.
 - Later: let a campaign submission pull its views from Stats instead of typing them.
+
+## Deploying (owner's PC)
+
+Always give the deploy as ONE line to paste all at once in PowerShell (never separate lines,
+and never a bare `git log`, which opens a pager that swallows the next commands):
+
+```
+cd C:\Users\memph\georgialea-site; git pull origin claude/video-clipping-platform-eghmf6; git --no-pager log --oneline -1; $env:CLIPNOW_DOCROOT = "/home1/thrypjmy/public_html/website_05f463c5"; npx --yes tsx scripts/deploy-clipnow.ts
+```
+
+The Stats view-count job (`admin/views-cron.php`) runs from cPanel cron every 5 minutes (`*/5 * * * *`).
