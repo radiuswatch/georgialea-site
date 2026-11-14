@@ -1757,13 +1757,26 @@ function wrap(ctx, text, max){
 }
 
 /* ---------- Clip cards ---------- */
+// Kept on the page (off screen): iPhone Safari may never load a video that isn't in the page,
+// which used to leave every thumbnail and AI-title still waiting forever.
 var thumbV = document.createElement('video'); thumbV.muted = true; thumbV.playsInline = true; thumbV.preload = 'auto';
+thumbV.setAttribute('playsinline', ''); thumbV.setAttribute('muted', ''); thumbV.setAttribute('aria-hidden', 'true');
+thumbV.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+(document.body || document.documentElement).appendChild(thumbV);
 var thumbQueue = Promise.resolve();
 function seek(v, t){ return new Promise(function(r){ var done=function(){ v.removeEventListener('seeked', done); r(); }; v.addEventListener('seeked', done); v.currentTime = Math.min(t, (v.duration||t+1)-0.05); }); }
+/** Point the thumbnail player at the current video and wait (at most 8 s) until it has a frame. */
+function thumbReady(){
+  if (thumbV.src === S.url && thumbV.readyState >= 2) return Promise.resolve();
+  return new Promise(function(r){
+    var t = setTimeout(r, 8000), fin = function(){ clearTimeout(t); r(); };
+    thumbV.onloadeddata = fin; thumbV.onerror = fin;
+    if (thumbV.src !== S.url) thumbV.src = S.url;
+    try { thumbV.load(); } catch(e){}
+  });
+}
 function thumb(clip, canvas){
-  thumbQueue = thumbQueue.then(function(){
-    if (thumbV.src !== S.url){ thumbV.src = S.url; return new Promise(function(r){ thumbV.onloadeddata = r; thumbV.onerror = r; }); }
-  }).then(function(){ return seek(thumbV, clip.start + Math.min(1.5, (clip.end-clip.start)/3)); })
+  thumbQueue = thumbQueue.then(thumbReady).then(function(){ return seekSafe(thumbV, clip.start + Math.min(1.5, (clip.end-clip.start)/3)); })
     .then(function(){ drawFrame(canvas.getContext('2d'), thumbV, canvas.width, canvas.height, clip, null); })
     .catch(function(){});
 }
@@ -1824,9 +1837,7 @@ function suggestHook(topic, i){
 function clipStills(c){
   var pts = [0.15, 0.5, 0.85].map(function(f){ return c.start + (c.end - c.start) * f; });
   var out = [];
-  var job = thumbQueue.then(function(){
-    if (thumbV.src !== S.url){ thumbV.src = S.url; return new Promise(function(r){ thumbV.onloadeddata = r; thumbV.onerror = r; }); }
-  });
+  var job = thumbQueue.then(thumbReady);
   pts.forEach(function(t){
     job = job.then(function(){ return seekSafe(thumbV, t); }).then(function(){
       var w = 384, h = Math.round(w * (thumbV.videoHeight || 9) / (thumbV.videoWidth || 16));
@@ -1961,7 +1972,10 @@ function renderClip(clip, H, onProgress, R, onState){
         v.pause();
         if (failed) return reject(failed);
         var type = (rec.mimeType || mime || 'video/webm').split(';')[0];
-        resolve({ blob:new Blob(chunks, { type:type }), ext: type.indexOf('mp4')>-1 ? 'mp4' : 'webm' });
+        var out = new Blob(chunks, { type:type });
+        // An empty recording means the phone couldn't decode the video (often low memory). Say so instead of saving a 0-byte clip.
+        if (out.size < 20000) return reject(new Error('This clip came out empty. Close other apps or reload ClipNow, then tap Export again.'));
+        resolve({ blob:out, ext: type.indexOf('mp4')>-1 ? 'mp4' : 'webm' });
       };
       function finish(err){
         if (finished) return; finished = true; failed = err || null;
@@ -2209,9 +2223,12 @@ var Cloud = (function(){
       });
     });
   }
+  var waitT = null;
   function next(){
     if (up || !q.length) return;
+    if (window.AutoPost && AutoPost.uploading && AutoPost.uploading()){ if (!waitT) waitT = setTimeout(function(){ waitT = null; next(); }, 4000); return; }   // posting first
     var x = up = q.shift(), sent = sig(x); status();
+    if (!x.blob || x.blob.size < 20000){ failed[x.id] = 1; up = null; next(); status(); return; }
     api({ action:'start', id:x.id, name:x.name, size:x.blob.size, type:x.blob.type || 'video/mp4', dur:x.dur, hook:x.hook || '', at:x.at || Date.now(), meta:cmeta(x) }).then(function(j){
       if (!j || !j.ok || !j.put){ failed[x.id] = 1; if (j && j.full) toast(j.error); throw 0; }
       return new Promise(function(res, rej){
@@ -3460,6 +3477,7 @@ function ClipNowConnect(platform, set){
   }
 
   var busy = 0;          // uploads in progress (warn before leaving the page)
+  var refreshing = false;
   function autoDraft(){ try { return localStorage.getItem('cn_autodraft') !== '0'; } catch(e){ return true; } }
   var queueRunning = false;
   function pad2(n){ return String(n).padStart(2, '0'); }
@@ -3627,9 +3645,11 @@ function ClipNowConnect(platform, set){
     refresh: function(){
       if (!IS_STUDIO) return;   // the Auto-post panel only lives on the Studio page
       if (!(MEMBER && MEMBER.signedIn)) { info = null; render(); recent(); return; }
-      if (busy) return; busy = true;
-      get('social.php').then(function(j){ busy = false; info = j && j.ok ? j : { available:true, limit:0, accounts:null }; render(); recent(); }, function(){ busy = false; });
+      if (refreshing) return; refreshing = true;
+      get('social.php').then(function(j){ refreshing = false; info = j && j.ok ? j : { available:true, limit:0, accounts:null }; render(); recent(); }, function(){ refreshing = false; });
     },
+    /** True while a clip is uploading to post (clip sync waits so it doesn't slow posting down). */
+    uploading: function(){ return busy > 0 || queueRunning; },
     resumeOffer: resumeOffer,
     bulk: function(box, list){
       if (!ready()) return;
