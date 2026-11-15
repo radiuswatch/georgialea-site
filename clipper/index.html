@@ -530,6 +530,9 @@
   .st-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
   .st-filter button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:7px 12px;font:600 13px var(--sans);cursor:pointer;min-height:36px}
   .st-filter button.on{background:var(--green-deep);border-color:var(--green-dim);color:#BFE9CF}
+  .ex-pair{display:flex;gap:8px;flex-wrap:nowrap;flex-basis:100%;min-width:0}
+  .ex-pair .btn{flex:1 1 0;min-width:0;white-space:nowrap;justify-content:center;text-align:center;padding-left:10px;padding-right:10px;overflow:hidden;text-overflow:ellipsis}
+  @media (min-width:701px){.ex-pair{flex-basis:auto}.ex-pair .btn{flex:0 0 auto}}
   .st-w{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:16px}
   .st-w[hidden]{display:none}
   .st-w-box{background:var(--card);border:1px solid var(--line);border-radius:16px;width:min(420px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden}
@@ -2559,7 +2562,7 @@ function sentBox(list){
     var r = sentResult(x);
     var row = document.createElement('div'); row.className = 'export-item sent' + (r && r.failed ? ' failed' : '');
     row.innerHTML = '<div><div class="n"></div><span class="sent-st"></span></div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn btn-ghost btn-sm" type="button" data-s="watch">▶ Watch clip</button><button class="btn ' + (r && r.failed ? 'btn-green' : 'btn-ghost') + ' btn-sm" type="button" data-s="again">Post again</button><button class="btn btn-ghost btn-sm" type="button" data-s="rm">Remove</button></div>';
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><span class="ex-pair"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn btn-green btn-sm" type="button" data-s="watch">▶ Watch clip</button></span><button class="btn ' + (r && r.failed ? 'btn-green' : 'btn-ghost') + ' btn-sm" type="button" data-s="again">Post again</button><button class="btn btn-ghost btn-sm" type="button" data-s="rm">Remove</button></div>';
     $('.n', row).textContent = x.name;
     var w = new Date(x.sent.scheduled ? x.sent.scheduled * 1000 : x.sent.at);
     var when = (x.sent.scheduled ? 'Scheduled for ' + w.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) + ', ' : 'Sent ') + w.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
