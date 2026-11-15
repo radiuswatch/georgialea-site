@@ -4,6 +4,13 @@ Problems seen on clipnow.vip, what was found, and what's still open. Newest firs
 
 ## 2026-11-15 · Studio black below the videos (iPhone Safari only)
 
+**Update (same day): it came back right after the Stats/Campaigns update, so the fix went live**
+(commit `fb8c061` on the ClipNow branch), together with error reporting (`92dc2be`): browsers now
+send page errors to `~/clipnow-data/client-errors.jsonl`. If the Studio misbehaves again, read that
+file (signed_in, ua and msg show what broke on which phone). It went black twice, both times right
+after a deploy, which points at the phone loading a mix of the old and new page, or at code that
+only runs when signed in on iPhone.
+
 **What the owner saw:** on the iPhone, in Safari, clipnow.vip/studio showed the two how-to videos and then
 only black below them. It looked fine on the desktop. Later the same day it was "back up" (working again)
 without any change being deployed.
