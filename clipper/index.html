@@ -2573,7 +2573,7 @@ function sentBox(list){
       stEl.textContent = r.text + ' · ' + when + ' ';
       if (r.url){ var lk = document.createElement('a'); lk.href = r.url; lk.target = '_blank'; lk.rel = 'noopener'; lk.textContent = 'View ↗'; stEl.appendChild(lk); }
     } else stEl.textContent = '✓ ' + when + ' · ' + x.sent.names + (x.sent.rid && !x.sent.scheduled ? ' · checking…' : '');
-    var a = $('a', row); a.href = x.url; a.download = x.name;
+    var a = $('.ex-pair a[download]', row); a.href = x.url; a.download = x.name;   // not the "View ↗" link in the status line
     if (canSaveToPhotos(x)){ a.textContent = 'Save to Photos'; a.className = 'btn btn-green btn-sm'; a.removeAttribute('download'); a.href = '#'; a.addEventListener('click', function(e){ e.preventDefault(); saveClip(x); }); }
     $('[data-s="watch"]', row).addEventListener('click', function(){ watchClip(x); });
     $('[data-s="again"]', row).addEventListener('click', function(){
