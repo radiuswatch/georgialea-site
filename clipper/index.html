@@ -2495,6 +2495,22 @@ function removeClips(list){
   S.exports = S.exports.filter(function(x){ return !ids[x.id]; });
   renderExports();
 }
+/** Move a sent clip back into Your clips so it can be posted again. If it went through on some
+ *  platforms, it's set to post only to the others, so it isn't posted twice. */
+function moveBack(x, platform){
+  var res = (x.sent && x.sent.res) || [];
+  var miss = res.filter(function(q){ return !q.ok; }).map(function(q){ return q.platform; }), hit = res.filter(function(q){ return q.ok; }).length;
+  x.only = miss.length && hit ? miss : (!miss.length && platform ? [platform] : null);
+  x.sent = null; x.postKey = null; x.sel = true;
+  return x;
+}
+/** Several clips moved back at once: they're selected, so one tap on "Post N now" sends them all. */
+function movedBackNote(list){
+  renderExports(); goStage(3); Keep.sync();
+  var ex = document.getElementById('exports'); if (ex) setTimeout(function(){ ex.scrollIntoView({ behavior:'smooth', block:'start' }); }, 300);
+  if (list.length === 1) toast('“' + list[0].name + '” is back in Your clips' + (list[0].only ? ', set to post to ' + platList(list[0].only) + ' only' : '') + '. Tap Post now.');
+  else toast(list.length + ' clips are back in Your clips and selected. Tap Post ' + list.length + ' now to post them all again.');
+}
 function sentBox(list){
   var d = document.createElement('details'); d.className = 'ex-sent'; d.open = sentOpen;
   d.addEventListener('toggle', function(){ sentOpen = d.open; });
@@ -2505,6 +2521,14 @@ function sentBox(list){
     + '<div class="sent-acts"><button class="btn btn-ghost btn-sm" type="button" data-s="ok">Remove the ones that posted</button><button class="btn btn-ghost btn-sm" type="button" data-s="all">Remove all sent</button></div><div class="exports"></div>';
   $('.ct', d).textContent = list.length;
   if (nFailed){ var bc = $('.bad-ct', d); bc.hidden = false; bc.textContent = nFailed + ' didn’t post'; }
+  if (nFailed > 1){
+    var allBtn = document.createElement('button'); allBtn.type = 'button'; allBtn.className = 'btn btn-green btn-sm'; allBtn.textContent = '↻ Post all ' + nFailed + ' again';
+    $('.sent-acts', d).insertBefore(allBtn, $('.sent-acts', d).firstChild);
+    allBtn.addEventListener('click', function(){
+      var bad = list.filter(function(x){ var r = sentResult(x); return r && r.failed; });
+      movedBackNote(bad.map(function(x){ return moveBack(x); }));
+    });
+  }
   var okList = list.filter(function(x){ var r = sentResult(x); return r && r.ok; });
   var okBtn = $('[data-s="ok"]', d); okBtn.hidden = !okList.length;
   okBtn.addEventListener('click', function(){ if (confirm('Remove ' + okList.length + ' clip' + (okList.length === 1 ? '' : 's') + ' that posted from this device? They stay up on your accounts.')) removeClips(okList); });
@@ -2532,10 +2556,8 @@ function sentBox(list){
     $('[data-s="again"]', row).addEventListener('click', function(){
       if (!(r && r.failed) && !confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
       // Didn't go through on some platforms: post again only to those, so it isn't posted twice on the others.
-      var miss = (r && r.failed && x.sent.res) ? x.sent.res.filter(function(q){ return !q.ok; }).map(function(q){ return q.platform; }) : [];
-      var hit = (r && r.failed && x.sent.res) ? x.sent.res.filter(function(q){ return q.ok; }).length : 0;
-      x.only = miss.length && hit ? miss : null;
-      x.sent = null; x.postKey = null; renderExports();
+      if (r && r.failed) moveBack(x); else { x.only = null; x.sent = null; x.postKey = null; }
+      renderExports();
       toast(x.only ? 'Moved back to Your clips. It will post to ' + platList(x.only) + ' only.' : 'Moved back to Your clips');
     });
     $('[data-s="rm"]', row).addEventListener('click', function(){
@@ -4007,18 +4029,18 @@ if (IS_STUDIO) Keep.load().then(function(list){
  *  Returns false while the clip hasn't loaded yet; true when done or when there's nothing to do. */
 function againFromStats(){
   var a = null; try { a = JSON.parse(sessionStorage.getItem('cn_again')); } catch(e){}
-  if (!a || !a.rid) return true;
-  var x = S.exports.filter(function(x){ var t = x.sent || {}, ids = (t.rids && t.rids.length) ? t.rids : (t.rid ? [t.rid] : []); return ids.indexOf(a.rid) > -1; })[0];
-  if (!x) return false;
-  try { sessionStorage.removeItem('cn_again'); } catch(e){}
-  var r = sentResult(x), res = (x.sent && x.sent.res) || [];
-  var miss = res.filter(function(q){ return !q.ok; }).map(function(q){ return q.platform; }), hit = res.filter(function(q){ return q.ok; }).length;
-  x.only = miss.length && hit ? miss : (!miss.length && a.platform ? [a.platform] : null);
-  x.sent = null; x.postKey = null;
-  renderExports(); goStage(3); Keep.sync();
-  var ex = document.getElementById('exports'); if (ex) setTimeout(function(){ ex.scrollIntoView({ behavior:'smooth', block:'center' }); }, 300);
-  toast('“' + x.name + '” is back in Your clips' + (x.only ? ', set to post to ' + platList(x.only) + ' only' : '') + '. Tap Post now.');
-  return true;
+  var items = a ? (a.items || (a.rid ? [a] : [])) : [];
+  if (!items.length) return true;
+  var moved = [], left = [];
+  items.forEach(function(it){
+    var x = S.exports.filter(function(x){ var t = x.sent || {}, ids = (t.rids && t.rids.length) ? t.rids : (t.rid ? [t.rid] : []); return ids.indexOf(it.rid) > -1; })[0];
+    if (x) moved.push(moveBack(x, it.platform));
+    else if (!moved.some(function(m){ return m._rid === it.rid; })) left.push(it);
+    if (x) x._rid = it.rid;
+  });
+  try { if (left.length) sessionStorage.setItem('cn_again', JSON.stringify({ items:left })); else sessionStorage.removeItem('cn_again'); } catch(e){}
+  if (moved.length) movedBackNote(moved);
+  return !left.length;
 }
 
 /* ---------- Pricing ---------- */
@@ -4961,7 +4983,7 @@ window.Push = (function(){
     var bad = clips.filter(stDidntPost).length;
     return '<div class="st-bar"><label><input type="checkbox" class="x-sel" data-sel-all> Select all</label><span class="bulk-n" data-sel-n></span>' +
       (bad ? '<button class="btn btn-ghost btn-sm" type="button" data-bulk="bad">Select the ' + bad + ' that didn’t post</button>' : '') +
-      '<button class="btn btn-green btn-sm" type="button" data-bulk="save">' + SAVE_LABEL + '</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="acct-open">Set account</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
+      (bad ? '<button class="btn btn-green btn-sm" type="button" data-bulk="again">↻ Post again (' + bad + ')</button>' : '') + '<button class="btn btn-green btn-sm" type="button" data-bulk="save">' + SAVE_LABEL + '</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="acct-open">Set account</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
       '<div class="st-bcamp" data-bacct hidden><select data-ba>' + bulkAcctOptions() + '</select><input type="text" maxlength="60" placeholder="Account name, e.g. @mypage" data-bat hidden><button class="btn btn-green btn-sm" type="button" data-bulk="acct">Save</button></div>' +
       '<div class="st-bcamp" data-bcamp hidden><select data-bc>' + campOptions('') + '</select><input type="text" maxlength="80" placeholder="Campaign name" data-bcn hidden><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-bcr hidden><button class="btn btn-green btn-sm" type="button" data-bulk="camp">Save</button></div></div>';
   }
@@ -4994,6 +5016,19 @@ window.Push = (function(){
     var act = b.dataset.bulk, ids = Object.keys(stSel);
     if (act === 'bad'){ stSel = {}; visClips().filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
     if (act === 'camp-open'){ $('#stClips [data-bcamp]').hidden = false; return; }
+    if (act === 'again'){
+      // Ticked clips that didn't post, or every one that didn't post when none are ticked
+      var failed = (ids.length ? ids.map(clipById) : visClips()).filter(function(c){ return c && stDidntPost(c) && c.request_id; });
+      if (!failed.length) return toast('None of the selected clips need posting again.');
+      return localClips().then(function(map){
+        var have = failed.filter(function(c){ return map[c.request_id]; }), seen = {};
+        if (!have.length) return toast('These clips aren’t saved on this device, so they can’t be posted again from here. Open My stats on the phone or computer that made them.');
+        var items = []; have.forEach(function(c){ if (!seen[c.request_id]){ seen[c.request_id] = 1; items.push({ rid:c.request_id, platform:c.platform }); } });
+        try { sessionStorage.setItem('cn_again', JSON.stringify({ items:items })); } catch(err){}
+        if (have.length < failed.length) toast((failed.length - have.length) + ' of them aren’t on this device and were skipped.');
+        location.href = '/studio';
+      });
+    }
     if (act === 'acct-open'){ $('#stClips [data-bacct]').hidden = false; return; }
     if (act === 'save'){
       var pick = ids.length ? ids.map(clipById) : visClips();
@@ -5051,7 +5086,7 @@ window.Push = (function(){
       // The Studio posts it again from the copy kept on this device (or synced from your other devices).
       return localClips().then(function(map){
         if (!ca || !map[ca.request_id]) return toast('This clip isn’t saved on this device, so it can’t be posted again from here. Open My stats on the phone or computer that made it, or export it again in the Studio.');
-        try { sessionStorage.setItem('cn_again', JSON.stringify({ rid:ca.request_id, platform:ca.platform })); } catch(err){}
+        try { sessionStorage.setItem('cn_again', JSON.stringify({ items:[{ rid:ca.request_id, platform:ca.platform }] })); } catch(err){}
         location.href = '/studio';
       });
     }
