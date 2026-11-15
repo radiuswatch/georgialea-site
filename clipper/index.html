@@ -780,6 +780,20 @@
   @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:40px 0 24px}section{padding:56px 0}.stage{padding:16px}.wrap{padding:0 max(16px,env(safe-area-inset-left))}.nav{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}.plat-grid{grid-template-columns:1fr}}
 </style>
 <script>
+/* Report page errors to ClipNow (api/client-error.php) so problems on phones we can't test show up
+ * in ~/clipnow-data/client-errors.jsonl. At most 5 per page load; never shown to the visitor. */
+(function(){
+  var n = 0;
+  function send(kind, msg, src, line, col){
+    if (n++ >= 5 || !msg || !window.fetch) return;
+    try { fetch('/api/client-error.php', { method:'POST', keepalive:true, credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ kind:kind, msg:String(msg).slice(0, 300), src:String(src || '').slice(0, 200), line:line || 0, col:col || 0, page:location.pathname + location.hash }) }).catch(function(){}); } catch(e){}
+  }
+  window.addEventListener('error', function(e){ if (e && e.message) send('error', e.message, e.filename, e.lineno, e.colno); });
+  window.addEventListener('unhandledrejection', function(e){ var r = e && e.reason; send('promise', r && (r.stack || r.message) || String(r)); });
+})();
+</script>
+<script>
 /* Fade sections in as they scroll into view. Started here, before the page's other code, so an error
  * anywhere else can't leave the page blank: a section shows as soon as it's on screen or scrolled past. */
 (function(){

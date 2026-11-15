@@ -260,6 +260,10 @@ Links for the owner or clients must never show the tools behind them (no claude.
 Previews and mockups go on ClipNow's own site under `clipper/preview/` (noindex), e.g.
 `https://clipnow.vip/preview/app-options.html`, and are given as clickable links.
 
+Page errors from visitors' browsers (e.g. an iPhone where part of a page stays blank) are saved to
+`~/clipnow-data/client-errors.jsonl` by `api/client-error.php` (max 5 per page load, 30 per IP per
+15 min, stops adding at 2 MB, never deletes). Read it when a problem can't be reproduced.
+
 The Stats view-count job (`admin/views-cron.php`) runs from cPanel cron every 5 minutes (`*/5 * * * *`).
 
 ## 13. Push notifications (live)
