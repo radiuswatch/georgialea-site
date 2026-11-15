@@ -183,8 +183,9 @@
   .cp-budget span{font-size:12.5px;color:var(--muted)}
   .cp-banner{aspect-ratio:16/7;max-height:300px;width:100%;border-radius:14px;overflow:hidden;margin-bottom:14px;background:var(--card)}
   .cp-banner img{width:100%;height:100%;object-fit:cover;display:block}
-  .cp-banner.vid{--r:.5625;width:min(100%, calc(min(70vh, 560px) * var(--r)));aspect-ratio:var(--r);max-height:none;margin:0 auto 14px;background:#000}
-  .cp-banner.vid video{width:100%;height:100%;max-height:none;object-fit:contain;border:0;border-radius:0;background:#000}
+  .cp-banner.vid{position:relative;aspect-ratio:auto;width:100%;height:min(70vh,560px);max-height:none;background:#000}
+  .cp-banner.vid.wide{height:auto;aspect-ratio:var(--r);max-height:min(70vh,560px)}
+  .cp-banner.vid video{width:100%;height:100%;max-height:none;object-fit:cover;border:0;border-radius:0;background:#000}
   .cp-lbl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--green);font-weight:600;letter-spacing:.01em}
   .cp-lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
   .cp-lbl.off{color:var(--faint)} .cp-lbl.warn{color:var(--warn)} .cp-lbl.me{color:#7DB4F0}
@@ -4234,16 +4235,19 @@ window.Push = (function(){
       : c.image ? '<img loading="lazy" alt="" src="' + esc(c.image) + '">' : '<b>' + esc((c.creator || c.title || '?').trim().charAt(0).toUpperCase()) + '</b>';
     return '<div class="cp-cover">' + inner + '<span class="cp-ratebadge">' + money(c.rate_cents) + ' / 1K views</span></div>';
   }
-  // The campaign page's video box takes the clip's own shape once the phone knows it.
+  // The campaign page's big video box: the clip fills it edge to edge (a tall clip shows its middle).
+  // A wide clip gets a box of its own shape, so nothing is cut off.
   document.addEventListener('loadedmetadata', function(e){
     var v = e.target; if (!v || v.tagName !== 'VIDEO' || !v.videoWidth || !v.videoHeight) return;
-    var box = v.closest('.cp-banner.vid'); if (box) box.style.setProperty('--r', (v.videoWidth / v.videoHeight).toFixed(4));
+    var box = v.closest('.cp-banner.vid'); if (!box) return;
+    var r = v.videoWidth / v.videoHeight;
+    box.style.setProperty('--r', r.toFixed(4)); box.classList.toggle('wide', r >= 1.2);
   }, true);
   // A campaign clip that can't play here: show its photo instead (or the creator's letter), never a black box.
   document.addEventListener('error', function(e){
     var v = e.target; if (!v || v.tagName !== 'VIDEO' || !v.hasAttribute('data-fallback') || !v.closest('.cp-cover, .cp-banner')) return;
     var img = v.getAttribute('data-fallback'), box = v.parentNode;
-    if (img){ var i = document.createElement('img'); i.alt = ''; i.src = img; box.replaceChild(i, v); box.classList.remove('vid'); box.style.removeProperty('--r'); }
+    if (img){ var i = document.createElement('img'); i.alt = ''; i.src = img; box.replaceChild(i, v); box.classList.remove('vid', 'wide'); box.style.removeProperty('--r'); }
     else if (box.classList.contains('cp-cover')){ var b = document.createElement('b'); b.textContent = v.getAttribute('data-letter') || '?'; box.replaceChild(b, v); }
     else box.parentNode.removeChild(box);
   }, true);
