@@ -180,7 +180,9 @@ Every ClipNow explainer video uses the same narrator so they sound like one bran
   end card with the CN mark.
 - **Current videos:** `clipper/explainer.mp4` (how ClipNow works, 16:9, 67 s) and
   `clipper/schedule-explainer.mp4` (how to schedule a post, 9:16, 52 s, including batch scheduling) and
-  `clipper/campaign-explainer.mp4` (how to create a campaign, 9:16, 67 s; step 2 shows adding a photo or short clip).
+  `clipper/campaign-explainer.mp4` (how to create a campaign, 9:16, 67 s; step 2 shows adding a photo or short clip) and
+  `clipper/campaign-post-explainer.mp4` (how to post for a campaign, 9:16, 33 s: Clip it in the Studio →
+  Post now → submitted for you; or paste a link). Both sit at the top of the Campaigns page.
 
 ## 10. Campaigns (live)
 
