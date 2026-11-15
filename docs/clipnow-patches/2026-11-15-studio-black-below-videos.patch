@@ -1,0 +1,101 @@
+From 9dad244fe96596f40f55884a2aade315bcbe6b94 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 15 Nov 2026 01:00:54 +0000
+Subject: [PATCH] Studio and coming-soon: sections below the videos can no
+ longer stay blank on iPhone
+
+The fade-in on scroll now starts in <head>, before the rest of the page's code,
+and shows any section that is on screen or scrolled past, so an error elsewhere
+(or the observer not firing in Safari) can't leave the page black.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01T8wGBumGaHEt1w2Ey4pfNs
+---
+ clipper/coming-soon.html | 22 ++++++++++++++++------
+ clipper/index.html       | 23 +++++++++++++++++------
+ 2 files changed, 33 insertions(+), 12 deletions(-)
+
+diff --git a/clipper/coming-soon.html b/clipper/coming-soon.html
+index 62ee813..60cdb17 100644
+--- a/clipper/coming-soon.html
++++ b/clipper/coming-soon.html
+@@ -162,6 +162,22 @@
+   }
+   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.cap span{opacity:1;transform:none}.reveal{opacity:1;transform:none}}
+ </style>
++<script>
++/* Fade sections in as they scroll into view. Started here, before the page's other code, so an error
++ * anywhere else can't leave the page blank: a section shows as soon as it's on screen or scrolled past. */
++(function(){
++  var els = null;
++  function check(){
++    if (!els) els = [].slice.call(document.querySelectorAll('.reveal:not(.in)'));
++    var h = window.innerHeight || document.documentElement.clientHeight || 800;
++    els = els.filter(function(e){ if (e.getBoundingClientRect().top < h){ e.classList.add('in'); return false; } return true; });
++  }
++  function start(){ check(); setTimeout(check, 300); setTimeout(check, 1500); }
++  ['scroll', 'resize', 'orientationchange', 'touchend', 'click'].forEach(function(ev){ window.addEventListener(ev, function(){ setTimeout(check, 30); }, { passive:true }); });
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
++  window.addEventListener('load', check);
++})();
++</script>
+ </head>
+ <body>
+ <div class="glow" aria-hidden="true"></div>
+@@ -369,12 +385,6 @@
+     tick(); setInterval(tick, 1000);
+   }
+ 
+-  // Fade sections in as they scroll into view.
+-  var els = document.querySelectorAll('.reveal');
+-  if ('IntersectionObserver' in window){
+-    var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: .12 });
+-    els.forEach(function(el){ io.observe(el); });
+-  } else els.forEach(function(el){ el.classList.add('in'); });
+ 
+   // Kickstarter button: shown only when the link is set in the admin portal.
+   (function ks(retry){
+diff --git a/clipper/index.html b/clipper/index.html
+index 7abce53..298aeaa 100644
+--- a/clipper/index.html
++++ b/clipper/index.html
+@@ -768,6 +768,22 @@
+   @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}.skeleton .vid-thumb,.skeleton .sk{animation:none}}
+   @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:40px 0 24px}section{padding:56px 0}.stage{padding:16px}.wrap{padding:0 max(16px,env(safe-area-inset-left))}.nav{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}.plat-grid{grid-template-columns:1fr}}
+ </style>
++<script>
++/* Fade sections in as they scroll into view. Started here, before the page's other code, so an error
++ * anywhere else can't leave the page blank: a section shows as soon as it's on screen or scrolled past. */
++(function(){
++  var els = null;
++  function check(){
++    if (!els) els = [].slice.call(document.querySelectorAll('.reveal:not(.in)'));
++    var h = window.innerHeight || document.documentElement.clientHeight || 800;
++    els = els.filter(function(e){ if (e.getBoundingClientRect().top < h){ e.classList.add('in'); return false; } return true; });
++  }
++  function start(){ check(); setTimeout(check, 300); setTimeout(check, 1500); }
++  ['scroll', 'resize', 'orientationchange', 'touchend', 'click'].forEach(function(ev){ window.addEventListener(ev, function(){ setTimeout(check, 30); }, { passive:true }); });
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
++  window.addEventListener('load', check);
++})();
++</script>
+ </head>
+ <body>
+ 
+@@ -4065,12 +4081,7 @@ $$('[data-plan]').forEach(function(a){
+   if (location.hash === '#install') setTimeout(install, 0);
+ })();
+ 
+-/* ---------- Reveal ---------- */
+-var els = $$('.reveal');
+-if ('IntersectionObserver' in window){
+-  var io = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold:.08 });
+-  els.forEach(function(el){ io.observe(el); });
+-} else els.forEach(function(el){ el.classList.add('in'); });
++/* (Reveal on scroll: started in <head>, see "Fade sections in".) */
+ 
+ /* ---------- Push notifications (Account → Notifications) ----------
+  * Works in Chrome, Edge, Firefox and Android browsers, and on iPhone/iPad (iOS 16.4+) once
+-- 
+2.43.0
+
