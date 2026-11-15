@@ -239,6 +239,13 @@ Platinum by `api/trending.php`. Silver/visitors see a blurred, locked preview.
   pay per 1,000). Potential = views × rate, capped at the campaign budget; ClipNow campaigns also
   show approved / paid / owed. Data in `~/clipnow-data/stats/<customer>.json`.
 - Later: let a campaign submission pull its views from Stats instead of typing them.
+- **By account** (where the views come from): each account on its own, with its share of all views.
+  Auto-posted clips know their account set (`set` from the post log); names come from
+  `~/clipnow-data/stats/<data id>.accounts.json`, saved whenever ClipNow reads the connected accounts
+  (Studio, posting, or a Stats refresh at most every 6 h). Clips added by link: the @handle in TikTok /
+  X links, else the member taps **Set account** (one clip or several), picking a connected account
+  (its views are then read from that account) or typing a name. Code: `cn_stats_account` in
+  `admin/lib.php`, `action=account` in `api/stats.php`.
 
 ## Deploying (owner's PC)
 

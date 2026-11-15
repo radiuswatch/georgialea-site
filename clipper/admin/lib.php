@@ -476,7 +476,47 @@ function cn_up_sets(array $member): array {
     if ($i > 1 && !$prof) continue;
     $out[$i] = cn_up_accounts($prof);
   }
+  cn_acct_names_save($member, $out);
   return $out;
+}
+
+/* ---------- Account names for Stats ("By account") ----------
+ * Every time ClipNow reads a member's connected accounts, the names are saved here
+ * (stats/<data id>.accounts.json: {at, sets: {set: {platform: name}}}) so Stats can say which
+ * account each clip's views came from without asking Upload-Post on every page load. */
+function cn_acct_names_file(array $m): string { return cn_dir('stats') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($m)) . '.accounts.json'; }
+function cn_acct_names_save(array $m, array $sets): void {
+  if (cn_data_id($m) === '') return;
+  $names = [];
+  foreach ($sets as $i => $accts) foreach ($accts as $p => $a) if (!empty($a['connected'])) $names[(int)$i][$p] = (string)$a['name'];
+  @file_put_contents(cn_acct_names_file($m), json_encode(['at' => time(), 'sets' => $names], JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+function cn_acct_names(array $m): array { return cn_json_file(cn_acct_names_file($m), ['at' => 0, 'sets' => []]) + ['at' => 0, 'sets' => []]; }
+
+/** The @handle in a post link, when the link has one (TikTok and some YouTube links do). */
+function cn_stats_handle_from_url(string $url): string {
+  if (preg_match('~tiktok\.com/@([A-Za-z0-9_.]{2,30})~i', $url, $mm)) return '@' . $mm[1];
+  if (preg_match('~youtube\.com/@([A-Za-z0-9_.\-]{3,40})~i', $url, $mm)) return '@' . $mm[1];
+  if (preg_match('~(?:^|//|\.)(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/status/~i', $url, $mm)) return '@' . $mm[1];
+  return '';
+}
+
+/**
+ * Which account a clip is on: [key, label, known]. In order: the account the member picked for the
+ * clip, the connected account ClipNow posted it to, the @handle in its link. Unknown = 'Account not set'.
+ */
+function cn_stats_account(array $c, array $names, int $sets): array {
+  $p = (string)($c['platform'] ?: 'other');
+  $label = trim((string)($c['account'] ?? ''));
+  if ($label === '' && ($c['source'] ?? '') === 'autopost') {
+    $set = max(1, (int)($c['set'] ?? 1));
+    $label = trim((string)($names[$set][$p] ?? ''));
+    if ($label === '') $label = cn_stats_handle_from_url((string)($c['url'] ?? ''));
+    if ($label === '') $label = $sets > 1 ? 'Account set ' . $set : 'Your connected account';
+  }
+  if ($label === '') $label = cn_stats_handle_from_url((string)($c['url'] ?? ''));
+  if ($label === '') return [$p . '|?', 'Account not set', false];
+  return [$p . '|' . mb_strtolower(ltrim($label, '@')), $label, true];
 }
 
 /** How many platforms a plan may post to at once (0 = auto-posting not included). */
@@ -1258,12 +1298,17 @@ function cn_up_analytics_slot(): bool {
 
 /** Add clips ClipNow posted for this member that aren't tracked yet. */
 function cn_stats_import(array $m, array &$s): void {
-  foreach (cn_post_history($m, 200) as $p) {
+  $hist = cn_post_history($m, 200);
+  // Clips imported before ClipNow kept the account set: fill it in from the post log.
+  $setOf = []; foreach ($hist as $p) if (!empty($p['request_id'])) $setOf[(string)$p['request_id']] = max(1, (int)($p['set'] ?? 1));
+  foreach ($s['clips'] as &$o) if (($o['source'] ?? '') === 'autopost' && !isset($o['set']) && isset($setOf[$o['request_id'] ?? ''])) $o['set'] = $setOf[$o['request_id']];
+  unset($o);
+  foreach ($hist as $p) {
     $rid = (string)($p['request_id'] ?? '');
     if ($rid === '' || isset($s['imported'][$rid])) continue;
     $s['imported'][$rid] = time();
     foreach ((array)($p['platforms'] ?? []) as $pf) {
-      $s['clips'][] = ['id' => 'k' . bin2hex(random_bytes(6)), 'source' => 'autopost', 'request_id' => $rid, 'platform' => (string)$pf,
+      $s['clips'][] = ['id' => 'k' . bin2hex(random_bytes(6)), 'source' => 'autopost', 'request_id' => $rid, 'platform' => (string)$pf, 'set' => max(1, (int)($p['set'] ?? 1)),
         'url' => '', 'post_id' => '', 'title' => (string)($p['title'] ?? ''), 'views' => 0, 'likes' => null, 'comments' => null,
         'auto' => true, 'checked' => 0, 'error' => '', 'history' => [], 'campaign' => null,
         'posted' => (int)(($p['scheduled'] ?? 0) ?: ($p['at'] ?? time())), 'created' => time()];
@@ -1332,7 +1377,7 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
         }
         unset($o);
       } else {
-        $r = cn_up('GET', '/uploadposts/post-analytics', ['platform_post_id' => $c['post_id'], 'platform' => $c['platform'], 'user' => cn_up_username($m)]);
+        $r = cn_up('GET', '/uploadposts/post-analytics', ['platform_post_id' => $c['post_id'], 'platform' => $c['platform'], 'user' => cn_up_username($m, max(1, (int)($c['set'] ?? 1)))]);
         $pd = $r['platforms'][$c['platform']] ?? null;
         $pm = is_array($pd) ? ($pd['post_metrics'] ?? null) : null;
         $s['clips'][$i]['checked'] = $now;

@@ -183,6 +183,12 @@
   .cp-budget span{font-size:12.5px;color:var(--muted)}
   .cp-banner{aspect-ratio:16/7;max-height:300px;width:100%;border-radius:14px;overflow:hidden;margin-bottom:14px;background:var(--card)}
   .cp-banner img{width:100%;height:100%;object-fit:cover;display:block}
+  .cp-banner.vid{aspect-ratio:auto;max-height:none;background:#000;display:flex;justify-content:center}
+  .cp-banner.vid video{width:auto;max-width:100%;max-height:min(70vh,560px);border-radius:0;border:0}
+  .cp-lbl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--green);font-weight:600;letter-spacing:.01em}
+  .cp-lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .cp-lbl.off{color:var(--faint)} .cp-lbl.warn{color:var(--warn)} .cp-lbl.me{color:#7DB4F0}
+  .cp-view{margin-top:2px;font-size:14px;font-weight:600;color:var(--green)}
   .cf-cover{display:grid;place-items:center;aspect-ratio:16/9;max-width:420px;border:1.5px dashed var(--green-dim);border-radius:12px;cursor:pointer;overflow:hidden;background:var(--bg);text-align:center;color:var(--muted);font-size:14.5px}
   .cf-cover img{width:100%;height:100%;object-fit:cover}
   .cf-cover small{color:var(--faint);font-size:12.5px}
@@ -509,6 +515,11 @@
   .st-plat .nums b{font-size:17px} .st-plat .nums span{font-size:12px;color:var(--muted)}
   .st-plat .money{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid var(--line);padding-top:10px}
   .st-plat .money b{font-size:19px;color:var(--green)} .st-plat .money .could b{color:var(--gold)}
+  .st-acct h4{flex-wrap:wrap} .st-acct h4 .st-an{min-width:0;overflow-wrap:anywhere}
+  .st-acct.unknown{border-style:dashed}
+  .st-acct .st-bar-v{height:6px;border-radius:99px;background:var(--line);overflow:hidden} .st-acct .st-bar-v i{display:block;height:100%;background:var(--green);border-radius:99px}
+  .st-share{font-size:12.5px;color:var(--muted)}
+  .st-filter .st-afil{display:inline-flex;align-items:center;gap:8px}
   .st-plat .money span{display:block;font-size:12px;color:var(--muted)}
   .st-plat button.cp-link{align-self:flex-start}
   .st-rate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin:0 0 10px}
@@ -1125,6 +1136,10 @@
       <div class="st-rate" id="stRate"></div>
       <div id="stPlats" class="st-plats"></div>
       <p class="cp-fine">“From campaigns” = views on clips you tagged with a campaign × that campaign’s pay per 1,000 views (capped at its budget). “Could earn” = views on clips not in any campaign × the rate above, to show what those views would be worth in a campaign. Both are estimates: campaigns decide which views count, and earnings vary and aren’t guaranteed.</p>
+
+      <h3 class="st-h">By account</h3>
+      <p class="note" style="margin-top:-4px">Where your views come from: each of your accounts on its own. Clips posted with ClipNow know their account. For clips you added by link, tap <b>Set account</b> on the clip (TikTok and X links fill it in by themselves).</p>
+      <div id="stAccts" class="st-plats"></div>
 
       <h3 class="st-h">Potential earnings by campaign</h3>
       <div id="stCamps" class="st-camps"></div>
@@ -4185,14 +4200,23 @@ window.Push = (function(){
   function postForm(fd){ return req('api/campaigns.php', { method:'POST', body:fd }); }
 
   function statusTag(c){
-    var t = { open:['Open',''], closed:['Closed','off'], ended:['Ended','off'], full:['Budget used','warn'], hidden:['Hidden by ClipNow','warn'] }[c.status] || [c.status, 'off'];
-    return '<span class="cp-st ' + t[1] + '">' + esc(t[0]) + '</span>' + (c.mine ? ' <span class="cp-st me">Yours</span>' : c.joined ? ' <span class="cp-st me">Joined</span>' : '');
+    // Labels, not buttons: what state the campaign is in, and whether it's yours or you joined it.
+    var t = { open:['Open to clippers',''], closed:['Closed','off'], ended:['Ended','off'], full:['Budget used','warn'], hidden:['Hidden by ClipNow','warn'] }[c.status] || [c.status, 'off'];
+    return '<span class="cp-lbl ' + t[1] + '">' + esc(t[0]) + '</span>' + (c.mine ? ' <span class="cp-lbl me">Your campaign</span>' : c.joined ? ' <span class="cp-lbl me">You joined</span>' : '');
   }
   function cover(c){
-    var inner = c.clip ? '<video muted loop autoplay playsinline preload="metadata"' + (c.image ? ' poster="' + esc(c.image) + '"' : '') + ' src="' + esc(c.clip) + '" aria-label="Campaign clip"></video>'
+    var inner = c.clip ? '<video muted loop autoplay playsinline preload="metadata"' + (c.image ? ' poster="' + esc(c.image) + '"' : '') + ' src="' + esc(c.clip) + '#t=0.1" data-fallback="' + esc(c.image || '') + '" data-letter="' + esc((c.creator || c.title || '?').trim().charAt(0).toUpperCase()) + '" aria-label="Campaign clip"></video>'
       : c.image ? '<img loading="lazy" alt="" src="' + esc(c.image) + '">' : '<b>' + esc((c.creator || c.title || '?').trim().charAt(0).toUpperCase()) + '</b>';
     return '<div class="cp-cover">' + inner + '<span class="cp-ratebadge">' + money(c.rate_cents) + ' / 1K views</span></div>';
   }
+  // A campaign clip that can't play here: show its photo instead (or the creator's letter), never a black box.
+  document.addEventListener('error', function(e){
+    var v = e.target; if (!v || v.tagName !== 'VIDEO' || !v.hasAttribute('data-fallback') || !v.closest('.cp-cover, .cp-banner')) return;
+    var img = v.getAttribute('data-fallback'), box = v.parentNode;
+    if (img){ var i = document.createElement('img'); i.alt = ''; i.src = img; box.replaceChild(i, v); box.classList.remove('vid'); }
+    else if (box.classList.contains('cp-cover')){ var b = document.createElement('b'); b.textContent = v.getAttribute('data-letter') || '?'; box.replaceChild(b, v); }
+    else box.parentNode.removeChild(box);
+  }, true);
   function budgetBar(c){
     if (!c.budget_cents) return '<div class="cp-budget"><span>No budget cap</span></div>';
     var used = Math.max(0, Math.min(100, Math.round((c.budget_cents - c.budget_left_cents) / c.budget_cents * 100)));
@@ -4276,7 +4300,11 @@ window.Push = (function(){
     renderList();
   }
   window.addEventListener('hashchange', function(){ if (IS_CAMPAIGNS && loaded) route(); });
-  function go(h){ if (location.hash === h) route(); else location.hash = h; window.scrollTo({ top:0, behavior:'smooth' }); }
+  function go(h){
+    if (location.hash === h) route(); else location.hash = h;
+    var t = ($('#cpApp') || sec).getBoundingClientRect().top + window.pageYOffset - 80;   // the campaign opens here
+    window.scrollTo({ top:Math.max(0, t), behavior:'smooth' });
+  }
   sec.addEventListener('click', function(e){ if (e.target.closest('[data-back]')){ e.preventDefault(); go(''); try { history.replaceState(null, '', location.pathname); } catch(err){} route(); } });
 
   /* ----- List ----- */
@@ -4293,7 +4321,7 @@ window.Push = (function(){
         '<h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · ' + num(c.clippers) + ' clipper' + (c.clippers === 1 ? '' : 's') + '</div>' +
         budgetBar(c) +
         (c.about ? '<p class="cp-about">' + esc(c.about) + '</p>' : '') +
-        '<div class="cp-meta">' + platTags(c.platforms) + (c.ends ? '<span class="cp-tag">Ends ' + esc(day(c.ends)) + '</span>' : '') + '</div></div></button>';
+        '<div class="cp-meta">' + platTags(c.platforms) + (c.ends ? '<span class="cp-tag">Ends ' + esc(day(c.ends)) + '</span>' : '') + '</div><span class="cp-view">View campaign →</span></div></button>';
     }).join('');
   }
   $('#cpTabs').addEventListener('click', function(e){
@@ -4322,7 +4350,7 @@ window.Push = (function(){
   function renderCamp(){
     var c = CUR, box = $('#cpDetail'), h = '';
     h += '<button type="button" class="cp-back" data-back>← All campaigns</button>';
-    if (c.clip) h += '<div class="cp-banner"><video controls playsinline preload="metadata"' + (c.image ? ' poster="' + esc(c.image) + '"' : '') + ' src="' + esc(c.clip) + '" aria-label="About this campaign"></video></div>';
+    if (c.clip) h += '<div class="cp-banner vid"><video controls playsinline preload="metadata"' + (c.image ? ' poster="' + esc(c.image) + '"' : '') + ' src="' + esc(c.clip) + '#t=0.1" data-fallback="' + esc(c.image || '') + '" aria-label="About this campaign"></video></div>';
     else if (c.image) h += '<div class="cp-banner"><img alt="" src="' + esc(c.image) + '"></div>';
     h += '<div class="cp-head"><div class="cp-meta">' + statusTag(c) + '</div><h3>' + esc(c.title) + '</h3><div class="cp-by">by ' + esc(c.creator) + ' · started ' + esc(day(c.created)) + (c.ends ? ' · ends ' + esc(day(c.ends)) : '') + '</div>' +
       '<div class="cp-rate">' + money(c.rate_cents) + ' per 1,000 views' + (c.budget_cents ? ' · ' + money(c.budget_left_cents) + ' of ' + money(c.budget_cents) + ' budget left' : ' · no budget cap') + '</div>' +
@@ -4685,7 +4713,8 @@ window.Push = (function(){
           '<a class="cp-link" style="text-decoration:none;color:var(--green)" href="/campaigns#c=' + esc(g.id) + '">Report views to this campaign →</a>' : '') + '</div>';
     }).join('') : '<p class="cp-empty">No campaigns yet. Tag a clip with a campaign below to see what it could pay.</p>';
     $('#saCamp').innerHTML = campOptions('');
-    renderPlats(j);
+    if (stAcct && !(j.accounts || []).some(function(a){ return a.key === stAcct; })) stAcct = '';
+    renderPlats(j); renderAccts(j);
     var vis = visClips();
     var ids = {}; vis.forEach(function(c){ ids[c.id] = 1; });
     Object.keys(stSel).forEach(function(id){ if (!ids[id]) delete stSel[id]; });
@@ -4696,11 +4725,12 @@ window.Push = (function(){
       else if (c.auto) line = '<span class="st-line">Updated automatically ' + (c.checked ? ago(c.checked) : '') + (c.likes != null ? ' · ' + num(c.likes) + ' likes' : '') + (c.comments != null ? ' · ' + num(c.comments) + ' comments' : '') + (c.shares != null ? ' · ' + num(c.shares) + ' shares' : '') + (c.saves != null ? ' · ' + num(c.saves) + ' saves' : '') + (c.reach != null ? ' · reached ' + num(c.reach) : '') + '</span>';
       else line = '<span class="st-line">Views typed in by you</span>';
       var title = c.title || (c.url ? c.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60) : 'Clip');
-      return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
+      return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.account_known ? '<span class="cp-tag" title="The account this clip is on">' + esc(c.account) + '</span>' : '') + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
         '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div></div>' +
         '<div class="st-views"><b>' + num(c.views) + '</b><span>' + (c.week ? '+' + num(c.week) + ' this week' : 'views') + '</span></div></div>' + line +
-        '<div class="cp-acts"><button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button><button class="cp-link st-watch-btn" type="button" data-act="save" hidden>' + SAVE_LABEL + '</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
+        '<div class="cp-acts"><button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button><button class="cp-link st-watch-btn" type="button" data-act="save" hidden>' + SAVE_LABEL + '</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="acct-open">' + (c.account_known ? 'Change account' : 'Set account') + '</button><button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
         '<div class="st-edit" data-edit="views" hidden><div class="cp-acts"><input type="text" inputmode="numeric" placeholder="Views now" data-v><button class="btn btn-green btn-sm" type="button" data-act="views">Save</button></div></div>' +
+        '<div class="st-edit" data-edit="acct" hidden><div class="field"><select data-a>' + acctOptions(c.platform || 'other', c.account_picked || c.account_known ? c.account : '') + '</select></div><div class="field" data-anew hidden><input type="text" maxlength="60" placeholder="Account name, e.g. @mypage" data-at></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="acct">Save</button></div></div>' +
         '<div class="st-edit" data-edit="camp" hidden><div class="field"><select data-c>' + campOptions(tagKey(c.campaign)) + '</select></div><div class="cp-2" data-other hidden><div class="field"><input type="text" maxlength="80" placeholder="Campaign name" data-cn></div><div class="field"><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-cr></div></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="camp">Save</button></div></div>' +
         '<p class="cp-msg"></p></div>';
     }).join('') : '<p class="cp-empty">No clips yet. Clips you post with ClipNow’s Post now or Schedule show up here by themselves, or tap <b>Add a clip by link</b>.</p>';
@@ -4725,7 +4755,7 @@ window.Push = (function(){
       })).then(function(a){ return a.filter(Boolean); });
     });
   }
-  var stSel = {}, stPlat = '';
+  var stSel = {}, stPlat = '', stAcct = '';
   /* ---- Watch a clip: the copy saved on this device, else the platform's own player, else the post's page ---- */
   var stLocal = null, wBox = null, wUrl = '';
   function localClips(){
@@ -4789,7 +4819,24 @@ window.Push = (function(){
       body.innerHTML = '<p class="note">This clip isn’t saved on this device and its post link isn’t known yet. Once the platform reports it, Watch will play it here. Posts usually appear within a few minutes.</p>';
     });
   }
-  function visClips(){ return D ? D.clips.filter(function(c){ return !stPlat || (c.platform || 'other') === stPlat; }) : []; }
+  function visClips(){ return D ? D.clips.filter(function(c){ return (!stPlat || (c.platform || 'other') === stPlat) && (!stAcct || c.account_key === stAcct); }) : []; }
+  function acctOptions(platform, cur){
+    var list = (D.account_choices && D.account_choices[platform]) || [], o = '<option value="">' + (cur ? 'Work it out for me' : 'Pick an account') + '</option>';
+    list.forEach(function(a){ o += '<option value="' + esc(a.value) + '"' + (cur && a.name.toLowerCase() === cur.toLowerCase() ? ' selected' : '') + '>' + esc(a.name) + (a.value.charAt(0) === 's' ? ' (connected)' : '') + '</option>'; });
+    return o + '<option value="new">Another account…</option>';
+  }
+  function renderAccts(j){
+    var list = j.accounts || [], top = list.reduce(function(m, a){ return Math.max(m, a.views); }, 0), all = list.reduce(function(m, a){ return m + a.views; }, 0);
+    $('#stAccts').innerHTML = list.length ? list.map(function(a){
+      var pct = all ? Math.round(a.views / all * 100) : 0;
+      return '<div class="st-plat st-acct' + (a.known ? '' : ' unknown') + '"><h4><span class="st-an">' + esc(a.name) + '</span><small>' + esc(PL[a.platform] || a.platform) + ' · ' + a.clips + ' clip' + (a.clips === 1 ? '' : 's') + '</small></h4>' +
+        '<div class="st-bar-v" aria-hidden="true"><i style="width:' + (top ? Math.max(2, Math.round(a.views / top * 100)) : 0) + '%"></i></div>' +
+        '<span class="st-share">' + pct + '% of your views' + (a.known ? '' : ' · tap Set account on these clips to sort them') + '</span>' +
+        '<div class="nums"><div><b>' + num(a.views) + '</b><span>Views</span></div><div><b>' + num(a.week) + '</b><span>Last 7 days</span></div><div><b>' + num(a.likes) + '</b><span>Likes</span></div><div><b>' + num(a.comments) + '</b><span>Comments</span></div></div>' +
+        '<div class="money"><div><b>' + money(a.campaign_cents) + '</b><span>From campaigns</span></div><div class="could"><b>' + money(a.could_cents) + '</b><span>Could earn from ' + num(a.untagged_views) + ' views not in a campaign</span></div></div>' +
+        '<button class="cp-link" type="button" data-ac="' + esc(a.key) + '">See these clips ↓</button></div>';
+    }).join('') : '<p class="cp-empty">Post clips or add them by link to see each account here.</p>';
+  }
   function renderPlats(j){
     var plats = j.platforms || [];
     var r = $('#stRate');
@@ -4806,11 +4853,15 @@ window.Push = (function(){
         '<button class="cp-link" type="button" data-pf="' + esc(q.platform) + '">See ' + esc(PL[q.platform] || q.platform) + ' clips ↓</button></div>';
     }).join('') : '<p class="cp-empty">Post clips or add them by link to see each platform here.</p>';
     var f = $('#stFilter');
+    var acc = stAcct && (j.accounts || []).filter(function(a){ return a.key === stAcct; })[0];
+    if (acc){ f.innerHTML = '<span class="st-afil">Showing <b>' + esc(acc.name) + '</b> (' + esc(PL[acc.platform] || acc.platform) + ')<button type="button" data-ac="">Show all clips</button></span>'; return; }
     f.innerHTML = plats.length > 1 ? '<button type="button" data-pf=""' + (stPlat ? '' : ' class="on"') + '>All</button>' + plats.map(function(q){ return '<button type="button" data-pf="' + esc(q.platform) + '"' + (stPlat === q.platform ? ' class="on"' : '') + '>' + esc(PL[q.platform] || q.platform) + ' (' + q.clips + ')</button>'; }).join('') : '';
   }
   sec.addEventListener('click', function(e){
     var pf = e.target.closest('[data-pf]');
-    if (pf){ stPlat = pf.dataset.pf; stSel = {}; show(D); if (pf.closest('.st-plat')) $('#stFilter').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    var ac = e.target.closest('[data-ac]');
+    if (ac){ stAcct = ac.dataset.ac; stPlat = ''; stSel = {}; show(D); if (stAcct) $('#stFilter').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    if (pf){ stPlat = pf.dataset.pf; stAcct = ''; stSel = {}; show(D); if (pf.closest('.st-plat')) $('#stFilter').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     if (e.target.closest('[data-er-save]')){
       var v = $('#stRate [data-er]').value;
       post({ action:'est_rate', rate:v }).then(function(j){ if (!j.ok) return toast(j.error || 'Couldn’t save the rate.'); show(j); toast('Estimate updated'); });
@@ -4822,14 +4873,20 @@ window.Push = (function(){
     var bad = clips.filter(stDidntPost).length;
     return '<div class="st-bar"><label><input type="checkbox" class="x-sel" data-sel-all> Select all</label><span class="bulk-n" data-sel-n></span>' +
       (bad ? '<button class="btn btn-ghost btn-sm" type="button" data-bulk="bad">Select the ' + bad + ' that didn’t post</button>' : '') +
-      '<button class="btn btn-green btn-sm" type="button" data-bulk="save">' + SAVE_LABEL + '</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
+      '<button class="btn btn-green btn-sm" type="button" data-bulk="save">' + SAVE_LABEL + '</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="acct-open">Set account</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="camp-open">Add to a campaign</button><button class="btn btn-ghost btn-sm" type="button" data-bulk="remove">Remove</button>' +
+      '<div class="st-bcamp" data-bacct hidden><select data-ba>' + bulkAcctOptions() + '</select><input type="text" maxlength="60" placeholder="Account name, e.g. @mypage" data-bat hidden><button class="btn btn-green btn-sm" type="button" data-bulk="acct">Save</button></div>' +
       '<div class="st-bcamp" data-bcamp hidden><select data-bc>' + campOptions('') + '</select><input type="text" maxlength="80" placeholder="Campaign name" data-bcn hidden><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-bcr hidden><button class="btn btn-green btn-sm" type="button" data-bulk="camp">Save</button></div></div>';
+  }
+  function bulkAcctOptions(){
+    var o = '<option value="">Work it out for me</option>', ch = D.account_choices || {};
+    Object.keys(ch).forEach(function(p){ ch[p].forEach(function(a){ o += '<option value="' + esc(a.value) + '">' + esc((PL[p] || p) + ': ' + a.name) + '</option>'; }); });
+    return o + '<option value="new">Another account…</option>';
   }
   function stUpd(){
     var k = Object.keys(stSel).length, n = visClips().length, bar = $('#stClips .st-bar'); if (!bar) return;
     $('[data-sel-n]', bar).textContent = k ? k + ' selected' : '';
     var all = $('[data-sel-all]', bar); all.checked = k > 0 && k === n; all.indeterminate = k > 0 && k < n;
-    $$('#stClips [data-bulk="camp-open"], #stClips [data-bulk="remove"]').forEach(function(b){ b.disabled = !k; });
+    $$('#stClips [data-bulk="camp-open"], #stClips [data-bulk="acct-open"], #stClips [data-bulk="remove"]').forEach(function(b){ b.disabled = !k; });
     $('[data-bulk="remove"]', bar).textContent = k ? 'Remove ' + k : 'Remove';
     // Save only counts selected clips whose file is on this device
     // Always tappable: with nothing ticked it saves every clip kept on this device; ticked, just those.
@@ -4842,12 +4899,14 @@ window.Push = (function(){
     if (t.matches('[data-sel]')){ if (t.checked) stSel[t.dataset.sel] = 1; else delete stSel[t.dataset.sel]; stUpd(); }
     else if (t.matches('[data-sel-all]')){ stSel = {}; if (t.checked) visClips().forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = t.checked; }); stUpd(); }
     else if (t.matches('[data-bc]')){ var o = t.value === 'new'; $('#stClips [data-bcn]').hidden = !o; $('#stClips [data-bcr]').hidden = !o; }
+    else if (t.matches('[data-ba]')){ $('#stClips [data-bat]').hidden = t.value !== 'new'; }
   });
   $('#stClips').addEventListener('click', function(e){
     var b = e.target.closest('[data-bulk]'); if (!b) return;
     var act = b.dataset.bulk, ids = Object.keys(stSel);
     if (act === 'bad'){ stSel = {}; visClips().filter(stDidntPost).forEach(function(c){ stSel[c.id] = 1; }); $$('#stClips [data-sel]').forEach(function(c){ c.checked = !!stSel[c.dataset.sel]; }); return stUpd(); }
     if (act === 'camp-open'){ $('#stClips [data-bcamp]').hidden = false; return; }
+    if (act === 'acct-open'){ $('#stClips [data-bacct]').hidden = false; return; }
     if (act === 'save'){
       var pick = ids.length ? ids.map(clipById) : visClips();
       localCopies(pick).then(function(l){
@@ -4862,6 +4921,12 @@ window.Push = (function(){
       b.disabled = true;
       return post({ action:'remove', ids:ids }).then(function(j){ b.disabled = false; if (!j.ok) return toast(j.error || 'Couldn’t remove them.'); stSel = {}; show(j); toast('Removed ' + (j.changed || ids.length) + ' clip' + ((j.changed || ids.length) === 1 ? '' : 's')); });
     }
+    if (act === 'acct'){
+      var bv = $('#stClips [data-ba]').value;
+      if (bv === 'new'){ bv = $('#stClips [data-bat]').value.trim(); if (!bv) return toast('Type the account name.'); }
+      b.disabled = true;
+      return post({ action:'account', ids:ids, account:bv }).then(function(j){ b.disabled = false; if (!j.ok) return toast(j.error || 'Couldn’t save the account.'); stSel = {}; show(j); toast('Account saved on ' + (j.changed || ids.length) + ' clip' + ((j.changed || ids.length) === 1 ? '' : 's')); });
+    }
     if (act === 'camp'){
       var tag = tagFrom($('#stClips [data-bc]').value, $('#stClips [data-bcn]').value, $('#stClips [data-bcr]').value);
       b.disabled = true;
@@ -4875,6 +4940,7 @@ window.Push = (function(){
   sec.addEventListener('change', function(e){
     var s = e.target.closest('select'); if (!s) return;
     var box = s.closest('.cp-box, .st-edit'); var o = box && box.querySelector('[data-other]'); if (o) o.hidden = s.value !== 'new';
+    var an = box && box.querySelector('[data-anew]'); if (an && s.matches('[data-a]')){ an.hidden = s.value !== 'new'; if (!an.hidden) an.querySelector('input').focus(); }
   });
   $('#saSave').addEventListener('click', function(){
     var b = this, msg = $('#saMsg');
@@ -4895,6 +4961,12 @@ window.Push = (function(){
     if (act === 'save'){ localCopies([clipById(id)]).then(function(l){ if (l.length) saveClip(l[0]); else toast('This clip isn’t saved on this device anymore.'); }); return; }
     if (act === 'views-open'){ row.querySelector('[data-edit="views"]').hidden = false; row.querySelector('[data-v]').focus(); return; }
     if (act === 'camp-open'){ row.querySelector('[data-edit="camp"]').hidden = false; return; }
+    if (act === 'acct-open'){ row.querySelector('[data-edit="acct"]').hidden = false; return; }
+    if (act === 'acct'){
+      var av = row.querySelector('[data-a]').value;
+      if (av === 'new'){ av = row.querySelector('[data-at]').value.trim(); if (!av) return say(msg, 'Type the account name.', true); }
+      return run({ action:'account', id:id, account:av }, 'Account saved');
+    }
     if (act === 'views'){ var v = row.querySelector('[data-v]').value; if (!/\d/.test(v)) return say(msg, 'Enter the views.', true); return run({ action:'views', id:id, views:v }, 'Views saved'); }
     if (act === 'camp'){ var sel = row.querySelector('[data-c]').value; return run({ action:'campaign', id:id, campaign:tagFrom(sel, row.querySelector('[data-cn]').value, row.querySelector('[data-cr]').value) }, 'Campaign saved'); }
     if (act === 'refresh'){ say(msg, 'Updating…'); return run({ action:'refresh', id:id }, ''); }

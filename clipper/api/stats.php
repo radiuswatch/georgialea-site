@@ -9,6 +9,9 @@
 // POST action=remove          → stop tracking a clip       {id}  (or {ids:[...]} for several)
 // POST action=est_rate        → the pay per 1,000 views used to estimate untagged clips {rate} (empty = automatic)
 // POST action=campaign with {ids:[...]} tags several clips at once
+// POST action=account         → which account a clip is on {id, account} (or {ids:[...]}); account = 's<set>' for a
+//                               connected account, any other text for an account typed in, '' = work it out
+
 // campaign = {kind:'clipnow', id} | {kind:'other', name, rate} | null
 declare(strict_types=1);
 require __DIR__ . '/../admin/lib.php';
@@ -42,8 +45,10 @@ function st_out(array $m, array $s): array {
   };
   usort($s['clips'], fn($a, $b) => ($b['posted'] ?? $b['created']) <=> ($a['posted'] ?? $a['created']));
   $camps = [];
+  $names = cn_acct_names($m)['sets']; $nSets = max(1, cn_account_sets($m), count($names));
   foreach ($s['clips'] as $c) {
     if (!empty($c['hidden'])) continue;
+    [$aKey, $aLabel, $aKnown] = cn_stats_account($c, $names, $nSets);
     $base = 0; foreach ($c['history'] as $h) if ($h['at'] <= $now - 7 * 86400) $base = $h['views'];
     $first = $c['history'][0]['at'] ?? $now;
     $week = $first > $now - 7 * 86400 ? $c['views'] : max(0, $c['views'] - $base);
@@ -60,13 +65,16 @@ function st_out(array $m, array $s): array {
     elseif ($tag) $rate = (int)($tag['rate_cents'] ?? 0);
     $perClip[] = ['platform' => $c['platform'], 'views' => (int)$c['views'], 'week' => $week, 'likes' => (int)($c['likes'] ?? 0), 'comments' => (int)($c['comments'] ?? 0),
       'shares' => $c['shares'] ?? null, 'saves' => $c['saves'] ?? null, 'reach' => $c['reach'] ?? null, 'rate' => $rate,
-      'group' => $tag ? ($tag['kind'] === 'clipnow' ? 'cn:' . $tag['id'] : 'o:' . strtolower($tag['name']) . ':' . $tag['rate_cents']) : ''];
+      'group' => $tag ? ($tag['kind'] === 'clipnow' ? 'cn:' . $tag['id'] : 'o:' . strtolower($tag['name']) . ':' . $tag['rate_cents']) : '',
+      'akey' => $aKey, 'alabel' => $aLabel, 'aknown' => $aKnown];
     $clips[] = ['id' => $c['id'], 'source' => $c['source'], 'platform' => $c['platform'], 'url' => $c['url'], 'title' => $c['title'],
       'request_id' => (string)($c['request_id'] ?? ''), 'post_id' => (string)($c['post_id'] ?? ''),
       'views' => $c['views'], 'likes' => $c['likes'], 'comments' => $c['comments'], 'shares' => $c['shares'] ?? null, 'saves' => $c['saves'] ?? null, 'reach' => $c['reach'] ?? null,
       'week' => $week, 'auto' => !empty($c['auto']),
       'checked' => $c['checked'], 'error' => $c['error'], 'posted' => $c['posted'] ?? $c['created'],
-      'waiting' => $c['source'] === 'autopost' && !$c['checked'], 'campaign' => $tag ? $tag + ['label' => $label] : null];
+      'waiting' => $c['source'] === 'autopost' && !$c['checked'], 'campaign' => $tag ? $tag + ['label' => $label] : null,
+      'account' => $aLabel, 'account_key' => $aKey, 'account_known' => $aKnown, 'account_picked' => trim((string)($c['account'] ?? '')) !== '',
+      'set' => max(1, (int)($c['set'] ?? 1))];
     $key = $tag ? ($tag['kind'] === 'clipnow' ? 'cn:' . $tag['id'] : 'o:' . strtolower($tag['name']) . ':' . $tag['rate_cents']) : '';
     if ($key === '') continue;
     $groups[$key] = $groups[$key] ?? ['kind' => $tag['kind'], 'id' => $tag['id'] ?? '', 'name' => $label, 'rate_cents' => $tag['rate_cents'] ?? 0, 'clips' => 0, 'views' => 0];
@@ -118,9 +126,35 @@ function st_out(array $m, array $s): array {
   unset($q);
   $plats = array_values($plats);
   usort($plats, fn($a, $b) => $b['views'] <=> $a['views']);
+  // By account: the same numbers for each account the views came from.
+  $accts = [];
+  foreach ($perClip as $c) {
+    $k = $c['akey'];
+    $accts[$k] = $accts[$k] ?? ['key' => $k, 'platform' => $c['platform'] ?: 'other', 'name' => $c['alabel'], 'known' => $c['aknown'], 'clips' => 0, 'views' => 0, 'week' => 0,
+      'likes' => 0, 'comments' => 0, 'campaign_cents' => 0, 'untagged_views' => 0, 'could_cents' => 0];
+    $q = &$accts[$k];
+    $q['clips']++; $q['views'] += $c['views']; $q['week'] += $c['week']; $q['likes'] += $c['likes']; $q['comments'] += $c['comments'];
+    if ($c['group'] !== '' && $c['rate'] > 0) $q['campaign_cents'] += (int)round($c['views'] * $c['rate'] / 1000 * ($gScale[$c['group']] ?? 1));
+    elseif ($c['group'] === '') $q['untagged_views'] += $c['views'];
+    unset($q);
+  }
+  foreach ($accts as &$q) $q['could_cents'] = (int)round($q['untagged_views'] * $est / 1000);
+  unset($q);
+  $accts = array_values($accts);
+  usort($accts, fn($a, $b) => [$b['known'], $b['views']] <=> [$a['known'], $a['views']]);
+  // Accounts the member can pick for a clip: their connected ones, then names they typed before.
+  $choices = [];
+  foreach ($names as $set => $byP) foreach ($byP as $p => $nm) $choices[$p][] = ['value' => 's' . $set, 'name' => $nm !== '' ? $nm : ($nSets > 1 ? 'Account set ' . $set : 'Your connected account')];
+  foreach ($s['clips'] as $c) {
+    $t = trim((string)($c['account'] ?? '')); $p = (string)($c['platform'] ?: 'other');
+    if ($t === '' || !empty($c['hidden'])) continue;
+    $have = false; foreach ($choices[$p] ?? [] as $ch) if (mb_strtolower($ch['name']) === mb_strtolower($t)) $have = true;
+    if (!$have) $choices[$p][] = ['value' => 't:' . $t, 'name' => $t];
+  }
   $joined = array_values(array_map(fn($c) => ['id' => $c['id'], 'title' => $c['title'], 'rate_cents' => (int)$c['rate_cents']],
     array_filter($camps, fn($c) => $c && isset($c['clippers'][$me]))));
-  return ['ok' => true, 'clips' => $clips, 'campaigns' => $out, 'joined' => $joined, 'platforms' => $plats, 'est_rate_cents' => $est, 'est_rate_auto' => $estAuto,
+  return ['ok' => true, 'clips' => $clips, 'campaigns' => $out, 'joined' => $joined, 'platforms' => $plats, 'accounts' => $accts, 'account_choices' => (object)$choices,
+    'names_at' => (int)cn_acct_names($m)['at'], 'est_rate_cents' => $est, 'est_rate_auto' => $estAuto,
     'totals' => ['views' => $totViews, 'week' => $totWeek, 'hour' => $totHour, 'day' => $totDay, 'clips' => count($clips), 'potential_cents' => $totPotential],
     'updated' => $updated, 'now' => $now,
     'auto_ready' => (string)(cn_config()['uploadpost_key'] ?? '') !== '',
@@ -145,6 +179,7 @@ try {
 
   if ($act === 'refresh') {
     @set_time_limit(120);
+    if ($id === '' && cn_acct_names($m)['at'] < time() - 6 * 3600 && (string)(cn_config()['uploadpost_key'] ?? '') !== '') { try { cn_up_sets($m); } catch (Throwable $e) {} }
     $n = cn_stats_refresh($m, $s, $id === '' ? 6 : 1, $id);   // the background job does the rest, every 5 minutes
     cn_stats_save($m, $s);
     cn_json_out(st_out($m, $s) + ['refreshed' => $n]);
@@ -183,6 +218,37 @@ try {
     if ($auto) cn_stats_refresh($m, $s, 1, $c['id']);
     cn_stats_save($m, $s);
     cn_json_out(st_out($m, $s) + ['added' => $c['id']]);
+  }
+
+  // Which account a clip is on: 's<set>' = a connected account (its views are then read from that account),
+  // other text = an account typed in, '' = let ClipNow work it out again.
+  $acctOf = function ($v) use ($m): array|string {
+    $v = trim(preg_replace('/\s+/u', ' ', (string)$v));
+    if ($v === '') return ['', 0];
+    if (preg_match('/^s(\d{1,2})$/', $v, $mm)) {
+      $set = (int)$mm[1]; $nm = cn_acct_names($m)['sets'][$set] ?? null;
+      if ($set < 1 || $set > max(1, cn_account_sets($m))) return 'That account isn’t connected.';
+      return ['s', $set];
+    }
+    if (str_starts_with($v, 't:')) $v = substr($v, 2);
+    $v = mb_substr(trim($v), 0, 60);
+    return $v === '' ? ['', 0] : [$v, 0];
+  };
+  $setAcct = function (array &$c, array $a) use ($m): void {
+    if ($a[0] === 's') { $c['set'] = $a[1]; $nm = (string)(cn_acct_names($m)['sets'][$a[1]][$c['platform']] ?? ''); $c['account'] = $nm !== '' ? $nm : 'Account set ' . $a[1]; if ($c['source'] !== 'autopost' && $c['post_id'] !== '' && (string)(cn_config()['uploadpost_key'] ?? '') !== '') { $c['auto'] = true; $c['error'] = ''; $c['checked'] = 0; } }
+    elseif ($a[0] === '') { unset($c['account']); if ($c['source'] !== 'autopost') unset($c['set']); }
+    else { $c['account'] = $a[0]; if ($c['source'] !== 'autopost') unset($c['set']); }
+  };
+  if ($act === 'account') {
+    $a = $acctOf($in['account'] ?? '');
+    if (is_string($a)) cn_json_out(['ok' => false, 'error' => $a], 422);
+    $ids = is_array($in['ids'] ?? null) ? array_flip(array_slice(array_map('strval', $in['ids']), 0, 1000)) : [$id => 1];
+    $n = 0;
+    foreach ($s['clips'] as &$c) { if (!isset($ids[$c['id']]) || !empty($c['hidden'])) continue; $setAcct($c, $a); $n++; }
+    unset($c);
+    if (!$n) cn_json_out(['ok' => false, 'error' => 'That clip isn’t in your stats.'], 404);
+    cn_stats_save($m, $s);
+    cn_json_out(st_out($m, $s) + ['changed' => $n]);
   }
 
   // Several clips at once (Select all / selected).
