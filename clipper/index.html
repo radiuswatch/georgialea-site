@@ -2511,6 +2511,24 @@ function movedBackNote(list){
   if (list.length === 1) toast('“' + list[0].name + '” is back in Your clips' + (list[0].only ? ', set to post to ' + platList(list[0].only) + ' only' : '') + '. Tap Post now.');
   else toast(list.length + ' clips are back in Your clips and selected. Tap Post ' + list.length + ' now to post them all again.');
 }
+/** Play a clip kept on this device (Studio "Sent" list), in the same player as My stats' Watch clip. */
+var watchBox = null;
+function watchClip(x){
+  if (!watchBox){
+    watchBox = document.createElement('div'); watchBox.className = 'st-w'; watchBox.hidden = true;
+    watchBox.innerHTML = '<div class="st-w-box" role="dialog" aria-modal="true" aria-label="Watch clip"><div class="st-w-head"><b class="st-w-t"></b><button type="button" class="st-w-x" aria-label="Close">✕</button></div><div class="st-w-body"></div></div>';
+    document.body.appendChild(watchBox);
+    var close = function(){ watchBox.hidden = true; $('.st-w-body', watchBox).innerHTML = ''; };
+    $('.st-w-x', watchBox).addEventListener('click', close);
+    watchBox.addEventListener('click', function(e){ if (e.target === watchBox) close(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !watchBox.hidden) close(); });
+  }
+  $('.st-w-t', watchBox).textContent = x.hook || x.name;
+  var body = $('.st-w-body', watchBox);
+  body.innerHTML = '<video controls playsinline autoplay></video>';
+  $('video', body).src = x.url;
+  watchBox.hidden = false;
+}
 function sentBox(list){
   var d = document.createElement('details'); d.className = 'ex-sent'; d.open = sentOpen;
   d.addEventListener('toggle', function(){ sentOpen = d.open; });
@@ -2541,7 +2559,7 @@ function sentBox(list){
     var r = sentResult(x);
     var row = document.createElement('div'); row.className = 'export-item sent' + (r && r.failed ? ' failed' : '');
     row.innerHTML = '<div><div class="n"></div><span class="sent-st"></span></div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn ' + (r && r.failed ? 'btn-green' : 'btn-ghost') + ' btn-sm" type="button" data-s="again">Post again</button><button class="btn btn-ghost btn-sm" type="button" data-s="rm">Remove</button></div>';
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a class="btn btn-ghost btn-sm" download>Download</a><button class="btn btn-ghost btn-sm" type="button" data-s="watch">▶ Watch clip</button><button class="btn ' + (r && r.failed ? 'btn-green' : 'btn-ghost') + ' btn-sm" type="button" data-s="again">Post again</button><button class="btn btn-ghost btn-sm" type="button" data-s="rm">Remove</button></div>';
     $('.n', row).textContent = x.name;
     var w = new Date(x.sent.scheduled ? x.sent.scheduled * 1000 : x.sent.at);
     var when = (x.sent.scheduled ? 'Scheduled for ' + w.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) + ', ' : 'Sent ') + w.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
@@ -2553,6 +2571,7 @@ function sentBox(list){
     } else stEl.textContent = '✓ ' + when + ' · ' + x.sent.names + (x.sent.rid && !x.sent.scheduled ? ' · checking…' : '');
     var a = $('a', row); a.href = x.url; a.download = x.name;
     if (canSaveToPhotos(x)){ a.textContent = 'Save to Photos'; a.className = 'btn btn-green btn-sm'; a.removeAttribute('download'); a.href = '#'; a.addEventListener('click', function(e){ e.preventDefault(); saveClip(x); }); }
+    $('[data-s="watch"]', row).addEventListener('click', function(){ watchClip(x); });
     $('[data-s="again"]', row).addEventListener('click', function(){
       if (!(r && r.failed) && !confirm('Post “' + x.name + '” again? It was already ' + (x.sent.scheduled ? 'scheduled' : 'sent') + ' to ' + x.sent.names + '. It moves back to Your clips so you can post it.')) return;
       // Didn't go through on some platforms: post again only to those, so it isn't posted twice on the others.
