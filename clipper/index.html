@@ -3993,7 +3993,33 @@ if (IS_STUDIO) Keep.load().then(function(list){
     S.exports = []; Keep.clear(); note.hidden = true; $('#bulkStatus').hidden = true; renderExports();
   });
   if (window.AutoPost) AutoPost.resumeOffer();
-}).then(function(){ Cloud.pull(); });
+}).then(function(){
+  againFromStats();
+  Promise.resolve(Cloud.pull()).then(function(){   // a copy synced from another device may arrive a little later
+    if (!againFromStats()) setTimeout(function(){
+      if (againFromStats()) return;
+      try { sessionStorage.removeItem('cn_again'); } catch(e){}
+      toast('That clip isn’t on this device anymore, so it can’t be posted again from here. Export it again in the Studio to post it.');
+    }, 6000);
+  });
+});
+/** "Post again" in My stats: move that clip back into Your clips, set to post only where it didn't go through.
+ *  Returns false while the clip hasn't loaded yet; true when done or when there's nothing to do. */
+function againFromStats(){
+  var a = null; try { a = JSON.parse(sessionStorage.getItem('cn_again')); } catch(e){}
+  if (!a || !a.rid) return true;
+  var x = S.exports.filter(function(x){ var t = x.sent || {}, ids = (t.rids && t.rids.length) ? t.rids : (t.rid ? [t.rid] : []); return ids.indexOf(a.rid) > -1; })[0];
+  if (!x) return false;
+  try { sessionStorage.removeItem('cn_again'); } catch(e){}
+  var r = sentResult(x), res = (x.sent && x.sent.res) || [];
+  var miss = res.filter(function(q){ return !q.ok; }).map(function(q){ return q.platform; }), hit = res.filter(function(q){ return q.ok; }).length;
+  x.only = miss.length && hit ? miss : (!miss.length && a.platform ? [a.platform] : null);
+  x.sent = null; x.postKey = null;
+  renderExports(); goStage(3); Keep.sync();
+  var ex = document.getElementById('exports'); if (ex) setTimeout(function(){ ex.scrollIntoView({ behavior:'smooth', block:'center' }); }, 300);
+  toast('“' + x.name + '” is back in Your clips' + (x.only ? ', set to post to ' + platList(x.only) + ' only' : '') + '. Tap Post now.');
+  return true;
+}
 
 /* ---------- Pricing ---------- */
 var bill = 'm';
@@ -4790,7 +4816,7 @@ window.Push = (function(){
       return '<div class="st-clip" data-id="' + esc(c.id) + '"><div class="st-top"><div class="st-pick"><input type="checkbox" class="x-sel" data-sel="' + esc(c.id) + '"' + (stSel[c.id] ? ' checked' : '') + ' aria-label="Select this clip"><div><div class="cp-meta"><span class="cp-tag">' + esc(PL[c.platform] || c.platform) + '</span>' + (c.account_known ? '<span class="cp-tag" title="The account this clip is on">' + esc(c.account) + '</span>' : '') + (c.source === 'autopost' ? '<span class="cp-tag">Posted with ClipNow</span>' : '') + (c.campaign ? '<span class="cp-st me">' + esc(c.campaign.label || '') + '</span>' : '') + '</div>' +
         '<h4>' + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" style="color:inherit">' + esc(title) + ' ↗</a>' : esc(title)) + '</h4></div></div>' +
         '<div class="st-views"><b>' + num(c.views) + '</b><span>' + (c.week ? '+' + num(c.week) + ' this week' : 'views') + '</span></div></div>' + line +
-        '<div class="cp-acts"><button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button><button class="cp-link st-watch-btn" type="button" data-act="save" hidden>' + SAVE_LABEL + '</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="acct-open">' + (c.account_known ? 'Change account' : 'Set account') + '</button><button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
+        '<div class="cp-acts">' + (stDidntPost(c) && c.request_id ? '<button class="btn btn-green btn-sm" type="button" data-act="again">↻ Post again</button>' : '') + '<button class="cp-link st-watch-btn" type="button" data-act="watch">▶ Watch clip</button><button class="cp-link st-watch-btn" type="button" data-act="save" hidden>' + SAVE_LABEL + '</button>' + (!c.auto || c.error ? '<button class="cp-link" type="button" data-act="views-open">Update views</button>' : '') + (c.auto && !c.waiting ? '<button class="cp-link" type="button" data-act="refresh">Refresh</button>' : '') + '<button class="cp-link" type="button" data-act="acct-open">' + (c.account_known ? 'Change account' : 'Set account') + '</button><button class="cp-link" type="button" data-act="camp-open">' + (c.campaign ? 'Change campaign' : 'Add to a campaign') + '</button><button class="cp-link" type="button" data-act="remove">Remove</button></div>' +
         '<div class="st-edit" data-edit="views" hidden><div class="cp-acts"><input type="text" inputmode="numeric" placeholder="Views now" data-v><button class="btn btn-green btn-sm" type="button" data-act="views">Save</button></div></div>' +
         '<div class="st-edit" data-edit="acct" hidden><div class="field"><select data-a>' + acctOptions(c.platform || 'other', c.account_picked || c.account_known ? c.account : '') + '</select></div><div class="field" data-anew hidden><input type="text" maxlength="60" placeholder="Account name, e.g. @mypage" data-at></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="acct">Save</button></div></div>' +
         '<div class="st-edit" data-edit="camp" hidden><div class="field"><select data-c>' + campOptions(tagKey(c.campaign)) + '</select></div><div class="cp-2" data-other hidden><div class="field"><input type="text" maxlength="80" placeholder="Campaign name" data-cn></div><div class="field"><input type="text" inputmode="decimal" placeholder="Pays per 1,000 views ($)" data-cr></div></div><div class="cp-acts"><button class="btn btn-green btn-sm" type="button" data-act="camp">Save</button></div></div>' +
@@ -5020,6 +5046,15 @@ window.Push = (function(){
     var row = b.closest('.st-clip'), id = row.dataset.id, msg = row.querySelector('.cp-msg'), act = b.dataset.act;
     function run(body, ok){ b.disabled = true; return post(body).then(function(j){ b.disabled = false; if (!j.ok) return say(msg, j.error || 'Something went wrong.', true); show(j); if (ok) toast(ok); }); }
     if (act === 'watch'){ var cc = (D.clips || []).filter(function(x){ return x.id === id; })[0]; if (cc) watch(cc); return; }
+    if (act === 'again'){
+      var ca = clipById(id);
+      // The Studio posts it again from the copy kept on this device (or synced from your other devices).
+      return localClips().then(function(map){
+        if (!ca || !map[ca.request_id]) return toast('This clip isn’t saved on this device, so it can’t be posted again from here. Open My stats on the phone or computer that made it, or export it again in the Studio.');
+        try { sessionStorage.setItem('cn_again', JSON.stringify({ rid:ca.request_id, platform:ca.platform })); } catch(err){}
+        location.href = '/studio';
+      });
+    }
     if (act === 'save'){ localCopies([clipById(id)]).then(function(l){ if (l.length) saveClip(l[0]); else toast('This clip isn’t saved on this device anymore.'); }); return; }
     if (act === 'views-open'){ row.querySelector('[data-edit="views"]').hidden = false; row.querySelector('[data-v]').focus(); return; }
     if (act === 'camp-open'){ row.querySelector('[data-edit="camp"]').hidden = false; return; }
