@@ -1307,10 +1307,14 @@ function cn_stats_import(array $m, array &$s): void {
     $rid = (string)($p['request_id'] ?? '');
     if ($rid === '' || isset($s['imported'][$rid])) continue;
     $s['imported'][$rid] = time();
+    // Posted for a campaign: only the platforms that campaign pays for go to it.
+    $cp = !empty($p['campaign']) ? (cn_camp_load((string)$p['campaign'])['platforms'] ?? []) : [];
     foreach ((array)($p['platforms'] ?? []) as $pf) {
+      $forCamp = in_array((string)$pf, $cp, true);
       $s['clips'][] = ['id' => 'k' . bin2hex(random_bytes(6)), 'source' => 'autopost', 'request_id' => $rid, 'platform' => (string)$pf, 'set' => max(1, (int)($p['set'] ?? 1)),
         'url' => '', 'post_id' => '', 'title' => (string)($p['title'] ?? ''), 'views' => 0, 'likes' => null, 'comments' => null,
-        'auto' => true, 'checked' => 0, 'error' => '', 'history' => [], 'campaign' => null,
+        'auto' => true, 'checked' => 0, 'error' => '', 'history' => [], 'campaign' => $forCamp ? ['kind' => 'clipnow', 'id' => (string)$p['campaign']] : null,
+        'camp_submit' => $forCamp ? ['id' => (string)$p['campaign'], 'email' => (string)($p['camp_email'] ?? '')] : null,
         'posted' => (int)(($p['scheduled'] ?? 0) ?: ($p['at'] ?? time())), 'created' => time()];
     }
   }
@@ -1362,6 +1366,7 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
           $o['checked'] = $now;
           if (!is_array($pd)) { $o['error'] = 'No stats from ' . $o['platform'] . ' yet.'; continue; }
           if (!empty($pd['post_url'])) $o['url'] = (string)$pd['post_url'];
+          if (!empty($o['camp_submit']) && ($o['url'] ?? '') !== '') cn_camp_autosubmit($m, $o);
           if (!empty($pd['platform_post_id'])) $o['post_id'] = (string)$pd['platform_post_id'];
           if (isset($pd['post_metrics']['views'])) {
             $before = [(int)$o['views'], count($o['history'])];
@@ -1406,6 +1411,39 @@ function cn_stats_refresh(array $m, array &$s, int $max = 8, string $onlyId = ''
     }
   }
   return $calls;
+}
+
+/**
+ * A clip posted with ClipNow for a campaign: add it to the campaign's posts (once its link is known),
+ * tracked by ClipNow, waiting for the creator's review. Skipped if the campaign isn't open, doesn't pay
+ * for that platform, or already has that link. Clears $clip['camp_submit'] when done or not possible.
+ */
+function cn_camp_autosubmit(array $m, array &$clip): void {
+  $cs = $clip['camp_submit']; $email = strtolower((string)($cs['email'] ?? '')); $url = (string)$clip['url'];
+  $clip['camp_submit'] = null;
+  $c = cn_camp_load((string)($cs['id'] ?? ''));
+  if (!$c || $email === '' || !isset($c['clippers'][$email]) || !in_array($clip['platform'], $c['platforms'] ?? [], true)) return;
+  if (!empty($c['hidden']) || ($c['status'] ?? '') === 'closed' || (!empty($c['ends']) && $c['ends'] < time())
+      || (!empty($c['budget_cents']) && cn_camp_owed($c) >= $c['budget_cents'])) return;
+  $added = false;
+  try {
+    cn_camp_update($c['id'], function (&$c) use ($email, $url, $clip, $m, &$added) {
+      $key = cn_url_key($url);
+      foreach ($c['submissions'] as $s) if (cn_url_key($s['url']) === $key) return null;   // already there
+      if (count(array_filter($c['submissions'], fn($s) => $s['email'] === $email)) >= 200) return null;
+      $c['submissions'][] = ['id' => 's' . bin2hex(random_bytes(6)), 'email' => $email, 'platform' => $clip['platform'], 'url' => $url,
+        'views' => (int)$clip['views'], 'shot' => '', 'status' => 'pending', 'approved_views' => 0, 'note' => '', 'created' => time(), 'updated' => time(),
+        'clip' => $clip['id'], 'data' => cn_data_id($m), 'auto' => true, 'tracked_at' => (int)$clip['checked'], 'tracked_error' => '', 'by' => 'clipnow'];
+      $added = true;
+      return null;
+    });
+  } catch (Throwable $e) { return; }
+  $clip['camp_submitted'] = time();
+  if ($added) {
+    $who = $c['clippers'][$email]['name'] ?? 'A clipper';
+    try { cn_push_email($c['owner'], 'campaigns', ['title' => 'New post to review', 'tag' => 'camp-review-' . $c['id'], 'url' => '/campaigns#c=' . $c['id'],
+      'body' => $who . ' posted to “' . mb_substr($c['title'], 0, 60) . '” on ' . (CN_CAMP_PLATFORMS[$clip['platform']] ?? $clip['platform']) . '.']); } catch (Throwable $e) {}
+  }
 }
 
 /** A push when a clip passes 1K, 10K, 100K or 1M views (once per milestone; not for old clips seen the first time). */

@@ -76,6 +76,10 @@ try {
   if (count($want) > $limit) post_refuse(['ok' => false, 'error' => "Your {$m['plan']} plan posts to up to $limit platforms at a time. Upgrade to Gold to post everywhere at once."], 403);
   if ($isWebm && array_intersect($want, ['instagram', 'facebook'])) post_refuse(['ok' => false, 'error' => 'Instagram and Facebook need an MP4 clip. Your browser saved this one as WebM. Export it again in Chrome, Edge or Safari.'], 422);
 
+  // Posted for a campaign the member joined: ClipNow submits each post there once the platform publishes it.
+  $campId = '';
+  $cid = (string)($_POST['campaign'] ?? '');
+  if ($cid !== '' && ($cc = cn_camp_load($cid)) && isset($cc['clippers'][strtolower((string)$m['email'])])) $campId = $cc['id'];
   $sets = cn_up_sets($m);   // [set => [platform => ['connected', 'name']]]
   $draftTk = ($_POST['tiktok_mode'] ?? '') === 'draft' && in_array('tiktok', $want, true);
   $pin = (int)($_POST['set'] ?? 0);
@@ -186,6 +190,7 @@ try {
     $r = cn_up('POST', '/upload', $multipart, true, $idem);
 
     $entry = ['platforms' => $plats, 'title' => $title, 'scheduled' => $scheduled, 'set' => $set,
+              'campaign' => $campId, 'camp_email' => $campId !== '' ? strtolower((string)$m['email']) : '',
               'draft' => $draftTk && in_array('tiktok', $plats, true) ? ['tiktok'] : [],
               'request_id' => (string)($r['request_id'] ?? ''), 'job_id' => (string)($r['job_id'] ?? '')];
     cn_post_log($m, $entry);

@@ -195,6 +195,12 @@ explainer with Sign in / See plans buttons.
 - **Clippers** join with a display name and payout handle (only the creator sees it), get the
   content link, use "Clip it in the Studio" (carries the required tags into the Studio), then submit
   each post: pick it from "Your ClipNow posts" (their My stats) or paste its link.
+- **Submitted for you:** "Clip it in the Studio" remembers the campaign for that visit (Studio step 3
+  shows "Posting for …", with "Not for this campaign" to turn it off). Clips posted then with Post now
+  or Schedule carry the campaign (`campaign` in the post log); Stats tags them with it, and as soon as
+  the platform reports the post's link, `cn_camp_autosubmit()` adds it to the campaign's posts
+  (tracked, waiting for review; once per link; only platforms the campaign pays for; not if the
+  campaign is closed, ended or out of budget) and tells the creator.
 - **Automatic views:** each submitted post is linked to a clip in the clipper's My stats (matched by
   link or post ID, or added). Posts on accounts connected in Auto-post are "Tracked by ClipNow":
   `admin/views-cron.php` (every 5 min) refreshes them and `cn_camp_sync_all()` copies the new

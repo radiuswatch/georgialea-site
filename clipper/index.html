@@ -186,6 +186,8 @@
   .cp-banner.vid{position:relative;aspect-ratio:auto;width:100%;height:min(70vh,560px);max-height:none;background:#000}
   .cp-banner.vid.wide{height:auto;aspect-ratio:var(--r);max-height:min(70vh,560px)}
   .cp-banner.vid video{width:100%;height:100%;max-height:none;object-fit:cover;border:0;border-radius:0;background:#000}
+  .camp-on{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--green-deep);border:1px solid var(--green-dim);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14.5px;color:var(--text)}
+  .camp-on b{color:var(--green)} .camp-on button{margin-left:auto}
   .cp-lbl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--green);font-weight:600;letter-spacing:.01em}
   .cp-lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
   .cp-lbl.off{color:var(--faint)} .cp-lbl.warn{color:var(--warn)} .cp-lbl.me{color:#7DB4F0}
@@ -1009,6 +1011,7 @@
         <p class="note keep-note" id="keepNote" hidden></p>
         <p class="note" id="cloudNote" hidden></p>
         <div class="bulk-status" id="bulkStatus" role="status" aria-live="polite" hidden></div>
+        <div class="camp-on" id="campOn" hidden></div>
         <div class="exports" id="exports"><p class="note">Export clips in step 2 and they'll appear here.</p></div>
 
         <div class="fields" style="grid-template-columns:1fr 1fr;margin-top:22px" id="capFields">
@@ -3237,6 +3240,18 @@ function ClipNowConnect(platform, set){
   }, function(){ if (tab) tab.close(); throw new Error('You seem to be offline.'); });
 }
 
+/* ---------- Posting for a campaign ----------
+ * "Clip it in the Studio" on a campaign remembers it for this visit. Clips posted with Post now or
+ * Schedule are then sent to that campaign by ClipNow as soon as the platform publishes them. */
+function campOn(){ try { return JSON.parse(sessionStorage.getItem('cn_camp_on')) || null; } catch(e){ return null; } }
+function campOnShow(){
+  var box = document.getElementById('campOn'), c = campOn(); if (!box) return;
+  if (!c || !c.id){ box.hidden = true; return; }
+  box.innerHTML = '<span>Posting for <b>' + esc(c.title || 'your campaign') + '</b>. Clips you post are submitted to the campaign for you.</span><button class="cp-link" type="button" id="campOff">Not for this campaign</button>';
+  box.hidden = false;
+  document.getElementById('campOff').onclick = function(){ try { sessionStorage.removeItem('cn_camp_on'); } catch(e){} campOnShow(); toast('Clips won’t be submitted to the campaign'); };
+}
+
 /* ---------- Auto-post (via api/social.php + api/post.php) ---------- */
 (function(){
   var info = null, busy = false;
@@ -3638,6 +3653,7 @@ function ClipNowConnect(platform, set){
       });
       if (when){ fd.append('schedule', when); fd.append('tz', (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'); }
       if (draft) fd.append('tiktok_mode', 'draft');
+      var oc = campOn(); if (oc && oc.id) fd.append('campaign', oc.id);   // posted for a campaign: ClipNow submits it there by itself
       // Same clip + same platforms + same time = same key, so a retry (or a resumed batch) can't post twice.
       x.postKey = x.postKey || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
       fd.append('key', x.postKey + '-' + t.join('').slice(0, 20) + '-' + (when ? when.replace(/\D/g, '') : 'now') + (draft ? '-d' : ''));
@@ -3694,7 +3710,7 @@ function ClipNowConnect(platform, set){
         return;
       }
       if (j.ok){
-        var done = (j.scheduled ? 'Scheduled for ' + slotText(j.scheduled) + ' on ' + j.names + '.' : (j.drafted && j.drafted.length ? 'TikTok’s daily limit is reached, so it went to your TikTok drafts. Open TikTok to finish posting it.' : 'Sent to ' + j.names + '. It can take a few minutes to appear.'))
+        var done = (j.scheduled ? 'Scheduled for ' + slotText(j.scheduled) + ' on ' + j.names + '.' : (j.drafted && j.drafted.length ? 'TikTok’s daily limit is reached, so it went to your TikTok drafts. Open TikTok to finish posting it.' : 'Sent to ' + j.names + '. It can take a few minutes to appear.')) + (campOn() ? ' It goes to “' + (campOn().title || 'your campaign') + '” by itself once it’s live.' : '')
           + (j.skipped.length ? ' Skipped ' + j.skipped.join(', ') + ' (not connected).' : '');
         renderExports();
         toast(done + ' Moved to Sent.');
@@ -4499,7 +4515,7 @@ window.Push = (function(){
       return lock(post({ action:'join', id:CUR.id, name:name, handle:handle })).then(function(j){ after(j, msg, act === 'join' ? 'You joined the campaign' : 'Saved'); });
     }
     if (act === 'rejoin-open'){ box.querySelector('[data-rejoin]').hidden = false; b.hidden = true; return; }
-    if (act === 'studio'){ try { sessionStorage.setItem('cn_camp', JSON.stringify({ tags:CUR.tags || '', title:CUR.title })); } catch(err){} location.href = '/studio'; return; }
+    if (act === 'studio'){ try { sessionStorage.setItem('cn_camp', JSON.stringify({ id:CUR.id, tags:CUR.tags || '', title:CUR.title, platforms:CUR.platforms || [] })); } catch(err){} location.href = '/studio'; return; }
     if (act === 'submit'){
       var f = $('#csShot').files[0], fd = new FormData();
       if (!$('#csUrl').value.trim()) return say(msg, 'Paste the link to your post.', true);
@@ -5120,7 +5136,8 @@ if (/[?&]preview=(on|retry)/.test(location.search)){
   });
   $$('.tabbar a').forEach(function(a){ a.classList.toggle('on', a.dataset.page === PAGE); if (a.getAttribute('href').charAt(0) === '#') a.setAttribute('href', a.getAttribute('href') === '#top' ? '/' : '/' + a.getAttribute('href')); });
   // Campaign tags carried over from a campaign's "Clip it in the Studio" button
-  if (IS_STUDIO) try { var cc = JSON.parse(sessionStorage.getItem('cn_camp')); sessionStorage.removeItem('cn_camp'); if (cc && cc.tags) { $('#campTags').value = cc.tags; toast('Campaign tags added: ' + cc.tags); } } catch(e){}
+  if (IS_STUDIO) try { var cc = JSON.parse(sessionStorage.getItem('cn_camp')); sessionStorage.removeItem('cn_camp'); if (cc && cc.tags) { $('#campTags').value = cc.tags; toast('Campaign tags added: ' + cc.tags); } if (cc && cc.id) { sessionStorage.setItem('cn_camp_on', JSON.stringify(cc)); } } catch(e){}
+  if (IS_STUDIO) campOnShow();
   if (!IS_STUDIO) return;
   // A video picked with "Clip this" on the home page
   var v = null; try { v = JSON.parse(sessionStorage.getItem('cn_src')); sessionStorage.removeItem('cn_src'); } catch(e){}
