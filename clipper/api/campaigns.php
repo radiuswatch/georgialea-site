@@ -282,8 +282,15 @@ try {
     $url = camp_url($in['url'] ?? '');
     $track = null;
     if ($sid === '') {
-      if (!in_array($platform, $c['platforms'], true)) cn_json_out(['ok' => false, 'error' => 'Pick one of the campaign\'s platforms.'], 422);
       if ($url === '') cn_json_out(['ok' => false, 'error' => 'Paste the link to your post.'], 422);
+      // "All platforms" (the default): the platform comes from the link.
+      if ($platform === '' || $platform === 'all') {
+        $platform = cn_stats_parse_url($url)[0];
+        $names = implode(', ', array_map(fn($p) => CN_CAMP_PLATFORMS[$p] ?? ucfirst($p), $c['platforms']));
+        if ($platform === 'other') cn_json_out(['ok' => false, 'error' => 'ClipNow can’t tell the platform from that link. Pick the platform, or paste the link to the post itself.'], 422);
+        if (!in_array($platform, $c['platforms'], true)) cn_json_out(['ok' => false, 'error' => 'That link is a ' . (CN_CAMP_PLATFORMS[$platform] ?? ucfirst($platform)) . ' post. This campaign pays for ' . $names . '.'], 422);
+      }
+      if (!in_array($platform, $c['platforms'], true)) cn_json_out(['ok' => false, 'error' => 'Pick one of the campaign\'s platforms.'], 422);
       foreach ($c['submissions'] as $s) if (cn_url_key($s['url']) === cn_url_key($url)) cn_json_out(['ok' => false, 'error' => 'That post is already submitted.'], 422);
       // Link it to the clipper's My stats so its views can update by themselves.
       try { $track = cn_camp_track($m, $id, $platform, $url); } catch (Throwable $e) { $track = null; }

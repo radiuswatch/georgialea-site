@@ -4442,7 +4442,7 @@ window.Push = (function(){
     if (c.status === 'open') {
       h += '<div class="cp-box"><h4>2. Submit a post</h4><p>Pick a clip you posted with ClipNow and its views are tracked for you. For a post ClipNow can’t read, add its views and a screenshot.</p><div class="fields">' +
         '<div class="field" id="csPickWrap" hidden><label for="csPick">Your ClipNow posts</label><select id="csPick"></select></div>' +
-        '<div class="cp-2"><div class="field"><label for="csPlat">Platform</label><select id="csPlat">' + c.platforms.map(function(p){ return '<option value="' + esc(p) + '">' + esc(PLATS[p] || p) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="cp-2"><div class="field"><label for="csPlat">Platform</label><select id="csPlat"><option value="all" selected>All platforms (ClipNow tells from the link)</option>' + c.platforms.map(function(p){ return '<option value="' + esc(p) + '">' + esc(PLATS[p] || p) + '</option>'; }).join('') + '</select></div>' +
         '<div class="field"><label for="csViews">Views right now <small>(not needed if tracked)</small></label><input type="text" id="csViews" inputmode="numeric" placeholder="e.g. 12500"></div></div>' +
         '<div class="field"><label for="csUrl">Link to your post</label><input type="url" id="csUrl" inputmode="url" placeholder="https://www.tiktok.com/@you/video/…"></div>' +
         '<div class="field"><label for="csShot">Screenshot showing the views <small>(only if ClipNow can’t track it)</small></label><input type="file" id="csShot" accept="image/*"></div></div>' +
