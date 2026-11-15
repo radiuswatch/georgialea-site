@@ -2390,14 +2390,15 @@ function renderExports(){
   if (window.AutoPost && ready.length > 1) AutoPost.bulk(box, ready);
   ready.forEach(function(x){
     var row = document.createElement('div'); row.className = 'export-item';
-    row.innerHTML = '<div><div class="n"></div><span>' + fmt(x.dur) + ' · ' + (x.size/1048576).toFixed(1) + ' MB</span></div><a class="btn btn-green btn-sm" download>Download</a>';
+    row.innerHTML = '<div><div class="n"></div><span>' + fmt(x.dur) + ' · ' + (x.size/1048576).toFixed(1) + ' MB</span></div><span class="ex-pair"><a class="btn btn-green btn-sm" download>Download</a><button class="btn btn-green btn-sm" type="button" data-w>▶ Watch clip</button></span>';
     $('.n', row).textContent = x.name;
+    $('[data-w]', row).addEventListener('click', function(){ watchClip(x); });
     var a = $('a', row); a.href = x.url; a.download = x.name;
     // Phones: one button that opens the share sheet → "Save Video" puts it in Photos (or pick TikTok/Instagram there)
     if (canSaveToPhotos(x)){
       var sh = document.createElement('button'); sh.className = 'btn btn-green btn-sm'; sh.type = 'button'; sh.textContent = 'Save to Photos';
       sh.addEventListener('click', function(){ saveClip(x); });
-      row.replaceChild(sh, a);
+      a.parentNode.replaceChild(sh, a);
     }
     if (window.AutoPost) AutoPost.decorate(row, x);
     box.appendChild(row);
@@ -3922,7 +3923,7 @@ function campOnShow(){
         var head = row.firstElementChild, xh = el('div', 'x-head');
         row.replaceChild(xh, head); xh.appendChild(cb); xh.appendChild(head); row.classList.add('has-sel');
       }
-      var box = el('div', 'xp'), r1 = el('div', 'xp-row'), msg = el('span', 'xp-msg');
+      var box = el('div', 'xp'), r1 = el('div', 'xp-row ex-pair'), msg = el('span', 'xp-msg');
       var now = el('button', 'btn btn-green btn-sm', 'Post now'), sch = el('button', 'btn btn-ghost btn-sm', 'Schedule…');
       now.type = sch.type = 'button';
       var btns = [now, sch];
