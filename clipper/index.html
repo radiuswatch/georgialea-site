@@ -779,6 +779,22 @@
   @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}.skeleton .vid-thumb,.skeleton .sk{animation:none}}
   @media (max-width:700px){.nav-links a:not(.btn){display:none}.hero{padding:40px 0 24px}section{padding:56px 0}.stage{padding:16px}.wrap{padding:0 max(16px,env(safe-area-inset-left))}.nav{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}.plat-grid{grid-template-columns:1fr}}
 </style>
+<script>
+/* Fade sections in as they scroll into view. Started here, before the page's other code, so an error
+ * anywhere else can't leave the page blank: a section shows as soon as it's on screen or scrolled past. */
+(function(){
+  var els = null;
+  function check(){
+    if (!els) els = [].slice.call(document.querySelectorAll('.reveal:not(.in)'));
+    var h = window.innerHeight || document.documentElement.clientHeight || 800;
+    els = els.filter(function(e){ if (e.getBoundingClientRect().top < h){ e.classList.add('in'); return false; } return true; });
+  }
+  function start(){ check(); setTimeout(check, 300); setTimeout(check, 1500); }
+  ['scroll', 'resize', 'orientationchange', 'touchend', 'click'].forEach(function(ev){ window.addEventListener(ev, function(){ setTimeout(check, 30); }, { passive:true }); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  window.addEventListener('load', check);
+})();
+</script>
 </head>
 <body>
 
@@ -4080,12 +4096,7 @@ $$('[data-plan]').forEach(function(a){
   if (location.hash === '#install') setTimeout(install, 0);
 })();
 
-/* ---------- Reveal ---------- */
-var els = $$('.reveal');
-if ('IntersectionObserver' in window){
-  var io = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold:.08 });
-  els.forEach(function(el){ io.observe(el); });
-} else els.forEach(function(el){ el.classList.add('in'); });
+/* (Reveal on scroll: started in <head>, see "Fade sections in".) */
 
 /* ---------- Push notifications (Account → Notifications) ----------
  * Works in Chrome, Edge, Firefox and Android browsers, and on iPhone/iPad (iOS 16.4+) once

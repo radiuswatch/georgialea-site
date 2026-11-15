@@ -162,6 +162,22 @@
   }
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.cap span{opacity:1;transform:none}.reveal{opacity:1;transform:none}}
 </style>
+<script>
+/* Fade sections in as they scroll into view. Started here, before the page's other code, so an error
+ * anywhere else can't leave the page blank: a section shows as soon as it's on screen or scrolled past. */
+(function(){
+  var els = null;
+  function check(){
+    if (!els) els = [].slice.call(document.querySelectorAll('.reveal:not(.in)'));
+    var h = window.innerHeight || document.documentElement.clientHeight || 800;
+    els = els.filter(function(e){ if (e.getBoundingClientRect().top < h){ e.classList.add('in'); return false; } return true; });
+  }
+  function start(){ check(); setTimeout(check, 300); setTimeout(check, 1500); }
+  ['scroll', 'resize', 'orientationchange', 'touchend', 'click'].forEach(function(ev){ window.addEventListener(ev, function(){ setTimeout(check, 30); }, { passive:true }); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  window.addEventListener('load', check);
+})();
+</script>
 </head>
 <body>
 <div class="glow" aria-hidden="true"></div>
@@ -369,12 +385,6 @@
     tick(); setInterval(tick, 1000);
   }
 
-  // Fade sections in as they scroll into view.
-  var els = document.querySelectorAll('.reveal');
-  if ('IntersectionObserver' in window){
-    var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: .12 });
-    els.forEach(function(el){ io.observe(el); });
-  } else els.forEach(function(el){ el.classList.add('in'); });
 
   // Kickstarter button: shown only when the link is set in the admin portal.
   (function ks(retry){
