@@ -1,0 +1,6 @@
+AddType text/vcard .vcf
+<IfModule mod_headers.c>
+  <Files "contact.vcf">
+    Header set Content-Disposition "inline; filename=Joseph-Townsel.vcf"
+  </Files>
+</IfModule>

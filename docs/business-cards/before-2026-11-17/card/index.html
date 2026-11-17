@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Joseph Townsel | Georgia Law Enforcement Associates</title>
+<meta name="description" content="Joseph Townsel, Georgia Law Enforcement Associates. POST-certified off-duty officer staffing across Georgia.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://georgialea.com/card/">
+<meta property="og:title" content="Joseph Townsel | Georgia Law Enforcement Associates">
+<meta property="og:description" content="Verified, department-approved off-duty Georgia officers, booked and managed for you.">
+<meta property="og:image" content="https://georgialea.com/card/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://georgialea.com/card/preview.png">
+<style>
+  /* Layout: one centered badge card; badge + name up top, gold Request Coverage button, contact rows, QR to finish. Matches georgialea.com green and gold. */
+  :root {
+    --green: #14532D;
+    --green-deep: #0E3D21;
+    --green-soft: #1B6638;
+    --gold: #D8A82B;
+    --gold-soft: #E7C258;
+    --ink: #0B0B0B;
+    --paper: #F5F3EC;
+    --muted: #C9D6CB;
+    --line: rgba(216,168,43,.28);
+    --body: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--green-deep); }
+  body {
+    margin: 0;
+    background: radial-gradient(120% 70% at 50% 0%, var(--green-soft) 0%, var(--green) 40%, var(--green-deep) 100%) fixed, var(--green-deep);
+    color: var(--paper);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-block: 36px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    place-items: start center;
+  }
+  a { color: var(--gold-soft); }
+
+  .card {
+    width: 100%; max-width: 420px;
+    background: var(--green-deep);
+    border: 2px solid var(--gold);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 30px 70px -30px rgba(0,0,0,.75);
+  }
+
+  .hero { text-align: center; padding: 30px 24px 22px; background: radial-gradient(120% 90% at 50% 0%, var(--green-soft) 0%, var(--green) 55%, var(--green-deep) 100%); border-bottom: 1px solid var(--line); }
+  .badge-link { display: inline-block; border-radius: 50%; }
+  .badge { width: 132px; height: 132px; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); display: block; }
+  .brand { display: inline-block; margin-top: 14px; font-weight: 700; font-size: 15px; line-height: 1.2; color: var(--paper); text-decoration: none; border-bottom: 1px solid transparent; }
+  .brand small { display: block; color: var(--gold-soft); font-size: 11px; font-weight: 700; letter-spacing: .2em; margin-top: 3px; }
+  .brand:hover { border-bottom-color: var(--gold); }
+  h1 { margin: 16px 0 2px; font-size: clamp(30px, 8.5vw, 36px); font-weight: 800; line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; }
+  .role { margin: 0; color: var(--gold-soft); font-weight: 600; font-size: 15px; }
+
+  .pitch { padding: 22px 24px 18px; display: grid; gap: 14px; }
+  .pitch p { margin: 0; font-size: 17px; color: var(--paper); text-wrap: pretty; }
+  .pitch p .g { color: var(--gold-soft); font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
+  .chips li { font-size: 13px; padding: 5px 12px; border-radius: 30px; border: 1px solid rgba(216,168,43,.35); background: var(--green); color: var(--paper); }
+
+  .cta { padding: 4px 24px 22px; }
+  .cta a.btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 15px 18px; border-radius: 10px;
+    background: var(--gold); color: var(--ink);
+    font-weight: 800; font-size: 17px; text-decoration: none;
+    transition: background .15s ease, transform .15s ease;
+  }
+  .cta a.btn:hover { background: var(--gold-soft); transform: translateY(-1px); }
+  .cta-note { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: 14px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--gold-soft); outline-offset: 3px; }
+
+  .contact { border-top: 1px solid var(--line); list-style: none; margin: 0; padding: 6px 0; }
+  .row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 14px; padding: 12px 24px; }
+  .row + .row { border-top: 1px dashed var(--line); }
+  .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--ink); }
+  .icon svg { width: 19px; height: 19px; }
+  .meta { min-width: 0; }
+  .label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .value { display: block; font-size: 16px; font-weight: 600; color: var(--paper); text-decoration: none; overflow-wrap: anywhere; user-select: all; }
+  a.value:hover { color: var(--gold-soft); }
+  .row button {
+    font: 600 13px var(--body); color: var(--gold-soft);
+    background: transparent; border: 1px solid var(--gold); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; min-width: 68px;
+  }
+  .row button:hover, .row button.done { background: var(--gold); color: var(--ink); }
+
+  .scan { border-top: 1px solid var(--line); padding: 20px 24px 22px; display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; background: var(--green); }
+  #qr { width: 104px; height: 104px; padding: 8px; background: var(--paper); border-radius: 12px; }
+  #qr svg { width: 100%; height: 100%; display: block; }
+  .scan h2 { font-size: 17px; font-weight: 800; margin: 0 0 4px; color: var(--gold-soft); }
+  .scan p { margin: 0; color: var(--muted); font-size: 14px; }
+  .foot { text-align: center; padding: 13px 24px 16px; font-size: 12px; letter-spacing: .08em; color: var(--muted); border-top: 3px solid var(--gold); background: var(--ink); }
+  .foot b { color: var(--gold); }
+
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--gold); color: var(--ink); font-weight: 700; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .2s ease; z-index: 5; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 380px) {
+    .row { grid-template-columns: 1fr auto; }
+    .icon { display: none; }
+    .scan { grid-template-columns: 1fr; justify-items: start; }
+  }
+</style>
+</head>
+<body>
+<main class="card">
+  <section class="hero">
+    <a class="badge-link" href="https://georgialea.com/" target="_blank" rel="noopener" aria-label="Georgia Law Enforcement Associates home page">
+      <img class="badge" src="badge.png" width="132" height="132" alt="Georgia Law Enforcement Associates badge">
+    </a>
+    <div><a class="brand" href="https://georgialea.com/" target="_blank" rel="noopener">Georgia Law Enforcement<small>ASSOCIATES</small></a></div>
+    <h1>Joseph Townsel</h1>
+    <p class="role">Off-Duty Officer Staffing</p>
+  </section>
+
+  <section class="pitch">
+    <p>Verified, department-approved <span class="g">off-duty Georgia officers</span>, booked and managed for you. Vetted, insured, and handled end to end.</p>
+    <ul class="chips">
+      <li>POST-certified</li>
+      <li>Department-approved</li>
+      <li>Fully managed</li>
+      <li>Serving Georgia</li>
+    </ul>
+  </section>
+
+  <div class="cta">
+    <a class="btn" id="cta" href="https://georgialea.com/" target="_blank" rel="noopener">
+      Request Coverage
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+    <p class="cta-note">Security and coverage for businesses, churches, and events</p>
+  </div>
+
+  <ul class="contact">
+    <li class="row">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg></span>
+      <div class="meta"><div class="label">Call or text</div><a class="value" id="phone" href="tel:+16782469800">678-246-9800</a></div>
+      <button type="button" id="copy-phone" data-copy="phone" data-text="678-246-9800">Copy</button>
+    </li>
+    <li class="row">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m22 7-10 6L2 7"/></svg></span>
+      <div class="meta"><div class="label">Email</div><a class="value" id="email" href="mailto:info@georgialea.com">info@georgialea.com</a></div>
+      <button type="button" id="copy-email" data-copy="email" data-text="info@georgialea.com">Copy</button>
+    </li>
+    <li class="row">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span>
+      <div class="meta"><div class="label">Website</div><a class="value" id="website" href="https://georgialea.com/" target="_blank" rel="noopener">georgialea.com</a></div>
+      <button type="button" id="copy-website" data-copy="website" data-text="https://georgialea.com">Copy</button>
+    </li>
+  </ul>
+
+  <section class="scan">
+    <div id="qr" role="img" aria-label="QR code linking to georgialea.com"><svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25" shape-rendering="crispEdges"><path fill="#F5F3EC" d="M0 0h25v25H0z"/><path stroke="#0E3D21" d="M0 0.5h7m3 0h5m3 0h7M0 1.5h1m5 0h1m1 0h1m2 0h1m4 0h1m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h2m1 0h2m1 0h3m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h1m4 0h2m1 0h1m1 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m3 0h1m1 0h2m2 0h1m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m3 0h1m1 0h3m3 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h2m1 0h2m3 0h1M0 8.5h1m5 0h1m1 0h1m2 0h1m1 0h2m2 0h2m2 0h3M0 9.5h1m2 0h3m2 0h1m2 0h1m2 0h2m3 0h5M1 10.5h3m1 0h2m1 0h6m1 0h7m1 0h2M2 11.5h2m5 0h1m1 0h2m1 0h1m2 0h3m1 0h1m2 0h1M0 12.5h2m4 0h1m1 0h1m1 0h1m4 0h2m1 0h2m4 0h1M0 13.5h1m1 0h1m2 0h1m2 0h1m3 0h2m1 0h2m2 0h1m3 0h1M0 14.5h1m2 0h4m1 0h1m4 0h5m1 0h3m1 0h2M0 15.5h1m1 0h1m1 0h1m5 0h1m1 0h1m3 0h2m1 0h1m1 0h2m1 0h1M0 16.5h1m3 0h1m1 0h2m4 0h3m1 0h5m1 0h1M8 17.5h3m2 0h1m2 0h1m3 0h1M0 18.5h7m5 0h2m2 0h1m1 0h1m1 0h1m3 0h1M0 19.5h1m5 0h1m2 0h3m2 0h3m3 0h1M0 20.5h1m1 0h3m1 0h1m3 0h2m3 0h6m1 0h3M0 21.5h1m1 0h3m1 0h1m3 0h1m1 0h4m1 0h2m4 0h2M0 22.5h1m1 0h3m1 0h1m2 0h2m2 0h2m2 0h1m3 0h2m1 0h1M0 23.5h1m5 0h1m2 0h1m2 0h2m2 0h1m1 0h3m3 0h1M0 24.5h7m1 0h1m1 0h4m2 0h2m3 0h1m2 0h1"/></svg></div>
+    <div>
+      <h2>Scan to visit</h2>
+      <p>Point a phone camera here to open the Georgia Law Enforcement Associates site.</p>
+    </div>
+  </section>
+
+  <div class="foot"><b>★</b>&nbsp; 100% DEPARTMENT-APPROVED OFFICERS ON EVERY BOOKING &nbsp;<b>★</b></div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  const toast = document.getElementById("toast");
+  let tt;
+  function showToast(msg) { toast.textContent = msg; toast.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove("show"), 1600); }
+  function selectText(el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  document.querySelectorAll("[data-copy]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.copy, text = btn.dataset.text, target = document.getElementById(key);
+      const label = { phone: "Phone number", email: "Email", website: "Website" }[key];
+      const ok = () => { btn.textContent = "Copied"; btn.classList.add("done"); showToast(label + " copied"); setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1600); };
+      const fallback = () => { selectText(target); showToast("Selected. Press copy to save it."); };
+      try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
+    });
+  });
+</script>
+</body>
+</html>

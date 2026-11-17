@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Joseph Townsel, App Planet. We design, build, and ship iPhone apps for businesses.">
+<meta property="og:title" content="Joseph Townsel | App Planet">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://georgialea.com/apps/card/">
+<meta property="og:image" content="https://georgialea.com/apps/card/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://georgialea.com/apps/card/preview.png">
+<meta property="og:description" content="We design, build, and ship iPhone apps for businesses that don't have a tech team.">
+<title>Joseph Townsel | App Planet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,700&family=Source+Sans+3:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one centered card, a planet orbiting in its top corner; contact rows below, QR to finish. Deliberate single dark "night sky" look. */
+  :root {
+    --space: #0f120f;
+    --space-2: #151a16;
+    --line: #242923;
+    --star: #e9ede9;
+    --dust: #96a096;
+    --planet: #34c46c;
+    --planet-deep: #145c33;
+    --ring: #b9eccb;
+    --display: "Source Serif 4", Cambria, Georgia, serif;
+    --body: "Source Sans 3", Calibri, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--space); }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #16261b 0%, transparent 60%),
+      var(--space);
+    color: var(--star);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-block: 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    place-items: start center;
+  }
+  #stars { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+  .card {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 420px;
+    background: linear-gradient(180deg, var(--space-2), var(--space));
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.7);
+  }
+
+  /* Hero */
+  .hero { position: relative; padding: 28px 24px 24px; min-height: 250px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
+  .orbit-wrap { position: absolute; top: -40px; right: -50px; width: 240px; height: 240px; pointer-events: none; }
+  .planet {
+    position: absolute; inset: 50px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 32% 30%, #b9f5cf 0%, var(--planet) 28%, var(--planet-deep) 70%, #08240f 100%);
+    box-shadow: inset -18px -14px 30px rgba(0,0,0,.45), 0 0 60px -10px rgba(52,196,108,.5);
+  }
+  .planet::after { /* bands */
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: repeating-linear-gradient(-20deg, transparent 0 14px, rgba(255,255,255,.07) 14px 20px);
+  }
+  .ring {
+    position: absolute; left: 0; right: 0; top: 50%; height: 64px; margin-top: -32px;
+    border-radius: 50%;
+    border: 3px solid var(--ring);
+    transform: rotate(-18deg);
+    opacity: .9;
+  }
+  /* back half sits behind the planet, front half crosses over it */
+  .ring.back { -webkit-mask: linear-gradient(#000 0 0) top / 100% 50% no-repeat; mask: linear-gradient(#000 0 0) top / 100% 50% no-repeat; opacity: .5; }
+  .ring.front { -webkit-mask: linear-gradient(#000 0 0) bottom / 100% 50% no-repeat; mask: linear-gradient(#000 0 0) bottom / 100% 50% no-repeat; }
+  .moon-path { position: absolute; inset: 6px; border-radius: 50%; animation: spin 14s linear infinite; }
+  .moon { position: absolute; top: 0; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--star); box-shadow: 0 0 12px var(--star); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .moon-path { animation: none; } }
+
+  .brand { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--planet); display: flex; align-items: center; gap: 8px; }
+  a.brand { text-decoration: none; width: fit-content; border-bottom: 1px solid transparent; }
+  a.brand:hover { border-bottom-color: var(--planet); }
+  a.brand:focus-visible { outline: 2px solid var(--planet); outline-offset: 3px; }
+  .brand::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--planet); box-shadow: 0 0 8px var(--planet); }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 8.5vw, 38px); line-height: 1.1; margin: 6px 0 0; text-wrap: balance; letter-spacing: -.005em; }
+  .role { color: var(--dust); font-size: 16px; margin: 0; }
+
+  /* Tagline + platforms */
+  .pitch { padding: 0 24px 20px; display: grid; gap: 14px; }
+  .pitch p { margin: 0; font-size: 17px; color: var(--star); text-wrap: pretty; }
+  .platforms { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
+  .platforms li { font-family: var(--mono); font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dust); }
+
+  /* Primary action */
+  .cta { padding: 0 24px 22px; }
+  .cta a {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 15px 18px;
+    border-radius: 16px;
+    background: var(--planet); color: var(--space);
+    font-family: var(--body); font-weight: 700; font-size: 17px;
+    text-decoration: none;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .cta a:hover { transform: translateY(-1px); box-shadow: 0 10px 30px -10px rgba(52,196,108,.7); }
+  .cta-note { margin: 10px 0 0; text-align: center; color: var(--dust); font-size: 14px; }
+  .cta a:focus-visible, .row button:focus-visible, .row a:focus-visible { outline: 2px solid var(--planet); outline-offset: 3px; }
+
+  /* Contact rows */
+  .contact { border-top: 1px solid var(--line); list-style: none; margin: 0; padding: 6px 0; }
+  .row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 14px; padding: 12px 24px; }
+  .row + .row { border-top: 1px dashed var(--line); }
+  .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #183a24; color: var(--planet); }
+  .icon svg { width: 20px; height: 20px; }
+  .meta { min-width: 0; }
+  .label { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dust); }
+  .value { display: block; font-size: 16px; font-weight: 500; color: var(--star); text-decoration: none; overflow-wrap: anywhere; user-select: all; }
+  a.value:hover { color: var(--planet); }
+  .row button {
+    font: 500 13px var(--body); color: var(--star);
+    background: transparent; border: 1px solid var(--line); border-radius: 10px;
+    padding: 7px 12px; cursor: pointer; min-width: 68px;
+  }
+  .row button:hover { border-color: var(--planet); color: var(--planet); }
+  .row button.done { border-color: var(--planet); color: var(--planet); }
+
+  /* QR footer */
+  .scan { border-top: 1px solid var(--line); padding: 20px 24px 24px; display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+  #qr { width: 104px; height: 104px; padding: 8px; background: var(--star); border-radius: 14px; }
+  #qr svg, #qr img, #qr canvas { width: 100% !important; height: 100% !important; display: block; }
+  .scan h2 { font-family: var(--display); font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  .scan p { margin: 0; color: var(--dust); font-size: 14px; }
+  .coords { font-family: var(--mono); font-size: 11px; color: var(--dust); text-align: center; padding: 12px 24px 18px; letter-spacing: .08em; border-top: 1px solid var(--line); }
+
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--planet); color: var(--space); font-weight: 700; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .2s ease; z-index: 5; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 380px) {
+    .row { grid-template-columns: 1fr auto; }
+    .icon { display: none; }
+    .scan { grid-template-columns: 1fr; justify-items: start; }
+  }
+  .cta a.save { margin-top: 12px; padding: 13px 18px; background: transparent; color: var(--planet); border: 2px solid var(--planet); font-size: 16px; }
+  .cta a.save:hover { background: var(--planet); color: var(--space); box-shadow: none; }
+  .save-note { margin: 8px 0 0; text-align: center; color: var(--dust); font-size: 13px; }
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+<canvas id="stars" aria-hidden="true"></canvas>
+
+<main class="card">
+  <section class="hero">
+    <div class="orbit-wrap" aria-hidden="true">
+      <div class="ring back"></div>
+      <div class="planet"></div>
+      <div class="ring front"></div>
+      <div class="moon-path"><div class="moon"></div></div>
+    </div>
+    <a class="brand" data-field="company" href="https://georgialea.com/apps" target="_blank" rel="noopener">App Planet</a>
+    <h1 data-field="name">Joseph Townsel</h1>
+    <p class="role" data-field="title">Founder &amp; App Developer</p>
+  </section>
+
+  <section class="pitch">
+    <p data-field="tagline">We design, build, and ship iPhone apps for businesses that don't have a tech team. You own everything, start to finish.</p>
+    <ul class="platforms" id="platforms"></ul>
+  </section>
+
+  <div class="cta">
+    <a id="cta" href="https://georgialea.com/apps" target="_blank" rel="noopener">
+      Start your app project
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+    <p class="cta-note">Free 15-minute call · no commitment</p>
+    <a class="save" href="contact.vcf" download="Joseph-Townsel.vcf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg> Save my contact</a>
+    <p class="save-note">Adds my name, number, email and website to your phone’s contacts.</p>
+  </div>
+
+  <ul class="contact">
+    <li class="row">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg></span>
+      <div class="meta"><div class="label">Call or text</div><a class="value" id="phone" href="#"></a></div>
+      <button type="button" id="copy-phone" data-copy="phone">Copy</button>
+    </li>
+    <li class="row">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m22 7-10 6L2 7"/></svg></span>
+      <div class="meta"><div class="label">Email</div><a class="value" id="email" href="#"></a></div>
+      <button type="button" id="copy-email" data-copy="email">Copy</button>
+    </li>
+    <li class="row">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span>
+      <div class="meta"><div class="label">Website</div><a class="value" id="website" href="#" target="_blank" rel="noopener"></a></div>
+      <button type="button" id="copy-website" data-copy="website">Copy</button>
+    </li>
+  </ul>
+
+  <section class="scan">
+    <div id="qr" role="img" aria-label="QR code linking to the website"><svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" shape-rendering="crispEdges"><path fill="#e9ede9" d="M0 0h29v29H0z"/><path stroke="#0f120f" d="M0 0.5h7m1 0h2m2 0h1m2 0h5m2 0h7M0 1.5h1m5 0h1m1 0h3m3 0h2m2 0h1m3 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m2 0h3m1 0h3m2 0h3m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h3m1 0h1m3 0h2m1 0h1m2 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m2 0h1m3 0h1m3 0h1m1 0h1m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m3 0h1m3 0h1m4 0h2m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h1m1 0h1m1 0h3m2 0h3M0 8.5h1m1 0h2m1 0h3m1 0h3m1 0h2m1 0h3m3 0h1m2 0h1m1 0h2M0 9.5h2m1 0h1m1 0h1m1 0h1m1 0h1m5 0h2m2 0h6m3 0h1M0 10.5h2m1 0h7m2 0h1m1 0h2m1 0h1m3 0h1m1 0h2m1 0h2M1 11.5h1m2 0h1m2 0h3m3 0h3m5 0h1m6 0h1M0 12.5h3m2 0h2m1 0h3m1 0h1m3 0h2m5 0h1m1 0h2M1 13.5h2m1 0h1m2 0h2m1 0h1m2 0h1m3 0h3m2 0h1m3 0h3M0 14.5h2m4 0h1m1 0h2m1 0h1m2 0h1m4 0h1m3 0h2m1 0h3M0 15.5h1m2 0h3m2 0h2m3 0h1m1 0h1m2 0h3m2 0h1m3 0h1M0 16.5h2m1 0h2m1 0h5m1 0h1m5 0h4m1 0h3m1 0h1M2 17.5h1m8 0h1m1 0h1m4 0h1m4 0h1m1 0h3M0 18.5h1m2 0h5m9 0h2m1 0h2m1 0h2m1 0h1M2 19.5h1m5 0h1m2 0h1m3 0h4m1 0h2m4 0h1M1 20.5h1m1 0h2m1 0h1m2 0h1m3 0h1m1 0h1m3 0h8M8 21.5h3m1 0h4m1 0h2m1 0h1m3 0h5M0 22.5h7m1 0h2m3 0h1m2 0h1m1 0h3m1 0h1m1 0h2m1 0h1M0 23.5h1m5 0h1m1 0h1m7 0h2m2 0h1m3 0h2m1 0h1M0 24.5h1m1 0h3m1 0h1m2 0h1m2 0h1m1 0h2m4 0h5m1 0h3M0 25.5h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h3m1 0h3m1 0h1M0 26.5h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h4m6 0h1m2 0h1m1 0h1M0 27.5h1m5 0h1m2 0h1m2 0h1m3 0h1m3 0h1m1 0h2m1 0h1m1 0h1M0 28.5h7m1 0h1m2 0h2m1 0h4m1 0h2m6 0h1"/></svg></div>
+    <div>
+      <h2>Scan to visit</h2>
+      <p>Point a phone camera here to open the App Planet site.</p>
+    </div>
+  </section>
+
+  <div class="coords">IDEA → DESIGN → BUILD → APP STORE</div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // ---- Edit your details here ----
+  const CARD = {
+    company:  "App Planet",
+    name:     "Joseph Townsel",
+    title:    "Founder & App Developer",
+    tagline:  "We design, build, and ship iPhone apps for businesses that don't have a tech team. You own everything, start to finish.",
+    platforms:["iPhone apps", "Design", "Build", "App Store launch"],
+    phone:    "(678) 246-9800",
+    email:    "info@georgialea.com",
+    website:  "https://georgialea.com/apps",
+    cta:      "https://georgialea.com/apps"
+  };
+
+  document.querySelectorAll("[data-field]").forEach(el => { el.textContent = CARD[el.dataset.field]; });
+  const plat = document.getElementById("platforms");
+  CARD.platforms.forEach(p => { const li = document.createElement("li"); li.textContent = p; plat.appendChild(li); });
+
+  const phone = document.getElementById("phone");
+  phone.textContent = CARD.phone; phone.href = "tel:" + CARD.phone.replace(/[^\d+]/g, "");
+  const email = document.getElementById("email");
+  email.textContent = CARD.email; email.href = "mailto:" + CARD.email;
+  const site = document.getElementById("website");
+  site.textContent = CARD.website.replace(/^https?:\/\//, "").replace(/\/$/, ""); site.href = CARD.website;
+  document.getElementById("cta").href = CARD.cta;
+
+  // Copy buttons
+  const toast = document.getElementById("toast");
+  let tt;
+  function showToast(msg) { toast.textContent = msg; toast.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove("show"), 1600); }
+  function selectText(el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  document.querySelectorAll("[data-copy]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.copy;
+      const text = CARD[key];
+      const target = document.getElementById(key);
+      const label = { phone: "Phone number", email: "Email", website: "Website" }[key];
+      const ok = () => { btn.textContent = "Copied"; btn.classList.add("done"); showToast(label + " copied"); setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1600); };
+      try {
+        navigator.clipboard.writeText(text).then(ok, () => { selectText(target); showToast("Selected. Press copy to save it."); });
+      } catch (e) { selectText(target); showToast("Selected. Press copy to save it."); }
+    });
+  });
+
+
+  // Starfield
+  const c = document.getElementById("stars"), ctx = c.getContext("2d");
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const n = Math.round(innerWidth * innerHeight / 5000);
+    for (let i = 0; i < n; i++) {
+      ctx.globalAlpha = .2 + rnd() * .6;
+      ctx.fillStyle = rnd() > .9 ? "#34c46c" : "#e9ede9";
+      ctx.beginPath(); ctx.arc(rnd() * innerWidth, rnd() * innerHeight, rnd() * 1.2 + .2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  draw(); addEventListener("resize", draw);
+</script>
+
+</body>
+</html>

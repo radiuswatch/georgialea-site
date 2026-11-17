@@ -1,0 +1,14 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Townsel;Joseph;;;
+FN:Joseph Townsel
+ORG:Georgia Law Enforcement Associates
+TITLE:Off-Duty Officer Staffing
+TEL;TYPE=CELL,VOICE:+16782469800
+EMAIL;TYPE=INTERNET,WORK:info@georgialea.com
+item1.URL:https://georgialea.com/
+item1.X-ABLabel:Website
+item2.URL:https://georgialea.com/card/
+item2.X-ABLabel:Digital card
+NOTE:Verified, department-approved off-duty Georgia officers for businesses, churches and events.
+END:VCARD

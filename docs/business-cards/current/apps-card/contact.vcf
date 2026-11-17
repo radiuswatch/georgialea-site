@@ -1,0 +1,14 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Townsel;Joseph;;;
+FN:Joseph Townsel
+ORG:App Planet
+TITLE:Founder & App Developer
+TEL;TYPE=CELL,VOICE:+16782469800
+EMAIL;TYPE=INTERNET,WORK:info@georgialea.com
+item1.URL:https://georgialea.com/apps
+item1.X-ABLabel:Website
+item2.URL:https://georgialea.com/apps/card/
+item2.X-ABLabel:Digital card
+NOTE:We design, build, and ship iPhone apps for businesses that don’t have a tech team.
+END:VCARD
