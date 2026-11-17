@@ -8,6 +8,7 @@ All voices are Higgsfield **Seed Audio 1.0** (`seed_audio`) preset voices: `voic
 | Tavin Jr. | Kevin | `f1373f24-3b96-433f-9a68-e595810ef608` | Same as the first series. |
 | Bridgette | Remy | `b9c5c5db-4eb7-468a-a0b7-d06423af0335` | Same as the first series. |
 | Dean Townsel | Vesper | `c3204739-4084-41a3-9dc5-c805b307ec18` | Same as the first series. |
+| Dre (gas station, Ad 2) | Andre | `f1e8226e-2248-4d5f-b43c-0a79e9949dbf` | New for the "Why aren't you clipping now?" series. |
 | Narrator (explainers) | Evie | `7a6845a2-5865-5669-a0ca-8fc8d8e96528` | ClipNow how-to explainer videos. |
 
 Mix: voices at -16 LUFS overall with the music bed underneath (see `ad01-source/build.py`).
