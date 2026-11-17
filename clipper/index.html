@@ -284,6 +284,9 @@
   .ap-up h5{margin:18px 0 4px;font-size:14px;color:var(--muted);font-weight:600}
   .ap-day{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin:12px 0 2px}
   .ap-up .ap-post .t{font-family:var(--mono);font-size:13px;color:var(--text);min-width:72px}
+  .ap-up .up-acts{display:flex;gap:8px;flex-wrap:wrap;width:100%}
+  .ap-up .up-msg{margin:0;width:100%;font-size:13.5px;color:var(--muted)} .ap-up .up-msg.bad{color:#F0706A}
+  .ap-up .ap-post .sch{width:100%}
   .ap-where{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
   .ap-where h5{margin:0 0 4px;font-size:15px}
   .ap-where-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;font-size:14.5px}
@@ -3540,7 +3543,35 @@ function campOnShow(){
       left.appendChild(document.createTextNode(' '));
       left.appendChild(el('b', '', p.title || 'Clip'));
       row.appendChild(left);
-      row.appendChild(el('span', 'st', p.platforms.map(function(k){ return NAMES[k] || k; }).join(', ')));
+      var names = p.platforms.map(function(k){ return NAMES[k] || k; });
+      row.appendChild(el('span', 'st', names.join(', ')));
+      if (p.can_change){
+        var acts = el('div', 'up-acts'), chg = el('button', 'btn btn-ghost btn-sm', 'Change time'), cx = el('button', 'btn btn-ghost btn-sm', 'Cancel post');
+        chg.type = cx.type = 'button';
+        var msg = el('p', 'up-msg'); msg.hidden = true;
+        var pk = scheduler(function(when){
+          pk.close(); msg.hidden = false; msg.textContent = 'Saving…';
+          cnApi('posts.php', { action:'reschedule', id:p.id, when:when, tz:(Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC' }).then(function(j){
+            if (!j || !j.ok){ msg.textContent = (j && j.error) || 'Couldn’t change the time. Please try again.'; msg.className = 'up-msg bad'; return; }
+            S.exports.forEach(function(x){ if (x.sent && (x.sent.rid === p.id || (x.sent.rids || []).indexOf(p.id) > -1)) x.sent.scheduled = j.scheduled; });
+            renderExports(); toast('Moved to ' + slotText(j.scheduled)); recent();
+          });
+        }, [], { okText:'Save new time', names:names, start:d });
+        chg.addEventListener('click', function(){ pk.toggle(); });
+        cx.addEventListener('click', function(){
+          if (!confirm('Cancel “' + (p.title || 'this clip') + '” scheduled for ' + dayName(d) + ' at ' + timeName(d) + '? It won’t be posted, and the clip goes back to Your clips so you can schedule it again.')) return;
+          cx.disabled = true;
+          cnApi('posts.php', { action:'cancel', id:p.id }).then(function(j){
+            cx.disabled = false;
+            if (!j || !j.ok){ msg.hidden = false; msg.textContent = (j && j.error) || 'Couldn’t cancel it. Please try again.'; msg.className = 'up-msg bad'; return; }
+            var back = 0;
+            S.exports.forEach(function(x){ if (x.sent && (x.sent.rid === p.id || (x.sent.rids || []).indexOf(p.id) > -1)){ x.sent = null; x.sel = false; back++; } });
+            renderExports(); toast(back ? 'Cancelled. The clip is back in Your clips.' : 'Cancelled. It won’t be posted.'); recent();
+          });
+        });
+        acts.appendChild(chg); acts.appendChild(cx);
+        row.appendChild(acts); row.appendChild(msg); row.appendChild(pk.el);
+      }
       box.appendChild(row);
     });
   }
@@ -3557,10 +3588,11 @@ function campOnShow(){
    * and a plain-English summary of exactly when and where the clip will post.
    * Calls go(value) with a local "YYYY-MM-DDTHH:MM" string, the format api/post.php expects.
    */
-  var TIMES = [9 * 60, 12 * 60, 15 * 60, 18 * 60, 19 * 60, 21 * 60];
+  var TIMES = [9 * 60, 12 * 60, 15 * 60, 18 * 60, 19 * 60, 20 * 60, 21 * 60, 22 * 60, 23 * 60];
   var MAX_DAYS = 59;   // the server allows up to 60 days ahead
   var LEAD_MIN = 6;    // the server needs at least 5 minutes' notice
-  function scheduler(go, btns){
+  function scheduler(go, btns, opts){
+    opts = opts || {};
     var box = el('div', 'sch'); box.hidden = true;
     box.appendChild(el('p', 'sch-h', 'When should this post?'));
     box.appendChild(el('div', 'sch-lab', 'Day'));
@@ -3573,7 +3605,7 @@ function campOnShow(){
     box.appendChild(timeIn);
     var sum = el('p', 'sch-sum'); sum.setAttribute('aria-live', 'polite'); box.appendChild(sum);
     var row = el('div', 'sch-go');
-    var ok = el('button', 'btn btn-green btn-sm', 'Schedule post'); ok.type = 'button';
+    var ok = el('button', 'btn btn-green btn-sm', opts.okText || 'Schedule post'); ok.type = 'button';
     var cancel = el('button', 'btn btn-ghost btn-sm', 'Cancel'); cancel.type = 'button';
     row.appendChild(ok); row.appendChild(cancel); box.appendChild(row);
     btns.push(ok);
@@ -3607,7 +3639,7 @@ function campOnShow(){
         if (!customTime && mins === m) b.classList.add('on');
         times.appendChild(b);
       });
-      var other = chip(customTime && mins != null ? new Date(2000, 0, 1, 0, mins).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : 'Other time…');
+      var other = chip(customTime && mins != null ? new Date(2000, 0, 1, 0, mins).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : 'Exact time…');
       other.dataset.other = '1'; if (customTime) other.classList.add('on'); times.appendChild(other);
       summary();
     }
@@ -3616,7 +3648,7 @@ function campOnShow(){
       if (!day) bad = 'Pick a day.';
       else if (mins == null) bad = 'Pick a time.';
       else if (!okTime(day, mins)) bad = 'That time has passed or is too soon. Pick a time at least 5 minutes from now.';
-      var names = targets().map(function(p){ return NAMES[p]; });
+      var names = opts.names || targets().map(function(p){ return NAMES[p]; });
       if (!bad && !names.length) bad = 'Switch on at least one connected platform in the cards below.';
       ok.disabled = !!bad;
       if (bad){ sum.textContent = bad; sum.className = 'sch-sum bad'; return; }
@@ -3673,7 +3705,13 @@ function campOnShow(){
       el: box,
       toggle: function(){
         box.hidden = !box.hidden;
-        if (!box.hidden){ if (!day || !okTime(day, mins)) pickDefault(); draw(); box.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
+        if (!box.hidden){
+          if (opts.start && !day && okTime(midnight(opts.start), opts.start.getHours() * 60 + opts.start.getMinutes())){
+            day = midnight(opts.start); mins = opts.start.getHours() * 60 + opts.start.getMinutes();
+            customTime = TIMES.indexOf(mins) < 0; customDay = Math.round((day - midnight(new Date())) / 864e5) >= 14;
+          }
+          if (!day || !okTime(day, mins)) pickDefault(); draw(); box.scrollIntoView({ block:'nearest', behavior:'smooth' });
+        }
       },
       close: function(){ box.hidden = true; }
     };
@@ -3865,12 +3903,12 @@ function campOnShow(){
       now.type = sch.type = 'button';
       var schBox = el('div', 'bulk-sch'); schBox.hidden = true;
       var gapRow = el('div', 'bulk-gap'), gapSel = el('select');
-      [[30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [180, '3 hours'], [240, '4 hours'], [360, '6 hours'], [720, '12 hours'], [1440, '1 day']].forEach(function(o){ var op = el('option', '', o[1]); op.value = o[0]; gapSel.appendChild(op); });
-      gapSel.value = platOn.tiktok ? '120' : '60';
-      gapRow.appendChild(el('span', '', 'Post the first one at the time below, then one every')); gapRow.appendChild(gapSel);
+      [[0, 'All at the same time'], [30, 'One every 30 minutes'], [60, 'One every hour'], [120, 'One every 2 hours'], [180, 'One every 3 hours'], [240, 'One every 4 hours'], [360, 'One every 6 hours'], [720, 'One every 12 hours'], [1440, 'One a day']].forEach(function(o){ var op = el('option', '', o[1]); op.value = o[0]; gapSel.appendChild(op); });
+      gapSel.value = '0';
+      gapRow.appendChild(el('span', '', 'Post them:')); gapRow.appendChild(gapSel);
       if (platOn.tiktok){
         var nTk = setList().filter(function(st){ return st.accounts.tiktok && st.accounts.tiktok.connected; }).length || 1;
-        gapRow.appendChild(el('span', 'note', nTk > 1 ? 'You have ' + nTk + ' TikTok accounts (15 posts a day each). ClipNow spreads posts across them, so you can space them ' + (nTk >= 3 ? '30 minutes' : '1 hour') + ' apart.' : 'TikTok allows 15 posts a day per account, so 2 hours or more keeps you under it.'));
+        gapRow.appendChild(el('span', 'note', nTk > 1 ? 'You have ' + nTk + ' TikTok accounts (15 posts a day each), and ClipNow spreads posts across them.' : 'TikTok allows 15 posts a day per account.'));
       }
       var picker = scheduler(function(when){
         picker.close(); schBox.hidden = true;

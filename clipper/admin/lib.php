@@ -641,6 +641,7 @@ function cn_learn_cap(string $msg): void {
 function cn_post_recent_count(array $member, string $platform, int $set, int $t): int {
   $n = 0; $t = $t ?: time();
   foreach (cn_post_history($member, 400) as $p) {
+    if (!empty($p['cancelled'])) continue;
     if ((int)($p['set'] ?? 1) !== $set || !in_array($platform, (array)($p['platforms'] ?? []), true)) continue;
     $w = (int)(($p['scheduled'] ?? 0) ?: $p['at']);
     if ($w > $t - 86400 && $w <= $t + 86400) $n++;
@@ -651,13 +652,14 @@ function cn_post_recent_count(array $member, string $platform, int $set, int $t)
  * Would one more post to $platform at time $t (0 = now) go over that platform's 24-hour limit?
  * Counts this member's posts that weren't refused. Returns [ok, next time that would fit].
  */
-function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1, bool $draft = false): array {
+function cn_post_cap_check(array $member, string $platform, int $t, int $set = 1, bool $draft = false, string $skipJob = ''): array {
   $cap = $draft ? (CN_DRAFT_CAPS[$platform] ?? 0) : (cn_daily_caps()[$platform] ?? 0);
   $t = $t ?: time();
   if ($cap <= 0) return [true, $t];
   $st = cn_json_file(cn_post_status_file($member), []);
   $times = [];
   foreach (cn_post_history($member, 400) as $p) {
+    if (!empty($p['cancelled']) || ($skipJob !== '' && ($p['job_id'] ?? '') === $skipJob)) continue;
     if (!in_array($platform, (array)($p['platforms'] ?? []), true)) continue;
     if ((int)($p['set'] ?? 1) !== $set) continue;   // limits are per account
     if (in_array($platform, (array)($p['draft'] ?? []), true) !== $draft) continue;   // drafts are counted separately
@@ -684,7 +686,27 @@ function cn_post_history(array $member, int $n = 20): array {
   $f = cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($member)) . '.jsonl';
   if (!is_file($f)) return [];
   $lines = array_slice(file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), -$n);
-  return array_reverse(array_values(array_filter(array_map(fn($l) => json_decode($l, true), $lines))));
+  $out = array_reverse(array_values(array_filter(array_map(fn($l) => json_decode($l, true), $lines))));
+  // Scheduled posts the member moved or cancelled later (the log itself is append-only).
+  $ch = cn_json_file(cn_post_changes_file($member), []);
+  if ($ch) foreach ($out as &$p) {
+    $c = $ch[(string)($p['job_id'] ?? '')] ?? null;
+    if (!$c || ($p['job_id'] ?? '') === '') continue;
+    if (!empty($c['scheduled'])) $p['scheduled'] = (int)$c['scheduled'];
+    if (!empty($c['cancelled'])) $p['cancelled'] = (int)$c['cancelled'];
+  }
+  unset($p);
+  return $out;
+}
+/** ~/clipnow-data/posts/<id>.changes.json: {job_id: {scheduled: new time} | {cancelled: when}}. */
+function cn_post_changes_file(array $member): string { return cn_dir('posts') . '/' . preg_replace('/[^A-Za-z0-9_]/', '', cn_data_id($member)) . '.changes.json'; }
+function cn_post_change(array $member, string $jobId, array $change): void {
+  $f = cn_post_changes_file($member);
+  $h = fopen($f . '.lock', 'c'); if ($h) flock($h, LOCK_EX);
+  $ch = cn_json_file($f, []);
+  $ch[$jobId] = $change + ['at' => time()];
+  file_put_contents($f, json_encode($ch, JSON_UNESCAPED_SLASHES), LOCK_EX); @chmod($f, 0600);
+  if ($h) { flock($h, LOCK_UN); fclose($h); }
 }
 
 /* ---------- Update-payment link ---------- */
@@ -1305,7 +1327,7 @@ function cn_stats_import(array $m, array &$s): void {
   unset($o);
   foreach ($hist as $p) {
     $rid = (string)($p['request_id'] ?? '');
-    if ($rid === '' || isset($s['imported'][$rid])) continue;
+    if ($rid === '' || isset($s['imported'][$rid]) || !empty($p['cancelled'])) continue;
     $s['imported'][$rid] = time();
     // Posted for a campaign: only the platforms that campaign pays for go to it.
     $cp = !empty($p['campaign']) ? (cn_camp_load((string)$p['campaign'])['platforms'] ?? []) : [];
