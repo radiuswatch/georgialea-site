@@ -11,3 +11,8 @@ All voices are Higgsfield **Seed Audio 1.0** (`seed_audio`) preset voices: `voic
 | Narrator (explainers) | Evie | `7a6845a2-5865-5669-a0ca-8fc8d8e96528` | ClipNow how-to explainer videos. |
 
 Mix: voices at -16 LUFS overall with the music bed underneath (see `ad01-source/build.py`).
+
+## Series rules ("Why aren't you clipping now?")
+- **T-Bug's closing line in every ad:** "What are you waiting for? Go clip now." with **GO CLIP NOW.** popping on screen (above his head, never over his face).
+- Every ad ends on the ClipNow end card with **Start your 7-day free trial** and the small print (earnings not guaranteed; only clip content you may use).
+- Audience: anyone with a phone or computer, not only students. Scenes can be anywhere in the town of Clip.

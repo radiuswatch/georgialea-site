@@ -52,16 +52,17 @@ print('joined', round(run_len, 2), 's')
 def cropbox(src, dst):
     im = Image.open(src); bb = im.getbbox(); im.crop(bb).save(dst); return bb
 tb = cropbox(f"{S}/gfx/title.png", f"{B}/title-c.png"); gb = cropbox(f"{S}/gfx/goclip.png", f"{B}/go-c.png")
-V = json.load(open(f"{B}/voice.json")); at = {'t1': 0.35, 'k1': 3.15, 't3': 7.78, 'k2': 16.45, 't5': 19.65}
+V = json.load(open(f"{B}/voice.json")); at = {'t1': 0.35, 'k1': 3.15, 't3': 7.78, 'k2': 16.45, 't5': 19.55}
 t3 = [at['t3'] + o for o in V['t3']['phrases']] + [at['t3'] + V['t3']['len']]
-t5go = at['t5'] + V['t5']['phrases'][1]
+t5wait = at['t5'] + V['t5']['phrases'][1]
+t5go = at['t5'] + V['t5']['phrases'][2]
 def ts(t): return f"{int(t // 3600)}:{int(t % 3600 // 60):02d}:{t % 60:05.2f}"
 G, W = r"{\c&H0051C4F5&}", r"{\c&H00FFFFFF&}"
 caps = [(3.10, at['k1'] + V['k1']['len'] + 0.1, f"{G}TAVIN JR.: {W}Bro… I don't even\\Nknow how to edit."),
         (t3[0] - 0.05, t3[1], f"{G}T-BUG: {W}You don't have to."), (t3[1], t3[2], "Drop in any video."),
         (t3[2], t3[3], "ClipNow finds\\Nthe best moments,"), (t3[3], t3[4] + 0.15, "and cuts the clips for you."),
         (at['k2'] - 0.05, at['k2'] + V['k2']['len'] + 0.15, f"{G}TAVIN JR.: {W}Wait… that's it?"),
-        (at['t5'] - 0.05, t5go - 0.02, f"{G}T-BUG: {W}That's it.")]
+        (at['t5'] - 0.05, t5wait - 0.02, f"{G}T-BUG: {W}That's it."), (t5wait - 0.02, t5go - 0.02, "What are you waiting for?")]
 head = open(f"{D}/subs.ass").read().split('[Events]')[0]
 with open(f"{B}/subs.ass", 'w') as fh:
     fh.write(head + "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")

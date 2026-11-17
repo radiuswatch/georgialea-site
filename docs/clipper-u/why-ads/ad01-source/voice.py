@@ -6,9 +6,9 @@ keep = {  # (start, end) of each spoken phrase in the raw file, measured with si
   'k1': [(0.40, 0.95), (1.70, 2.96)],   # the model repeated the last phrase; keep it once
   't3': [(0.45, 1.35), (1.91, 3.09), (3.69, 5.62), (5.86, 7.22)],
   'k2': [(0.42, 0.83), (2.43, 2.93)],
-  't5': [(0.44, 0.96), (1.75, 2.33)],
+  't5': [(0.45, 0.97), (1.32, 2.26), (2.54, 3.30)],   # That's it. / What are you waiting for? / Go clip now.
 }
-gap = {'t1': 0, 'k1': 0.28, 't3': 0.30, 'k2': 0.45, 't5': 0.50}
+gap = {'t1': 0, 'k1': 0.28, 't3': 0.30, 'k2': 0.45, 't5': 0.32}
 out = {}
 for name, segs in keep.items():
     parts, filt, t, starts = [], '', 0.0, []
