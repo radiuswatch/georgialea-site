@@ -5,14 +5,14 @@ run = lambda *a: subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', *a], chec
 
 # ---------- 1. one moving shot per scene (slow push-ins, the keychain zoom, the end-card settle)
 scenes = [  # image, start, end, (zoom from, zoom to), (focus x, focus y)
-  ('gen/s1.png',  0.00,  3.30, (1.00, 1.10), (0.55, 0.50)),
-  ('gen/s2.png',  3.30,  7.00, (1.00, 1.10), (0.50, 0.42)),
-  ('gen/s3.png',  7.00, 10.90, (1.10, 1.00), (0.55, 0.50)),
-  ('/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/s4.png', 10.90, 17.50, (1.00, 1.12), (0.50, 0.40)),
-  ('gen/s5.png', 17.50, 20.40, (1.00, 1.10), (0.60, 0.50)),
-  ('gen/s6.png', 20.40, 24.40, (1.00, 1.08), (0.55, 0.50)),
-  ('/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gen/s7.png', 24.40, 25.80, None, None),
-  ('/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/endcard.png', 25.80, 30.00, None, None),
+  ('gen/s1.png',  0.00,  3.40, (1.00, 1.10), (0.55, 0.50)),
+  ('gen/s2.png',  3.40,  6.50, (1.00, 1.10), (0.50, 0.42)),
+  ('gen/s3.png',  6.50, 10.10, (1.10, 1.00), (0.55, 0.50)),
+  ('/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/s4.png', 10.10, 18.30, (1.00, 1.12), (0.50, 0.40)),
+  ('gen/s5.png', 18.30, 21.20, (1.00, 1.10), (0.60, 0.50)),
+  ('gen/s6.png', 21.20, 25.00, (1.00, 1.08), (0.55, 0.50)),
+  ('/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gen/s7.png', 25.00, 26.20, None, None),
+  ('/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/endcard.png', 26.20, 30.00, None, None),
 ]
 XF = [0.30, 0.30, 0.30, 0.30, 0.30, 0.20, 0.45]  # dissolve length into the next scene
 segs = []
@@ -51,8 +51,8 @@ print('joined', round(run_len, 2), 's')
 # ---------- 3. overlays: corner logo, the gold question, GO CLIP, captions
 def cropbox(src, dst):
     im = Image.open(src); bb = im.getbbox(); im.crop(bb).save(dst); return bb
-tb = cropbox(f"/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/title.png", f"{B}/title-c.png"); gb = cropbox(f"/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/goclip.png", f"{B}/go-c.png")
-V = json.load(open(f"{B}/voice.json")); at = {'d1': 0.25, 't1': 3.35, 'd2': 7.05, 't2': 9.45, 'd3': 17.85, 't3': 20.40}
+tb = cropbox(f"{S}/gfx/title.png", f"{B}/title-c.png"); gb = cropbox(f"/tmp/claude-0/-home-user-georgialea-site/449620df-09ad-5551-9222-45e9645e29f9/scratchpad/ad11/gfx/goclip.png", f"{B}/go-c.png")
+V = json.load(open(f"{B}/voice.json")); at = {'d1': 0.20, 't1': 3.42, 'd2': 6.55, 't2': 10.20, 'd3': 18.35, 't3': 21.25}
 P = lambda k, i: at[k] + V[k]['phrases'][i]; E = lambda k: at[k] + V[k]['len']
 q_at = P('t1', 1); t5go = P('t3', 2)
 def ts(t): return f"{int(t // 3600)}:{int(t % 3600 // 60):02d}:{t % 60:05.2f}"
@@ -77,9 +77,9 @@ def slam(name, box, t0, t1):  # pops in big, snaps to size, fades out
     sc = f"(1+0.35*max(0,1-(t-{t0})/0.16))"
     return (f"[{name}]format=rgba,scale=w='{w0}*{sc}':h=-1:eval=frame,fade=t=in:st={t0}:d=0.08:alpha=1,fade=t=out:st={t1 - 0.15}:d=0.15:alpha=1[{name}s];",
             f"overlay=x='{cx}-w/2':y='{cy}-h/2':enable='between(t,{t0},{t1})':eval=frame")
-s1, o1 = slam('2:v', tb, q_at, 7.00); s2, o2 = slam('3:v', gb, t5go, 24.35)
+s1, o1 = slam('2:v', tb, q_at, 6.50); s2, o2 = slam('3:v', gb, t5go, 24.98)
 fc = (s1.replace('[2:v]', '[2:v]') + s2 +
-      f"[0:v][1:v]overlay=0:0:enable='lt(t,25.8)'[a];[a][2:vs]{o1}[b];[b][3:vs]{o2}[c];[c]subtitles={B}/subs.ass:fontsdir=/usr/share/fonts/opentype/inter[v]")
+      f"[0:v][1:v]overlay=0:0:enable='lt(t,26.2)'[a];[a][2:vs]{o1}[b];[b][3:vs]{o2}[c];[c]subtitles={B}/subs.ass:fontsdir=/usr/share/fonts/opentype/inter[v]")
 fc = fc.replace('[2:vs]', '[2:vs]').replace('[2:v]format', '[2:v]format')
 run('-i', f"{B}/joined.mp4", '-loop', '1', '-i', f"{D}/bug.png", '-loop', '1', '-i', f"{B}/title-c.png", '-loop', '1', '-i', f"{B}/go-c.png",
     '-filter_complex', fc.replace('[2:v]format', '[2:v]format').replace('[2:vs]', '[2:vs]'), '-map', '[v]', '-t', '30',
@@ -92,8 +92,8 @@ run('-f', 'lavfi', '-i', 'anoisesrc=d=0.012:c=white:a=0.9', '-f', 'lavfi', '-i',
     '-filter_complex', "[0]bandpass=f=4200:width_type=q:w=1.2[a];[1]bandpass=f=3600:width_type=q:w=1.2,adelay=70[b];[a][b]amix=2:normalize=0,volume=1.6", '-ar', '48000', '-ac', '2', f"{B}/snip.wav")
 run('-f', 'lavfi', '-i', "aevalsrc='0.35*sin(2*PI*1046.5*t)*exp(-3.2*t)+0.25*sin(2*PI*1568*t)*exp(-3.6*(t-0.12))*gte(t,0.12)':s=48000:d=1.6", '-ac', '2', f"{B}/chime.wav")
 ins = ['-i', f"{D}/music.mp3"] + sum((['-i', f"{B}/{k}.wav"] for k in ('d1', 't1', 'd2', 't2', 'd3', 't3')), []) + ['-i', f"{B}/whoosh.wav", '-i', f"{B}/snip.wav", '-i', f"{B}/chime.wav"]
-starts = [at[k] for k in ('d1', 't1', 'd2', 't2', 'd3', 't3')] + [q_at - 0.15, 25.60, 25.90]
-af = "[0]volume='if(lt(t,25.6),0.30,0.30+0.25*min(1,(t-25.6)/0.6))':eval=frame,afade=t=out:st=28.8:d=1.2[m];"
+starts = [at[k] for k in ('d1', 't1', 'd2', 't2', 'd3', 't3')] + [q_at - 0.15, 26.00, 26.30]
+af = "[0]volume='if(lt(t,26.0),0.30,0.30+0.25*min(1,(t-26.0)/0.6))':eval=frame,afade=t=out:st=28.8:d=1.2[m];"
 for j, s in enumerate(starts, start=1):
     vol = 1.0 if j <= 6 else 0.8
     af += f"[{j}]aresample=48000,volume={vol},adelay={int(s * 1000)}|{int(s * 1000)}[a{j}];"
