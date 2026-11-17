@@ -3,7 +3,7 @@ import subprocess, json, sys
 S = sys.argv[1]
 keep = {  # (start, end) of each spoken phrase in the raw file, measured with silencedetect
   't1': [(0.41, 1.68)],
-  'k1': [(0.40, 0.95), (1.70, 2.96), (3.54, 4.80)],
+  'k1': [(0.40, 0.95), (1.70, 2.96)],   # the model repeated the last phrase; keep it once
   't3': [(0.45, 1.35), (1.91, 3.09), (3.69, 5.62), (5.86, 7.22)],
   'k2': [(0.42, 0.83), (2.43, 2.93)],
   't5': [(0.44, 0.96), (1.75, 2.33)],

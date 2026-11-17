@@ -11,7 +11,7 @@ Style: Who,Inter,66,&H0051C4F5,&H00FFFFFF,&H00101010,&H80000000,1,0,0,0,100,100,
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:03.10,0:00:06.88,Cap,,0,0,0,,{\c&H0051C4F5&}TAVIN JR.: {\c&H00FFFFFF&}Bro… I don't even\Nknow how to edit.
+Dialogue: 0,0:00:03.10,0:00:05.34,Cap,,0,0,0,,{\c&H0051C4F5&}TAVIN JR.: {\c&H00FFFFFF&}Bro… I don't even\Nknow how to edit.
 Dialogue: 0,0:00:07.73,0:00:08.98,Cap,,0,0,0,,{\c&H0051C4F5&}T-BUG: {\c&H00FFFFFF&}You don't have to.
 Dialogue: 0,0:00:08.98,0:00:10.46,Cap,,0,0,0,,Drop in any video.
 Dialogue: 0,0:00:10.46,0:00:12.69,Cap,,0,0,0,,ClipNow finds\Nthe best moments,
