@@ -59,13 +59,13 @@ def ts(t): return f"{int(t // 3600)}:{int(t % 3600 // 60):02d}:{t % 60:05.2f}"
 G, W = r"{\c&H0051C4F5&}", r"{\c&H00FFFFFF&}"
 caps = [(0.20, E('d1') + 0.10, f"{G}DRE: {W}Five dollars…\\Nand it's only Tuesday."),
         (P('t1', 0) - 0.05, q_at - 0.05, f"{G}T-BUG: {W}You're on your phone\\Nall day anyway."),
-        (P('d2', 0) - 0.05, E('d2') + 0.10, f"{G}DRE: {W}Clipping?\\NI don't even know how."),
+        (P('d2', 0) - 0.05, E('d2') + 0.10, f"{G}DRE: {W}Clipping? What is that?\\NHow does it work?"),
         (P('t2', 0) - 0.05, P('t2', 2), f"{G}T-BUG: {W}Easy. Pick a video."),
         (P('t2', 2), P('t2', 3), "ClipNow finds\\Nthe best moments,"),
         (P('t2', 3), P('t2', 4), "cuts the clips,"),
         (P('t2', 4), P('t2', 5), "and posts them everywhere."),
         (P('t2', 5), E('t2') + 0.15, "Campaigns pay for the views."),
-        (P('d3', 0) - 0.05, E('d3') + 0.10, f"{G}DRE: {W}Wait… I'm on my phone\\Nall day anyway."),
+        (P('d3', 0) - 0.05, E('d3') + 0.10, f"{G}DRE: {W}Wait… I can get paid\\Nfor that?"),
         (P('t3', 0) - 0.05, P('t3', 1) - 0.02, f"{G}T-BUG: {W}Try it free\\Nfor seven days."),
         (P('t3', 1) - 0.02, t5go - 0.02, "What are you waiting for?")]
 head = open(f"{D}/subs.ass").read().split('[Events]')[0]

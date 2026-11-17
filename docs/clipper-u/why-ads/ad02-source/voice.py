@@ -2,15 +2,15 @@
 import subprocess, json, sys
 S = sys.argv[1]
 keep = {  # spoken phrases in each raw take (measured); repeats and stray sounds left out
-  'd1': [(0.38,1.42),(2.10,2.66),(3.30,4.66)],
+  'd1': [(0.28,1.24),(2.04,3.77)],
   't1': [(0.42,1.92),(2.58,3.50)],
-  'd2': [(0.35,2.72),(3.16,4.42)],
+  'd2': [(0.38,0.91),(1.67,2.37),(3.31,4.15)],
   't2': [(0.46, 0.92), (1.69, 2.43), (3.09, 5.05), (5.36, 6.29), (6.55, 7.53), (7.66, 8.22), (9.29, 10.89)],
-  'd3': [(0.36,0.92),(3.74,5.92)],
+  'd3': [(0.35,0.90),(1.80,3.06)],
   't3': [(0.40, 1.94), (2.73, 3.61), (3.99, 4.73)],   # the take said 'Go clip now' twice; keep it once
 }
-gap = {'d1':0.18,'t1':0.25,'d2':0.15,'t2':0.13,'d3':0.22,'t3':0.25}
-tempo = {'d1':1.07,'d2':1.07,'d3':1.07}  # Xavier (Dre) speaks slowly; a slight lift keeps the ad at 30s
+gap = {'d1':0.30,'t1':0.25,'d2':0.25,'t2':0.13,'d3':0.30,'t3':0.25}
+tempo = {}  # Dre's lines are cloned from the owner's audition pick; natural pace
 out = {}
 for name, segs in keep.items():
     parts, filt, t, starts = [], '', 0.0, []
