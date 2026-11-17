@@ -52,7 +52,7 @@ print('joined', round(run_len, 2), 's')
 def cropbox(src, dst):
     im = Image.open(src); bb = im.getbbox(); im.crop(bb).save(dst); return bb
 tb = cropbox(f"{S}/gfx/title.png", f"{B}/title-c.png"); gb = cropbox(f"{S}/gfx/goclip.png", f"{B}/go-c.png")
-V = json.load(open(f"{B}/voice.json")); at = {'t1': 0.35, 'k1': 3.15, 't3': 7.45, 'k2': 16.45, 't5': 19.65}
+V = json.load(open(f"{B}/voice.json")); at = {'t1': 0.35, 'k1': 3.15, 't3': 7.78, 'k2': 16.45, 't5': 19.65}
 t3 = [at['t3'] + o for o in V['t3']['phrases']] + [at['t3'] + V['t3']['len']]
 t5go = at['t5'] + V['t5']['phrases'][1]
 def ts(t): return f"{int(t // 3600)}:{int(t % 3600 // 60):02d}:{t % 60:05.2f}"

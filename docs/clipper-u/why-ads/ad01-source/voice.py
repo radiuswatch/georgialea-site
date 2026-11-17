@@ -1,12 +1,12 @@
-# Tighten each voice line: keep the spoken parts, shorten the pauses between them.
+# T-Bug = Benji (owner's choice, Nov 17 2026). Tighten each voice line: keep the spoken parts, shorten the pauses between them.
 import subprocess, json, sys
 S = sys.argv[1]
 keep = {  # (start, end) of each spoken phrase in the raw file, measured with silencedetect
-  't1': [(0.50, 2.16)],
+  't1': [(0.41, 1.68)],
   'k1': [(0.40, 0.95), (1.70, 2.96), (3.54, 4.80)],
-  't3': [(0.41, 1.45), (1.91, 3.35), (3.87, 6.05), (6.45, 8.16)],
+  't3': [(0.45, 1.35), (1.91, 3.09), (3.69, 5.62), (5.86, 7.22)],
   'k2': [(0.42, 0.83), (2.43, 2.93)],
-  't5': [(0.74, 1.41), (2.21, 2.96)],
+  't5': [(0.44, 0.96), (1.75, 2.33)],
 }
 gap = {'t1': 0, 'k1': 0.28, 't3': 0.30, 'k2': 0.45, 't5': 0.50}
 out = {}
