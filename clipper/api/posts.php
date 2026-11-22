@@ -77,6 +77,8 @@ try {
         $res = cn_post_results($s, empty($p['draft']));   // a drafts refusal mustn't be read as the posting limit
         $status = strtolower((string)($s['status'] ?? 'sent'));
         $final = in_array($status, ['completed', 'failed', 'error', 'success'], true) && count($res) >= count($row['platforms']);
+        if ($final) foreach ($res as &$r) $r['pending'] = false;   // finished: anything not posted really didn't post
+        unset($r);
         $c = ['status' => $status, 'results' => $res, 'final' => $final, 'checked' => $now];
         if ($rid !== '') { $cache[$rid] = $c; $changed = true; }
       } catch (Throwable $e) { /* keep what we know */ }

@@ -2491,7 +2491,8 @@ function sentResult(x){
   if (p) x.sent.res = p.results;
   p = x.sent.res ? { results:x.sent.res } : null;
   if (!p) return null;
-  var bad = p.results.filter(function(r){ return !r.ok; }), names = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
+  var bad = p.results.filter(function(r){ return !r.ok && !r.pending; }), names = { tiktok:'TikTok', youtube:'YouTube', instagram:'Instagram', facebook:'Facebook', x:'X' };
+  if (!bad.length && p.results.some(function(r){ return r.pending; })) return null;   // still posting: not a failure
   if (bad.length) return { failed:true, text:'⚠ Didn’t post on ' + bad.map(function(r){ return names[r.platform] || r.platform; }).join(', ') + (bad[0].error ? ': ' + bad[0].error : '.') };
   var link = p.results.filter(function(r){ return r.url; })[0];
   if (x.sent.draft) return { ok:true, text:'✓ In your TikTok drafts. Open TikTok to finish posting it.' };
@@ -3445,7 +3446,7 @@ function campOnShow(){
   }
 
   var recentAll = false, recentSel = {}, recentPoll = 0;
-  function failedPost(p){ return (p.results || []).some(function(r){ return !r.ok; }); }
+  function failedPost(p){ return (p.results || []).some(function(r){ return !r.ok && !r.pending; }); }
   function clearPosts(ids){
     if (!ids.length) return;
     var many = ids.length > 1;
@@ -3504,8 +3505,9 @@ function campOnShow(){
         left.appendChild(cb); left.appendChild(info2);
         var when = p.scheduled ? 'Scheduled for ' + dayName(new Date(p.scheduled * 1000)) + ' at ' + timeName(new Date(p.scheduled * 1000)) : dayName(new Date(p.at * 1000)) + ' at ' + timeName(new Date(p.at * 1000));
         var stTxt = { pending:'Posting…', processing:'Posting…', in_progress:'Posting…', scheduled:'Scheduled', completed:'Posted', success:'Posted', failed:'Failed', error:'Failed', sent:'Sent' }[String(p.status).toLowerCase()] || p.status;
-        var res = p.results || [], good = res.filter(function(r){ return r.ok; }).length;
-        if (res.length && good === 0) stTxt = 'Failed'; else if (res.length && good < res.length) stTxt = 'Partly posted';
+        var res = p.results || [], good = res.filter(function(r){ return r.ok; }).length, pend = res.filter(function(r){ return r.pending; }).length;
+        if (pend) stTxt = good + pend < res.length ? 'Partly posted' : 'Posting…';
+        else if (res.length && good === 0) stTxt = 'Failed'; else if (res.length && good < res.length) stTxt = 'Partly posted';
         right.appendChild(el('span', 'st' + (stTxt === 'Posted' ? ' ok' : /fail|partly/i.test(stTxt) ? ' bad' : ''), stTxt + ' · ' + when));
         res.forEach(function(r){
           right.appendChild(document.createTextNode(' '));
@@ -3525,7 +3527,11 @@ function campOnShow(){
       upd();
       // Keep checking for a while after posting, until each recent post has its final result.
       clearTimeout(recentPoll);
-      var waiting = S.exports.some(function(x){ var r = x.sent && x.sent.rid && stat[x.sent.rid]; return x.sent && x.sent.rid && !x.sent.scheduled && Date.now() - x.sent.at < 30 * 60000 && !(r && r.results && r.results.length); });
+      var waiting = S.exports.some(function(x){
+        if (!x.sent || x.sent.scheduled || Date.now() - x.sent.at >= 30 * 60000) return false;
+        var ids = (x.sent.rids && x.sent.rids.length) ? x.sent.rids : (x.sent.rid ? [x.sent.rid] : []);
+        return ids.some(function(id){ var r = stat[id]; return !(r && r.results && r.results.length) || r.results.some(function(q){ return q.pending; }); });
+      }) || posts.some(function(p){ return (p.results || []).some(function(r){ return r.pending; }); });
       if (waiting) recentPoll = setTimeout(recent, 45000);
     });
   }

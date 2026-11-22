@@ -609,6 +609,10 @@ function cn_post_results(array $s, bool $learn = true): array {
     $out[] = ['platform' => (string)($res['platform'] ?? ''), 'ok' => !empty($res['success']),
       'url' => (string)($res['post_url'] ?? $res['url'] ?? ''),
       'error' => (string)($res['error_message'] ?? $res['error'] ?? $res['message'] ?? '')];
+    // Not done yet (no success, no error): the platform is still finishing the post. That isn't a failure.
+    $last = &$out[count($out) - 1];
+    $last['pending'] = !$last['ok'] && $last['error'] === '' && $last['url'] === '';
+    unset($last);
     if ($learn && $out[count($out) - 1]['error'] !== '') cn_learn_cap($out[count($out) - 1]['error']);
   }
   return $out;
