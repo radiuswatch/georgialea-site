@@ -8,7 +8,7 @@
  *
  * Bump VERSION when this file changes so phones drop the old saved copies.
  */
-const VERSION = 'clipnow-v31';
+const VERSION = 'clipnow-v32';
 const PAGES = ['./', 'studio', 'campaigns', 'stats', 'affiliates', 'privacy.html', 'terms.html', 'refunds.html'];
 const ASSETS = ['manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'explainer-poster.jpg'];
 
