@@ -1,19 +1,37 @@
 {
  "videos": [
   {
-   "group": "ClipNow is live",
+   "group": "ClipNow is live: real people",
+   "file": "clipnow-live-ad04",
+   "title": "Clip Your Heart Away",
+   "caption": "ClipNow is live! 🎉 Turn any long video into short clips with captions and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping #ContentCreator"
+  },
+  {
+   "group": "ClipNow is live: real people",
+   "file": "clipnow-live-ad05",
+   "title": "The Time to Clip Is Now",
+   "caption": "ClipNow is live! 🎉 Turn any long video into short clips with captions and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping #ContentCreator"
+  },
+  {
+   "group": "ClipNow is live: real people",
+   "file": "clipnow-live-ad06",
+   "title": "Clipping Made Easy. Even You Can Do It.",
+   "caption": "ClipNow is live! 🎉 Turn any long video into short clips with captions and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping #ContentCreator"
+  },
+  {
+   "group": "ClipNow is live: animated",
    "file": "clipnow-live-ad01",
    "title": "Clip Your Heart Away",
    "caption": "ClipNow is live! 🎉 Turn any long video into short clips with captions and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping #ContentCreator"
   },
   {
-   "group": "ClipNow is live",
+   "group": "ClipNow is live: animated",
    "file": "clipnow-live-ad02",
    "title": "The Time to Clip Is Now",
    "caption": "ClipNow is live! 🎉 Turn any long video into short clips with captions and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping #ContentCreator"
   },
   {
-   "group": "ClipNow is live",
+   "group": "ClipNow is live: animated",
    "file": "clipnow-live-ad03",
    "title": "Clipping Made Easy. Even You Can Do It.",
    "caption": "ClipNow is live! 🎉 Turn any long video into short clips with captions and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping #ContentCreator"
