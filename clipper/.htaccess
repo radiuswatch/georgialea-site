@@ -49,6 +49,10 @@ AddType application/manifest+json .webmanifest
   <FilesMatch "\.(png|jpg|mp4)$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
+  # Promo videos with ?dl=1 download instead of playing (iPhone Safari has no save button while a video plays)
+  <If "%{REQUEST_URI} =~ m#^/promo/[^/]+\.mp4$# && %{QUERY_STRING} =~ /(^|&)dl=1(&|$)/">
+    Header set Content-Disposition "attachment"
+  </If>
 </IfModule>
 
 # ---- Security (Joseph: "protect all sites from cyber attacks", 2026-11-23) ----
