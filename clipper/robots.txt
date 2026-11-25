@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /studio
+Disallow: /hooks/
+Disallow: /api/
+Disallow: /admin
+
+Sitemap: https://clipnow.vip/sitemap.xml

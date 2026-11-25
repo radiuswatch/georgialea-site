@@ -62,9 +62,12 @@
   footer{border-top:1px solid var(--line);padding:22px 0 calc(22px + env(safe-area-inset-bottom));font-size:13px;color:var(--faint)}
   @media (max-width:760px){main{grid-template-columns:1fr;gap:26px;padding-top:22px}.vid{max-width:380px;width:100%;margin:0 auto}}
 </style>
+<link rel="stylesheet" href="/lux-clipnow.css">
+<script>try{if(localStorage.getItem("card-mode")==="light")document.documentElement.setAttribute("data-mode","light")}catch(e){}</script>
 </head>
 <body>
-<header><div class="wrap"><a class="brand" href="/"><span class="brand-mark">CN</span>ClipNow</a></div></header>
+<canvas id="luxStars" aria-hidden="true"></canvas>
+<header><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:14px"><a class="brand" href="/"><span class="brand-mark">CN</span>ClipNow</a><button class="mode" type="button" id="modeBtn" aria-label="Switch to light mode"><span class="knob" id="knob"></span></button></div></header>
 
 <div class="wrap">
   <main>
@@ -128,5 +131,7 @@
   });
 })();
 </script>
+<script src="/a.js" defer></script>
+<script src="/lux.js" defer></script>
 </body>
 </html>

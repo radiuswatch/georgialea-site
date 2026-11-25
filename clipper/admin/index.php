@@ -452,6 +452,7 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
       <a href="?view=promo" class="<?= $view === 'promo' ? 'on' : '' ?>">Promo codes</a>
       <a href="?view=campaigns" class="<?= $view === 'campaigns' ? 'on' : '' ?>">Campaigns</a>
       <a href="?view=affiliates" class="<?= $view === 'affiliates' ? 'on' : '' ?>">Affiliates</a>
+      <a href="?view=traffic" class="<?= $view === 'traffic' ? 'on' : '' ?>">Traffic</a>
       <a href="?view=site" class="<?= $view === 'site' ? 'on' : '' ?>">Site status</a>
       <a href="?view=log" class="<?= $view === 'log' ? 'on' : '' ?>">Notice log</a>
       <a href="?view=settings" class="<?= $view === 'settings' ? 'on' : '' ?>">Settings</a>
@@ -704,6 +705,18 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; }, function(){ if(el.select){el.select();} document.execCommand('copy'); b.textContent='Copied'; });
     setTimeout(function(){ b.textContent=b.dataset.copy==='newCode'?'Copy code':'Copy message'; },1500); }); });
   </script>
+
+<?php elseif ($view === 'traffic'):
+  require_once __DIR__ . '/traffic.php';   // same file as App Planet USA's portal/traffic.php; the dropdown shows both businesses
+?>
+  <?= tr_css() ?>
+  <div class="panel">
+    <h2>Website traffic</h2>
+    <?= tr_admin_view(CN_HOME, 'cn', '?view=traffic&') ?>
+    <p style="margin:16px 0 0"><button type="button" class="btn" id="troff"></button></p>
+    <p class="sub" style="margin:6px 0 0">Visitors are counted without cookies or names. Turn off counting on the devices you use yourself so your own visits don't inflate the numbers.</p>
+  </div>
+  <script>(function(){var b=document.getElementById("troff");function s(){var off=false;try{off=localStorage.getItem("tr-off")==="1"}catch(e){}b.textContent=off?"Count my visits again":"Don't count my visits on this device";b.dataset.off=off?"1":"";}b.onclick=function(){try{if(b.dataset.off)localStorage.removeItem("tr-off");else localStorage.setItem("tr-off","1")}catch(e){}s();};s();})();</script>
 
 <?php elseif ($view === 'site'):
   $live = cn_site_live(); $wl = cn_waitlist(); $preview = ($_COOKIE['cn_preview'] ?? '') === '1';

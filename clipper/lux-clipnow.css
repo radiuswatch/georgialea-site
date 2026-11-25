@@ -1,0 +1,39 @@
+/* ClipNow luxury layer for secondary pages (Clipper U, Support, Privacy, Terms, Refunds). 2026-11-20.
+   Works with each page's own --bg/--card/--line/--text/--muted/--green variables. Day/night switch is standard. */
+#luxStars{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:.75}
+body{isolation:isolate}
+.brand-mark{background:linear-gradient(160deg,#8ff0b4,#31C971 55%,#1f8a4a)!important;box-shadow:0 0 18px -4px rgba(49,201,113,.7)}
+header.site{background:rgba(9,12,10,.82)!important;border-bottom-color:rgba(49,201,113,.2)!important}
+.lux-right{display:flex;align-items:center;gap:14px}
+h1 em{text-shadow:0 0 30px rgba(245,196,81,.35)}
+.eyebrow{display:inline-flex;align-items:center;gap:9px}
+.eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);flex:none}
+h2{position:relative}
+main h2{padding-top:14px}
+main h2::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,rgba(49,201,113,.45),transparent)}
+.card{border-radius:20px!important;border-color:rgba(49,201,113,.22)!important;background:linear-gradient(180deg,#171c17,#111411)!important;box-shadow:0 22px 46px -32px #000,inset 0 1px 0 rgba(255,255,255,.03)}
+.btn:not(.ghost){background:linear-gradient(180deg,#5ee39a,#31C971 55%,#22a85a)!important;color:#06230F!important;box-shadow:0 12px 26px -12px rgba(49,201,113,.7);border-radius:13px!important}
+.btn.ghost{border-radius:13px!important;border-color:rgba(49,201,113,.45)!important}
+video{border-radius:20px!important;border-color:rgba(49,201,113,.3)!important;box-shadow:0 30px 70px -24px #000,0 0 50px -16px rgba(49,201,113,.45)!important}
+input,textarea,select{border-radius:12px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(49,201,113,.18)}
+footer{border-top-color:rgba(49,201,113,.25)!important}
+nav.legal a[aria-current]{text-shadow:0 0 14px rgba(49,201,113,.45)}
+.mode{width:78px;height:40px;border-radius:999px;padding:3px;border:1px solid rgba(49,201,113,.35);background:rgba(0,0,0,.38);cursor:pointer;display:flex;align-items:center;flex:none}
+.knob{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(160deg,#f6e08f,#c9a24a);color:#2a1d05;box-shadow:0 4px 12px rgba(0,0,0,.35);transition:transform .28s ease}
+.knob svg{width:17px;height:17px}
+html[data-mode="light"] .knob{transform:translateX(38px)}
+@media (prefers-reduced-motion:reduce){.knob{transition:none}}
+
+/* Day mode */
+html[data-mode="light"]{color-scheme:light;--bg:#f3f6f2;--card:#ffffff;--card-2:#f8fbf7;--line:#d6e2d8;--text:#0f1d13;--muted:#4b5a4f;--faint:#6a776d;--green:#1f9a52;--gold:#b8860b}
+html[data-mode="light"] body{background-color:#f3f6f2;color:#0f1d13}
+html[data-mode="light"] #luxStars{opacity:.25;filter:invert(1)}
+html[data-mode="light"] header.site{background:rgba(255,255,255,.9)!important;border-bottom-color:var(--line)!important}
+html[data-mode="light"] p,html[data-mode="light"] li,html[data-mode="light"] p.lead{color:#2f3d33}
+html[data-mode="light"] .card{background:linear-gradient(180deg,#ffffff,#f8fbf7)!important;border-color:var(--line)!important;box-shadow:0 16px 36px -28px rgba(15,29,19,.35)}
+html[data-mode="light"] h1 em{text-shadow:none}
+html[data-mode="light"] .btn.ghost{background:#ffffff!important;color:#0f1d13!important}
+html[data-mode="light"] .mode{background:rgba(255,255,255,.9)}
+html[data-mode="light"] .tabbar{background:rgba(255,255,255,.96)!important;border-top-color:var(--line)!important}
+html[data-mode="light"] input,html[data-mode="light"] textarea,html[data-mode="light"] select{background:#ffffff!important;color:#0f1d13!important}
