@@ -49,16 +49,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!hash_equals($csrf, (string)($_POST['csrf'] ?? ''))) { flash('Your session expired. Please try again.', false); back(); }
   $do = $_POST['do'] ?? '';
 
-  if ($do === 'login') {
-    if (too_many_attempts()) { flash('Too many tries. Wait 15 minutes and try again.', false); back(); }
-    if ($cfg['admin_hash'] !== '' && password_verify((string)($_POST['password'] ?? ''), $cfg['admin_hash'])) {
+  // Sign-in: enter an admin email, get a 6-digit code by email (works once, 10 minutes, 5 tries).
+  if ($do === 'send_code') {
+    $em = strtolower(trim((string)($_POST['email'] ?? '')));
+    if (!filter_var($em, FILTER_VALIDATE_EMAIL)) { flash('Enter a valid email.', false); back(); }
+    if (too_many_attempts() || !cn_rate_ok('admin-code:' . ($_SERVER['REMOTE_ADDR'] ?? '?'), 5)) { flash('Too many tries. Wait 15 minutes and try again.', false); back(); }
+    $code = (string)random_int(100000, 999999);
+    $_SESSION['admin_code'] = ['email' => $em, 'hash' => hash_hmac('sha256', $code, $cfg['secret']), 'exp' => time() + 600, 'tries' => 0];
+    if (in_array($em, cn_admin_emails(), true))   // only admins get a code; everyone sees the same message
+      cn_send_mail($em, 'Your ClipNow admin sign-in code: ' . $code, "Your ClipNow admin sign-in code is:\n\n$code\n\nIt works once and expires in 10 minutes. If you didn't try to sign in, you can ignore this email.", '');
+    back();
+  }
+  if ($do === 'verify_code') {
+    $c = $_SESSION['admin_code'] ?? null; $entered = preg_replace('/\D/', '', (string)($_POST['code'] ?? ''));
+    if (!$c || $c['exp'] < time()) { unset($_SESSION['admin_code']); flash('That code expired. Enter your email for a new one.', false); back(); }
+    if (too_many_attempts() || $c['tries'] >= 5) { unset($_SESSION['admin_code']); flash('Too many wrong codes. Enter your email for a new one.', false); back(); }
+    if (in_array($c['email'], cn_admin_emails(), true) && hash_equals($c['hash'], hash_hmac('sha256', $entered, $cfg['secret']))) {
+      unset($_SESSION['admin_code']);
       session_regenerate_id(true);
-      $_SESSION['admin'] = true; $_SESSION['seen'] = time();
+      $_SESSION['admin'] = true; $_SESSION['admin_email'] = $c['email']; $_SESSION['seen'] = time();
       back();
     }
-    note_failed_attempt();
-    flash('That password is not right.', false); back();
+    $_SESSION['admin_code']['tries']++; note_failed_attempt();
+    flash('That code isn\'t right. Check the newest email and try again.', false); back();
   }
+  if ($do === 'other_email') { unset($_SESSION['admin_code']); back(); }
 
   if (!$authed) back();
 
@@ -280,11 +295,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     sort($days);
     if (!$days || min($days) < 0 || max($days) > 60 || count($days) > 10) { flash('Schedule: enter up to 10 day numbers between 0 and 60, like 0, 3, 7.', false); back('settings'); }
     $cfg['schedule'] = $days;
-    $pw = (string)($_POST['new_password'] ?? '');
-    if ($pw !== '') {
-      if (strlen($pw) < 10) { flash('The new password needs at least 10 characters.', false); back('settings'); }
-      $cfg['admin_hash'] = password_hash($pw, PASSWORD_DEFAULT);
-    }
+    $ems = array_values(array_unique(array_filter(array_map(fn($x) => strtolower(trim($x)), preg_split('/[\s,;]+/', (string)($_POST['admin_emails'] ?? ''))), fn($x) => filter_var($x, FILTER_VALIDATE_EMAIL))));
+    if (!$ems) { flash('Keep at least one admin email, or nobody could sign in.', false); back('settings'); }
+    if (!in_array($_SESSION['admin_email'] ?? '', $ems, true) && !empty($_SESSION['admin_email'])) { flash('Your own email (' . $_SESSION['admin_email'] . ') has to stay on the admin list.', false); back('settings'); }
+    $cfg['admin_emails'] = $ems;
     cn_save_config($cfg);
     flash('Settings saved.'); back('settings');
   }
@@ -408,15 +422,25 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
   <div class="login panel">
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px"><div class="mark">CN</div><h1 style="font:400 22px var(--serif);margin:0">ClipNow Admin</h1></div>
     <?php if ($flash): ?><div class="flash <?= $flash[1] ? '' : 'bad' ?>"><?= e($flash[0]) ?></div><?php endif; ?>
-    <?php if ($cfg['admin_hash'] === ''): ?>
-      <p>The admin password hasn't been set up on the server yet.</p>
-    <?php else: ?>
+    <?php $pending = $_SESSION['admin_code'] ?? null; if ($pending && $pending['exp'] < time()) { unset($_SESSION['admin_code']); $pending = null; } ?>
+    <?php if (!cn_admin_emails()): ?>
+      <p>No admin emails are set up on the server yet.</p>
+    <?php elseif (!$pending): ?>
     <form method="post">
-      <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="login">
-      <label for="pw">Password</label>
-      <input id="pw" type="password" name="password" autocomplete="current-password" required autofocus>
+      <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="send_code">
+      <label for="em">Email</label>
+      <input id="em" type="email" name="email" autocomplete="email" inputmode="email" required autofocus>
+      <p style="margin:14px 0 0"><button class="btn go" style="width:100%">Email me a sign-in code</button></p>
+    </form>
+    <?php else: ?>
+    <p style="margin:0 0 12px">If <b style="color:var(--text)"><?= e($pending['email']) ?></b> is an admin email, we just sent it a 6-digit code. It expires in 10 minutes.</p>
+    <form method="post">
+      <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="verify_code">
+      <label for="code">6-digit code</label>
+      <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus style="font:600 24px var(--mono);letter-spacing:.3em;text-align:center">
       <p style="margin:14px 0 0"><button class="btn go" style="width:100%">Sign in</button></p>
     </form>
+    <form method="post" style="margin-top:10px"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><button class="btn" name="do" value="other_email" style="width:100%">Use a different email or send a new code</button></form>
     <?php endif; ?>
   </div>
 <?php else: ?>
@@ -923,9 +947,9 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
       </div>
     </div>
     <div class="panel">
-      <h2>Admin password</h2>
-      <label for="np">New password (leave blank to keep it)</label>
-      <input id="np" name="new_password" type="password" autocomplete="new-password" minlength="10">
+      <h2>Who can sign in</h2>
+      <label for="aem">Admin emails (one per line). Each gets a 6-digit code by email to sign in.</label>
+      <textarea id="aem" name="admin_emails" rows="3" style="width:100%;background:var(--card-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font:inherit"><?= e(implode("\n", cn_admin_emails())) ?></textarea>
     </div>
     <p><button class="btn go">Save settings</button></p>
   </form>

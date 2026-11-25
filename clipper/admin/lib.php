@@ -43,6 +43,11 @@ function cn_write(string $file, array $data): void {
   rename($tmp, $p);
 }
 
+/** Emails that can sign in to the admin portal (6-digit code by email). Kept in the private server config, not in code. */
+function cn_admin_emails(): array {
+  return array_values(array_filter(array_map(fn($x) => strtolower(trim((string)$x)), (array)(cn_config()['admin_emails'] ?? [])), fn($x) => filter_var($x, FILTER_VALIDATE_EMAIL)));
+}
+
 function cn_config(): array {
   $c = cn_read('config.json', []);
   $c += [
