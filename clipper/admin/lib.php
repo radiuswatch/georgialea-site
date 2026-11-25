@@ -175,6 +175,90 @@ function cn_money(int $cents, string $cur = 'USD'): string {
   return ($cur === 'USD' ? '$' : "$cur ") . number_format($cents / 100, 2);
 }
 
+/* ---------- Sales by month (paid Stripe invoices) ---------- */
+
+/** Plans in stacking order (bottom to top) and their chart color slot. */
+const CN_SALES_PLANS = ['Silver' => 1, 'Gold' => 2, 'Platinum' => 3, 'Corporate' => 4];
+
+/**
+ * Money collected in the last 12 months: one row per paid invoice, [date 'Y-m-d', plan name, dollars].
+ * Free invoices (trials, family codes) are left out. Cached for 10 minutes so the dashboard stays fast.
+ */
+function cn_sales_rows(bool $fresh = false): array {
+  $mode = str_contains((string)(cn_config()['stripe_key'] ?? ''), '_test_') ? 'test' : 'live';
+  $c = cn_read('sales-chart.json', []);
+  if (!$fresh && ($c['mode'] ?? '') === $mode && ($c['at'] ?? 0) > time() - 600) return $c['rows'] ?? [];
+  $since = strtotime(date('Y-m-01') . ' -11 months'); $rows = []; $after = null; $n = 0;
+  do {
+    $p = ['status' => 'paid', 'limit' => 100, 'created' => ['gte' => $since]];
+    if ($after) $p['starting_after'] = $after;
+    $page = cn_stripe('GET', '/v1/invoices', $p);
+    foreach ($page['data'] as $i) {
+      $paid = (int)($i['amount_paid'] ?? 0); if ($paid <= 0) continue;
+      $line = $i['lines']['data'][0]['price'] ?? [];
+      $plan = cn_plan_name('', (int)($line['unit_amount'] ?? 0), (string)($line['nickname'] ?? ''));
+      $when = (int)($i['status_transitions']['paid_at'] ?? 0) ?: (int)($i['created'] ?? 0);
+      $rows[] = [date('Y-m-d', $when), isset(CN_SALES_PLANS[$plan]) ? $plan : 'Other', round($paid / 100, 2)];
+    }
+    $after = $page['data'] ? end($page['data'])['id'] : null;
+  } while (!empty($page['has_more']) && ++$n < 50);
+  cn_write('sales-chart.json', ['at' => time(), 'mode' => $mode, 'rows' => $rows]);
+  return $rows;
+}
+
+/**
+ * Stacked bar chart of money collected per month (last 12 months), by plan, as inline SVG.
+ * Hover or tab to a month for its breakdown; "Show as a table" has the same numbers as text.
+ */
+function cn_sales_chart(array $rows): string {
+  $e = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+  $usd = fn($v) => '$' . number_format((float)$v, 2);
+  $months = []; $start = strtotime(date('Y-m-01') . ' -11 months');
+  for ($i = 0; $i < 12; $i++) $months[date('Y-m', strtotime("+$i months", $start))] = [];
+  $cats = array_keys(CN_SALES_PLANS);
+  foreach ($rows as [$d, $c, $v]) {
+    $m = substr((string)$d, 0, 7); if (!isset($months[$m])) continue;
+    if (!isset(CN_SALES_PLANS[$c])) { $c = 'Other'; if (!in_array('Other', $cats, true)) $cats[] = 'Other'; }
+    $months[$m][$c] = ($months[$m][$c] ?? 0) + (float)$v;
+  }
+  $tot = array_map('array_sum', $months); $max = max($tot ?: [0]);
+  $step = 25; if ($max > 0) { $raw = $max / 4; $p = 10 ** floor(log10($raw)); foreach ([1, 2, 2.5, 5, 10] as $k) if ($k * $p >= $raw) { $step = $k * $p; break; } }
+  $top = $step * 4;
+  $W = 720; $H = 250; $L = 58; $R = 8; $T = 22; $B = 26; $pw = $W - $L - $R; $ph = $H - $T - $B;
+  $slot = $pw / 12; $bw = min(34, $slot * 0.56);
+  $y = fn($v) => $T + $ph - $v / $top * $ph;
+  $short = fn($v) => $v >= 1000 ? '$' . rtrim(rtrim(number_format($v / 1000, 1), '0'), '.') . 'k' : '$' . number_format($v);
+  $svg = '';
+  for ($g = 0; $g <= 4; $g++) { $gy = round($y($g * $step), 1);
+    $svg .= '<line class="sc-grid' . ($g ? '' : ' sc-base') . '" x1="' . $L . '" x2="' . ($W - $R) . '" y1="' . $gy . '" y2="' . $gy . '"/>'
+      . '<text class="sc-ax" x="' . ($L - 8) . '" y="' . ($gy + 4) . '" text-anchor="end">' . $e($short($g * $step)) . '</text>'; }
+  $i = 0; $peak = $max > 0 ? array_search($max, $tot, true) : null; $cur = date('Y-m');
+  foreach ($months as $m => $vals) {
+    $cx = $L + $slot * $i + $slot / 2; $x = round($cx - $bw / 2, 1); $acc = 0.0;
+    $present = array_values(array_filter($cats, fn($c) => ($vals[$c] ?? 0) > 0)); $last = end($present);
+    foreach ($present as $c) {
+      $v = $vals[$c]; $y1 = $y($acc + $v); $y0 = $y($acc); $acc += $v;
+      $gap = ($c === $last || $y0 - $y1 < 5) ? 0 : 2; $y1 += $gap; $hgt = max(1, $y0 - $y1);   // 2px gap above each lower piece (when it's tall enough); bars sit on the baseline
+      $cls = 'sc-s' . (CN_SALES_PLANS[$c] ?? 0);
+      if ($c === $last && $hgt > 4) { $r = 4; $svg .= '<path class="' . $cls . '" d="M' . $x . ' ' . round($y1 + $hgt, 1) . 'V' . round($y1 + $r, 1) . 'q0 -' . $r . ' ' . $r . ' -' . $r . 'h' . round($bw - 2 * $r, 1) . 'q' . $r . ' 0 ' . $r . ' ' . $r . 'V' . round($y1 + $hgt, 1) . 'Z"/>'; }
+      else $svg .= '<rect class="' . $cls . '" x="' . $x . '" y="' . round($y1, 1) . '" width="' . round($bw, 1) . '" height="' . round($hgt, 1) . '"/>';
+    }
+    if ($tot[$m] > 0) $svg .= '<text class="sc-tot' . ($m === $peak ? ' sc-peak' : '') . '" x="' . round($cx, 1) . '" y="' . round($y($tot[$m]) - 6, 1) . '" text-anchor="middle">' . $e($short($tot[$m])) . '</text>';
+    $svg .= '<text class="sc-ax' . ($m === $cur ? ' sc-now' : '') . '" x="' . round($cx, 1) . '" y="' . ($H - 8) . '" text-anchor="middle">' . $e(date('M', strtotime("$m-01"))) . '</text>';
+    $tip = date('F Y', strtotime("$m-01")) . '|' . implode('|', array_map(fn($c) => $c . ':' . number_format($vals[$c], 2), $present)) . '|Total:' . number_format($tot[$m], 2);
+    $svg .= '<rect class="sc-hit" x="' . round($L + $slot * $i, 1) . '" y="' . $T . '" width="' . round($slot, 1) . '" height="' . $ph . '" data-tip="' . $e($tip) . '" tabindex="0"><title>' . $e(date('F Y', strtotime("$m-01")) . ': ' . $usd($tot[$m])) . '</title></rect>';
+    $i++;
+  }
+  $used = array_values(array_filter($cats, fn($c) => array_sum(array_column($months, $c)) > 0)) ?: array_keys(CN_SALES_PLANS);
+  $legend = '<div class="sc-legend">' . implode('', array_map(fn($c) => '<span><i class="sc-s' . (CN_SALES_PLANS[$c] ?? 0) . '"></i>' . $e($c) . '</span>', $used)) . '</div>';
+  $tbl = '<details class="sc-table"><summary>Show as a table</summary><div class="scroll"><table><thead><tr><th>Month</th>' . implode('', array_map(fn($c) => '<th class="num">' . $e($c) . '</th>', $used)) . '<th class="num">Total</th></tr></thead><tbody>';
+  foreach (array_reverse($months, true) as $m => $vals) $tbl .= '<tr><td>' . $e(date('M Y', strtotime("$m-01"))) . '</td>' . implode('', array_map(fn($c) => '<td class="num">' . $e($usd($vals[$c] ?? 0)) . '</td>', $used)) . '<td class="num"><b>' . $e($usd($tot[$m])) . '</b></td></tr>';
+  $tbl .= '</tbody></table></div></details>';
+  $empty = $max > 0 ? '' : '<p class="sc-empty">No payments in the last 12 months yet. Bars appear here as members pay.</p>';
+  return '<div class="card sc"><div class="sc-head"><h2>Sales by month</h2><span class="sub">money collected, last 12 months</span></div>' . $legend
+    . '<div class="sc-wrap">' . $empty . '<svg class="sc-svg" viewBox="0 0 ' . $W . ' ' . $H . '" role="img" aria-label="Money collected per month for the last 12 months, by plan. The same numbers are in the table below.">' . $svg . '</svg><div class="sc-tip" hidden></div></div>' . $tbl . '</div>';
+}
+
 /* ---------- Family codes (single-use, 100% off Platinum) ---------- */
 
 /** The 100%-off-forever Platinum coupon (metadata purpose=family). Created on first use. */

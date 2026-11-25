@@ -372,6 +372,23 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     table.members td.acts{grid-column:1/-1;margin-top:8px}
     table.members td.ncol::before{content:"Notices ";color:var(--faint);font-size:12px}
   }
+  /* Sales by month chart (colors checked for colorblind readers against this dark card) */
+  .sc{padding:16px 18px 14px;margin-bottom:20px;overflow:visible;--sc1:#00a888;--sc2:#d28e05;--sc3:#338ced;--sc4:#e24d8b;--sc0:#8a8f8a}
+  .sc-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.sc-head h2{margin:0;font-size:17px}
+  .sc-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 4px;font-size:13px;color:var(--muted)}
+  .sc-legend span{display:inline-flex;align-items:center;gap:7px}.sc-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .sc-wrap{position:relative}.sc-svg{width:100%;height:auto;display:block;overflow:visible}
+  .sc-grid{stroke:var(--line);stroke-width:1}.sc-base{stroke:var(--faint)}
+  .sc-ax{fill:var(--muted);font-size:12px}.sc-now{fill:var(--text);font-weight:700}
+  .sc-tot{fill:var(--text);font-size:12px;font-weight:600}.sc-peak{font-weight:800}
+  .sc-s1{fill:var(--sc1);background:var(--sc1)}.sc-s2{fill:var(--sc2);background:var(--sc2)}.sc-s3{fill:var(--sc3);background:var(--sc3)}.sc-s4{fill:var(--sc4);background:var(--sc4)}.sc-s0{fill:var(--sc0);background:var(--sc0)}
+  .sc-hit{fill:transparent;outline:none}.sc-hit:hover,.sc-hit:focus{fill:var(--text);fill-opacity:.06}
+  .sc-tip{position:absolute;z-index:5;pointer-events:none;min-width:170px;padding:9px 12px;border-radius:10px;background:#0b0d0b;border:1px solid var(--green-deep);color:var(--text);font-size:13px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  .sc-tip b{display:block;margin-bottom:2px}.sc-tip div{display:flex;justify-content:space-between;gap:14px}.sc-tip i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:6px}.sc-tip .t{border-top:1px solid var(--line);margin-top:4px;padding-top:4px;font-weight:700}
+  .sc-empty{position:absolute;inset:0 0 26px 58px;display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted);font-size:14px;text-align:center}
+  .sc-table{margin-top:8px}.sc-table summary{cursor:pointer;font-size:13px;color:var(--muted)}.sc-table table{margin-top:8px}
+  @media (max-width:560px){.sc-ax,.sc-tot{font-size:21px}.sc-tot{font-size:20px}.sc-empty{inset:0 0 14% 12%;font-size:13px}}
+  @media (forced-colors:active){.sc-svg rect,.sc-svg path{stroke:CanvasText}}
 </style>
 </head>
 <body>
@@ -428,6 +445,15 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     <div class="stat"><b><?= cn_money($mrr) ?></b><span>Monthly revenue (active)</span></div>
   </div>
   <?php if ($test): ?><p class="sub" style="margin:-8px 0 14px">Showing Stripe <b>test mode</b> data.</p><?php endif; ?>
+  <?php try { echo cn_sales_chart(cn_sales_rows(isset($_GET['fresh']))); } catch (Throwable $ex) {
+    if (str_contains($ex->getMessage(), 'invoice_read')) echo '<div class="card sc"><div class="sc-head"><h2>Sales by month</h2></div><p class="sub" style="font-size:14px;line-height:1.6;margin:10px 0 0">To show your sales chart, your Stripe key needs permission to read invoices. In Stripe, open <b>Developers → API keys</b>, click <b>⋯ → Edit</b> on your restricted key, set <b>Invoices</b> to <b>Read</b>, and save. Then reload this page (the chart appears right away; the key itself doesn’t change).</p></div>';
+    else echo '<div class="flash bad">Couldn’t load the sales chart: ' . e($ex->getMessage()) . '</div>';
+  } ?>
+  <script>(function(){var w=document.querySelector(".sc-wrap");if(!w)return;var tip=w.querySelector(".sc-tip"),C={"Silver":1,"Gold":2,"Platinum":3,"Corporate":4};
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]})}
+  function show(el){var p=el.getAttribute("data-tip").split("|"),h="<b>"+esc(p[0])+"</b>";for(var i=1;i<p.length;i++){var k=p[i].split(":"),n=k[0],v="$"+k.slice(1).join(":");h+=(n==="Total"?"<div class=\"t\">":"<div>")+"<span>"+(n==="Total"?"":"<i class=\"sc-s"+(C[n]||0)+"\"></i>")+esc(n)+"</span><span>"+esc(v)+"</span></div>"}
+  tip.innerHTML=h;tip.hidden=false;var r=el.getBoundingClientRect(),o=w.getBoundingClientRect(),x=r.right-o.left+6;if(x+tip.offsetWidth>o.width)x=r.left-o.left-tip.offsetWidth-6;tip.style.left=Math.max(0,x)+"px";tip.style.top="0px"}
+  w.querySelectorAll(".sc-hit").forEach(function(el){el.addEventListener("mouseenter",function(){show(el)});el.addEventListener("focus",function(){show(el)});el.addEventListener("mouseleave",function(){tip.hidden=true});el.addEventListener("blur",function(){tip.hidden=true})});})();</script>
 
   <div class="bar">
     <input type="search" id="q" placeholder="Search name, email or plan">
