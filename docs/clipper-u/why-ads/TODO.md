@@ -22,6 +22,7 @@ Each ad is about a money problem, and the fix is earning from something people a
 - **Voices:** The owner picks the voice for every new character. Send an audition first, named `<Character>-voice-<N>-<Voice>.mp3`, with all the matching voices. Then record every line with the chosen audition clip as the voice reference, so the voice doesn't drift from what was picked.
 - **T-Bug's lines:** His voice is Benji. His question is "Why aren't you clipping?" with no "now." He closes with "What are you waiting for? Go clip now." and the GO CLIP NOW. pop-up appears above his face.
 - **End card:** "Start your 7-day free trial", plus the small print.
+- **Link in bio (owner rule, Nov 25, 2026):** every ad tells viewers where to tap. The end card carries the yellow "Tap the link in bio" banner with an up arrow at the top (`launch-ads/link-in-bio.png`, y=150, fades in with the end card), and the closing voice line adds "Link in bio. clipnow dot V-I-P." The address clipnow.vip stays on the end card. TikTok captions also say "Link in bio" and the first comment is pinned with the same.
 - **Format:** 30 seconds, vertical 1080x1920. Check every voice take for repeated or jumbled words before building.
 - **Delivery:** Send each line to the owner to hear before the full render when a line changes.
 - **Affiliate library:** every finished ClipNow ad goes into the affiliate Promo videos library (`clipper/promo/` plus an entry in `clipper/promo/videos.json` with a ready-to-post caption), then the site is deployed.

@@ -339,7 +339,27 @@
   .btn-ghost:hover{border-color:var(--muted)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
 
+  /* Welcome block for visitors from our social ads (?s=tiktok etc.): says what the ads say, first thing on the page */
+  .adland{padding:44px 0 34px;background:radial-gradient(120% 80% at 50% 0%,rgba(49,201,113,.16),transparent 70%)}
+  .adland[hidden]{display:none}
+  .adland .wrap{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:34px;align-items:center}
+  @media (max-width:820px){.adland .wrap{grid-template-columns:1fr;gap:26px}}
+  .al-hi{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:7px 14px;border-radius:999px;background:rgba(49,201,113,.12);border:1px solid var(--green-dim);color:var(--text);font-size:14px;font-weight:600}
+  .adland h1{font-size:clamp(40px,7vw,66px);line-height:1.05;margin:0;max-width:14ch}
+  .adland h1 em{font-style:italic;color:var(--green)}
+  .al-sub{font-size:18.5px;line-height:1.55;color:var(--muted);margin:18px 0 22px;max-width:38ch}
+  @media (max-width:560px){.adland{padding-top:26px}.al-hi{margin-bottom:12px}.al-sub{font-size:17px;margin:12px 0 18px}.al-cta .btn{flex:1 1 auto}}
+  .al-steps{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:10px}
+  .al-steps li{display:flex;gap:12px;align-items:center;font-size:16.5px}
+  .al-steps b{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--green);color:#06230F;font-size:15px;font-weight:800}
+  .al-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .al-cta .btn-green{font-size:17px;padding:15px 26px}
+  .al-fine{margin:14px 0 0;font-size:13px;color:var(--faint);max-width:46ch}
+  .al-vid{margin:0;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;max-width:340px;justify-self:center;width:100%}
+  .al-vid video{display:block;width:100%;aspect-ratio:9/16;object-fit:cover}
+  .al-vid figcaption{padding:10px 14px;font-size:13.5px;color:var(--muted);background:var(--card)}
   .hero{padding:88px 0 40px;border-bottom:0}
+  .adland:not([hidden]) + .hero{padding-top:44px}
   /* Two views of one page: the home page, and the Studio at /studio */
   html:not(.pg-studio) #studio{display:none}
   html.pg-studio main > section:not(#studio){display:none}
@@ -882,6 +902,41 @@
 </header>
 
 <main id="top">
+<section class="adland" id="welcome" hidden aria-labelledby="alTitle">
+  <div class="wrap">
+    <div>
+      <p class="al-hi">👋 <span id="alFrom">Welcome! You found us on TikTok.</span></p>
+      <h1 id="alTitle">Get paid to <em>clip videos.</em></h1>
+      <p class="al-sub">ClipNow turns one long video into short clips, posts them everywhere in one tap, and connects you with campaigns that pay for the views.</p>
+      <div class="al-cta">
+        <a class="btn btn-green" href="#pricing" data-al="trial">Start Your 7-Day Free Trial</a>
+        <a class="btn btn-ghost" href="/studio" data-al="studio">Try the Studio</a>
+      </div>
+      <ol class="al-steps">
+        <li><b>1</b>Pick a video, yours or one from a paid campaign</li>
+        <li><b>2</b>ClipNow finds the best moments and makes the clips</li>
+        <li><b>3</b>Post to TikTok, YouTube and Instagram, and get paid for the views</li>
+      </ol>
+      <p class="al-fine">Cancel before day 7 and you pay nothing. Earnings depend on campaigns and views and aren't guaranteed.</p>
+    </div>
+    <figure class="al-vid">
+      <video controls playsinline preload="none" poster="campaign-explainer-poster.jpg" aria-label="How clippers get paid with ClipNow campaigns">
+        <source src="campaign-explainer.mp4" type="video/mp4"><a href="campaign-explainer.mp4">Watch how clippers get paid</a>
+      </video>
+      <figcaption>How clippers get paid (1 minute)</figcaption>
+    </figure>
+  </div>
+</section>
+<script>(function(){
+  // Shown to visitors who arrive from our social posts and ads (?s=tiktok, ?s=instagram ...), so the page opens with what the ad promised.
+  var NAMES = { tiktok:'TikTok', tt:'TikTok', instagram:'Instagram', ig:'Instagram', youtube:'YouTube', yt:'YouTube', facebook:'Facebook', fb:'Facebook', x:'X', twitter:'X', snapchat:'Snapchat', ad:'' };
+  try {
+    var q = new URLSearchParams(location.search), s = (q.get('s') || q.get('utm_source') || '').toLowerCase();
+    if (!(s in NAMES) || /^\/(studio|campaigns|stats|affiliates)\/?$/.test(location.pathname)) return;
+    var el = document.getElementById('welcome'); el.hidden = false;
+    document.getElementById('alFrom').textContent = NAMES[s] ? 'Welcome! You found us on ' + NAMES[s] + '.' : 'Welcome to ClipNow!';
+  } catch (e) {}
+})();</script>
 <section class="hero" id="search">
   <div class="wrap">
     <p class="eyebrow reveal">Clip once · post everywhere</p>
@@ -1303,6 +1358,7 @@
       <div class="cp-box" id="afPromo">
         <h4>Promo videos</h4>
         <p class="cp-fine" style="margin:0 0 14px">Ready-made 30-second ClipNow ads to post on TikTok, Reels, Shorts or anywhere. Download one, post it, then paste its caption. Your link is already in the caption.</p>
+        <p class="cp-fine" style="margin:0 0 14px"><b>On TikTok and Instagram, links in captions can't be tapped.</b> Put your link in your profile bio. Every video ends with "Tap the link in bio", so viewers know where to go.</p>
         <div id="afVids"><p class="note" style="margin:0">Loading videos…</p></div>
       </div>
       <div class="cp-box">
@@ -5308,7 +5364,7 @@ window.Push = (function(){
       (j.videos || []).forEach(function(v){ if (!by[v.group]){ by[v.group] = []; groups.push(v.group); } by[v.group].push(v); });
       box.innerHTML = groups.map(function(g){
         return '<p class="pv-group">' + esc(g) + '</p><div class="pv-grid">' + by[g].map(function(v){
-          var base = '/promo/' + encodeURIComponent(v.file), mp4 = v.src || base + '.mp4', jpg = v.poster || base + '.jpg';
+          var base = '/promo/' + encodeURIComponent(v.file), mp4 = v.src || base + '.mp4' + (j.v ? '?v=' + encodeURIComponent(j.v) : ''), jpg = v.poster || base + '.jpg';   // j.v: bumped when the videos are re-made
           return '<div class="pv-card' + (v.wide ? ' pv-wide' : '') + '"><video src="' + esc(mp4) + '" poster="' + esc(jpg) + '" preload="none" controls playsinline></video>'
             + '<b>' + esc(v.title) + '</b><div class="pv-acts"><a class="btn btn-green btn-sm" href="' + esc(mp4) + '" download="' + esc(v.file) + '.mp4">Download</a>'
             + '<button class="btn btn-ghost btn-sm" type="button" data-cap="' + esc(v.caption.replace('{link}', link)) + '">Copy caption</button></div></div>';

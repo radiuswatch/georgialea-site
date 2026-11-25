@@ -16,6 +16,7 @@ Mix: voices at -16 LUFS overall with the music bed underneath (see `ad01-source/
 ## Series rules ("Why aren't you clipping now?")
 - **T-Bug's closing line in every ad:** "What are you waiting for? Go clip now." with **GO CLIP NOW.** popping on screen (above his head, never over his face).
 - Every ad ends on the ClipNow end card with **Start your 7-day free trial** and the small print (earnings not guaranteed; only clip content you may use).
+- **Link in bio (Nov 25, 2026):** the end card also shows the yellow "Tap the link in bio" banner at the top, and the closing voice says "Link in bio. clipnow dot V-I-P." (T-Bug in cartoon ads, Evie in real-people ads). TikTok captions can't be tapped, so viewers need to be told where the link is.
 - Audience: anyone with a phone or computer, not only students. Scenes can be anywhere in the town of Clip.
 
 ## Owner rules (Nov 17, 2026)
