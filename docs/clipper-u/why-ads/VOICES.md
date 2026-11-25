@@ -21,3 +21,11 @@ Mix: voices at -16 LUFS overall with the music bed underneath (see `ad01-source/
 ## Owner rules (Nov 17, 2026)
 - **The owner picks the voice for every new character.** Before building an ad with a new character, record an audition of all the young male (or matching) voices reading that character's lines, saved as `<Character>-voice-<N>-<Voice>.mp3` in `<character>-voice-audition/`, and wait for the owner's pick.
 - T-Bug's question to the other character is **"Why aren't you clipping?"** (no "now"). The only "now" in the ad is the closing "What are you waiting for? Go clip now."
+
+## Real-people ads (owner rule, Nov 25, 2026)
+For every ad made with real-looking people (not the Clipper U cartoon cast):
+- **The people on screen don't speak.** They act out the story (scrolling, tapping, reacting) with no lip-synced lines.
+- **Evie narrates.** All voiceover is the narrator voice Evie (`7a6845a2-5865-5669-a0ca-8fc8d8e96528`), the owner's pick for narration, so no new voice audition is needed. Check every take for repeated or jumbled words before building.
+- **How they're made:** a photorealistic still for each shot, animated into a 5-second shot with Seedance 2.5 at 1080p, 9:16, no generated audio (about 80 credits per shot). Each still keeps the top of the frame plain for captions.
+- **Same ending as every ad:** the tagline pops, then the CN keychain zooms into the end card with "Start your 7-day free trial" and the small print.
+- If a real-people ad ever needs someone to speak on camera, treat that person as a new character: send the owner a voice audition first.

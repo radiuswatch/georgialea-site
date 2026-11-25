@@ -18,6 +18,7 @@ Each ad is about a money problem, and the fix is earning from something people a
 - [ ] **Bonus Ad 11:** The original pilot idea.
 
 ## Rules for every ad (see VOICES.md)
+- **Real-people ads:** the people on screen don't speak; Evie narrates. Details in VOICES.md.
 - **Voices:** The owner picks the voice for every new character. Send an audition first, named `<Character>-voice-<N>-<Voice>.mp3`, with all the matching voices. Then record every line with the chosen audition clip as the voice reference, so the voice doesn't drift from what was picked.
 - **T-Bug's lines:** His voice is Benji. His question is "Why aren't you clipping?" with no "now." He closes with "What are you waiting for? Go clip now." and the GO CLIP NOW. pop-up appears above his face.
 - **End card:** "Start your 7-day free trial", plus the small print.
