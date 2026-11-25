@@ -15,7 +15,9 @@ This repo is **public**. Never commit keys, passwords, personal email addresses,
    three-way merge them in first. Never upload over work you haven't seen (this lost server-side work once, on 2026-11-25).
 2. **ClipNow's source of truth is this repo** (`clipper/`). Deploy with `scripts/deploy-clipnow.ts`
    (`CPANEL_HOST=cpanel.clipnow.vip:443 CLIPNOW_DOCROOT=/home1/thrypjmy/public_html/website_05f463c5`). It uploads only changed
-   files and never deletes server files. App Planet USA, cards and GALEA are NOT in this repo (see MASTER.md).
+   files and never deletes server files.
+   **Always pass `CLIPNOW_DOCROOT` on the command line:** this environment has a `CLIPNOW_DOCROOT` variable that points at the
+   unused folder `public_html/clipnow.vip` (blocked from the web), so a deploy without it goes to the wrong place. App Planet USA, cards and GALEA are NOT in this repo (see MASTER.md).
 3. Back up before uploading (outside public_html), and test locally first (`CLIPNOW_HOME`, `CLIPNOW_STRIPE_BASE`,
    `CLIPNOW_MAIL_FILE` let the admin run against a fake Stripe and write emails to a file).
 4. Never delete or overwrite server data (`/home1/thrypjmy/clipnow-data/`, member data, logs, analytics).
