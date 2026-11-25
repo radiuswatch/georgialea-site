@@ -408,6 +408,21 @@
   .drop h3{font-family:var(--sans);font-weight:600;font-size:19px;margin-bottom:6px}
   .drop p{color:var(--muted);margin:0;font-size:15px}
   .drop input{display:none}
+  .vq{margin:14px 0 0;border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .vq[hidden],.vq-next[hidden]{display:none}
+  .vq-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:14px;color:var(--muted)}
+  .vq-head b{color:var(--text,#fff);font-weight:600}
+  .vq ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+  .vq li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);font-size:14px}
+  .vq li.on{outline:1.5px solid var(--green);background:#0F1A12}
+  .vq li .n{font-family:var(--mono);color:var(--faint);min-width:22px}
+  .vq li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vq li .st{font-size:12.5px;color:var(--muted);white-space:nowrap}
+  .vq li.done .st{color:var(--green)}
+  @media (max-width:560px){.vq li:not(.on):not(.done) .st{display:none}}
+  .vq li button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px}
+  .vq li button:hover{color:var(--text,#fff)}
+  .vq-next{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border:1px solid var(--green-dim);border-radius:12px;background:#0F1A12;font-size:14.5px}
   .note{font-size:13.5px;color:var(--faint);margin:14px 0 0}
   .note b{color:var(--muted)}
 
@@ -963,10 +978,11 @@
         </div>
         <div class="or-line" id="orLine"><span>or upload the file</span></div>
         <label class="drop" id="drop">
-          <input type="file" id="file" accept="video/*">
-          <h3 id="dropTitle">Drop a video here, or click to choose one</h3>
-          <p id="dropSub">MP4, MOV or WebM. A 10 to 60 minute video works best.</p>
+          <input type="file" id="file" accept="video/*" multiple>
+          <h3 id="dropTitle">Drop videos here, or click to choose</h3>
+          <p id="dropSub">Pick one video or several at once. MP4, MOV or WebM. A 10 to 60 minute video works best.</p>
         </label>
+        <div class="vq" id="vidQueue" hidden><div class="vq-head"><span><b id="vqCount"></b> · ClipNow works on one at a time. Finished clips from every video stay in step 3.</span><button type="button" class="link-btn" id="vqAdd">+ Add more videos</button></div><ol id="vqList"></ol></div>
         <p class="note" style="margin-top:10px">Already have finished clips? <button type="button" class="link-btn" id="toAddClips">Add them straight to Your clips →</button></p>
         <p class="note"><b>Only clip videos you have the right to use:</b> your own, or a campaign that allows reposting. Reposting other people's videos without permission can get accounts banned and payouts withheld.</p>
 
@@ -1004,6 +1020,7 @@
 
       <!-- Stage 2 -->
       <div class="stage" data-stage="2">
+        <div class="vq-next" data-vqnext hidden></div>
         <div class="cta-row" style="justify-content:space-between">
           <p class="sub" style="font-size:15px">Ranked best first. Edit the hook text, nudge the start and end, then select the ones you want.</p>
           <div class="cta-row">
@@ -1025,6 +1042,7 @@
 
       <!-- Stage 3 -->
       <div class="stage" data-stage="3">
+        <div class="vq-next" data-vqnext hidden></div>
         <h3 style="font-family:var(--sans);font-weight:600;font-size:18px">Your clips</h3>
         <div class="ex-tools">
           <input type="file" id="addClips" accept="video/*" multiple hidden>
@@ -1700,10 +1718,10 @@ function copy(text){
   function fallback(){ var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Caption copied');}catch(e){} ta.remove(); }
 }
 $$('[data-brand]').forEach(function(el){ el.textContent = CONFIG.brand; });
-if (MOBILE){ $('#dropTitle').textContent = 'Tap to choose a video'; $('#dropSub').textContent = 'From Photos, Files or Downloads. A 10 to 60 minute video works best.'; }
+if (MOBILE){ $('#dropTitle').textContent = 'Tap to choose videos'; $('#dropSub').textContent = 'Pick one or several from Photos, Files or Downloads. A 10 to 60 minute video works best.'; }
 
 /* ---------- State ---------- */
-var S = { file:null, url:null, duration:0, len:30, count:5, frame:'fill', clips:[], exports:[], energy:null, hop:0.5 };
+var S = { queue:[], qi:-1, autoTopic:'', file:null, url:null, duration:0, len:30, count:5, frame:'fill', clips:[], exports:[], energy:null, hop:0.5 };
 
 /* ---------- Stage tabs ---------- */
 function goStage(n){
@@ -1726,11 +1744,70 @@ $$('.seg[data-opt]').forEach(function(seg){
 var drop = $('#drop'), fileIn = $('#file'), srcV = $('#srcVideo');
 ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add('over'); }); });
 ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('over'); }); });
-drop.addEventListener('drop', function(e){ var f = e.dataTransfer.files[0]; if (f) loadFile(f); });
-fileIn.addEventListener('change', function(){ if (fileIn.files[0]) loadFile(fileIn.files[0]); });
+drop.addEventListener('drop', function(e){ addVideos(e.dataTransfer.files); });
+fileIn.addEventListener('change', function(){ addVideos(fileIn.files); fileIn.value = ''; });
+$('#vqAdd').addEventListener('click', function(){ fileIn.click(); });
+
+/* ---------- Several videos at once: a list, clipped one at a time ---------- */
+function isVideo(f){ return /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v|mkv)$/i.test(f.name); }
+function addVideos(list){
+  var all = [].slice.call(list || []), vids = all.filter(isVideo);
+  if (!vids.length){ if (all.length) toast(all.length > 1 ? 'Those files aren’t videos' : 'That file isn’t a video'); return; }
+  var added = 0;
+  vids.forEach(function(f){
+    if (S.queue.some(function(q){ return q.file.name === f.name && q.file.size === f.size; })) return;   // same file twice
+    S.queue.push({ file:f, done:false }); added++;
+  });
+  var skip = all.length - vids.length;
+  if (skip) toast(skip + (skip > 1 ? ' files weren’t videos and were skipped' : ' file wasn’t a video and was skipped'));
+  else if (!added) toast(vids.length > 1 ? 'Those videos are already in your list' : 'That video is already in your list');
+  else if (S.qi >= 0) toast(added + ' video' + (added > 1 ? 's' : '') + ' added to your list');
+  if (S.qi < 0) useVideo(0); else renderQueue();
+}
+function useVideo(i){
+  if (!S.queue[i]) return;
+  if (S.qi >= 0 && i !== S.qi && S.clips.some(function(c){ return c.made; })) S.queue[S.qi].done = true;
+  S.qi = i; loadFile(S.queue[i].file);
+  $('.stage-tab[data-stage="1"]').classList.remove('done'); $('.stage-tab[data-stage="2"]').classList.remove('done');
+  renderClips(); renderQueue();
+}
+function nextVideo(){
+  for (var k = 1; k < S.queue.length; k++){ var j = (S.qi + k) % S.queue.length; if (!S.queue[j].done) return j; }
+  return -1;
+}
+function renderQueue(){
+  var box = $('#vidQueue'), many = S.queue.length > 1;
+  box.hidden = !many;
+  $('#vqCount').textContent = many ? 'Video ' + (S.qi + 1) + ' of ' + S.queue.length : '';
+  var ol = $('#vqList'); ol.innerHTML = '';
+  S.queue.forEach(function(q, i){
+    var li = document.createElement('li'); li.className = (i === S.qi ? 'on' : '') + (q.done ? ' done' : '');
+    li.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="nm"></span><span class="st">' + (i === S.qi ? 'Working on it' : q.done ? '✓ Clipped' : 'Waiting') + '</span>' +
+      (i === S.qi ? '' : '<button type="button" data-q="use">Clip This One</button><button type="button" data-q="rm" aria-label="Remove from list">×</button>');
+    $('.nm', li).textContent = q.file.name;
+    li.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.q === 'use'){ useVideo(i); goStage(1); }
+      else { S.queue.splice(i, 1); if (i < S.qi) S.qi--; renderQueue(); }
+    });
+    ol.appendChild(li);
+  });
+  var nx = nextVideo();
+  $$('[data-vqnext]').forEach(function(el){
+    el.hidden = !many || nx < 0;
+    if (el.hidden) return;
+    el.innerHTML = '<span>Video ' + (S.qi + 1) + ' of ' + S.queue.length + '. Up next: <b></b></span><button type="button" class="btn btn-green btn-sm">Next Video →</button>';
+    $('b', el).textContent = S.queue[nx].file.name;
+    $('button', el).addEventListener('click', function(){
+      if (!S.clips.some(function(c){ return c.made; }) && !confirm('You haven’t exported any clips from this video yet. Go to the next video anyway?')) return;
+      useVideo(nx); goStage(1);
+      var st = document.getElementById('studio'); if (st) st.scrollIntoView({ behavior:'smooth' });
+    });
+  });
+}
 
 function loadFile(f){
-  if (!/^video\//.test(f.type) && !/\.(mp4|mov|webm|m4v|mkv)$/i.test(f.name)) { toast('That file isn’t a video'); return; }
+  if (!isVideo(f)) { toast('That file isn’t a video'); return; }
   if (S.url) URL.revokeObjectURL(S.url);
   S.file = f; S.url = URL.createObjectURL(f); S.clips = []; S.energy = null;
   $('#srcBanner .src-help').hidden = true; $('#srcBanner .src-top span').textContent = 'File added. You’re ready to pick your clips.';
@@ -1740,7 +1817,8 @@ function loadFile(f){
   $('#anStatus').textContent = f.name + ' · ' + (f.size/1048576).toFixed(0) + ' MB';
   srcV.onloadedmetadata = function(){ S.duration = srcV.duration; $('#anStatus').textContent = f.name + ' · ' + fmt(S.duration) + ' long'; };
   srcV.onerror = function(){ $('#anStatus').textContent = 'Your browser can’t play this file. Try an MP4 (H.264).'; };
-  var t = $('#topic'); if (!t.value) t.value = f.name.replace(/\.[^.]+$/,'').replace(/[_\-.]+/g,' ').replace(/\s+/g,' ').trim().slice(0,40);
+  S.duration = 0;
+  var t = $('#topic'); if (!t.value || t.value === S.autoTopic) S.autoTopic = t.value = f.name.replace(/\.[^.]+$/,'').replace(/[_\-.]+/g,' ').replace(/\s+/g,' ').trim().slice(0,40);
 }
 
 /* ---------- Highlight finding ---------- */
