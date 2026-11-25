@@ -68,6 +68,7 @@
   .nav-links a:hover{color:var(--text)}
   .nav-links a.on{color:var(--green)}
   .nav-links a.btn{color:#06230F}
+  .nav-links .nav-plans{font-weight:700}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:10px;font-size:16px;font-weight:600;border:0;cursor:pointer;text-align:center}
   .btn-sm{padding:8px 14px;font-size:14px;border-radius:8px}
@@ -736,7 +737,7 @@
   .nav-links{gap:20px}
   @media (max-width:1240px){.nav-links a[href$="#how"],.nav-links a[href$="#faq"]{display:none}}
   @media (max-width:1040px){.nav-links a[href="privacy.html"],.nav-links a[href$="#daily"]{display:none}}
-  @media (max-width:900px){.nav-links a[href$="#platforms"],.nav-links a[href$="#pricing"]{display:none}}
+  @media (max-width:900px){.nav-links a[href$="#platforms"],.nav-links a[href$="#pricing"]:not(.btn){display:none}}
 
   /* Install the app (home-screen banner and how-to) */
   .app-banner{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--green-dim);border-radius:14px;padding:10px 6px 10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
@@ -843,7 +844,7 @@
       <a href="#how">How it works</a>
       <a href="#platforms">Platforms</a>
       <a href="#daily">Daily plan</a>
-      <a href="#pricing">Pricing</a>
+      <a class="btn btn-green btn-sm nav-plans" href="/#pricing" data-plans-link>Plans</a>
       <button class="btn btn-ghost btn-sm" id="acctBtn" type="button">Sign in</button>
     </nav>
   </div>
