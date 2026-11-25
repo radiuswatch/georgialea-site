@@ -169,6 +169,49 @@
     .count div{flex:1;min-width:0}
   }
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.cap span{opacity:1;transform:none}.reveal{opacity:1;transform:none}}
+
+/* ===== Luxury layer (2026-11-20) — matches App Planet / GALEA ===== */
+#luxStars{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:.8}
+.brand-mark{background:linear-gradient(160deg,#8ff0b4,#31C971 55%,#1f8a4a);box-shadow:0 0 18px -4px rgba(49,201,113,.7)}
+.top-right{display:flex;align-items:center;gap:12px}
+h1 em{text-shadow:0 0 30px rgba(49,201,113,.5)}
+h1 .gold{text-shadow:0 0 30px rgba(245,196,81,.35)}
+.eyebrow{display:inline-flex;align-items:center;gap:9px}
+.eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);flex:none}
+.field{border-radius:18px;border-color:rgba(49,201,113,.25);background:linear-gradient(180deg,#171c17,#111411);box-shadow:0 20px 44px -30px #000}
+.btn{border-radius:13px;background:linear-gradient(180deg,#5ee39a,#31C971 55%,#22a85a);box-shadow:0 12px 26px -12px rgba(49,201,113,.75)}
+.btn:hover{transform:translateY(-1px)}
+.ks{border-radius:16px;box-shadow:0 0 30px -14px rgba(49,201,113,.55)}
+.count div{border-radius:16px;border-color:rgba(49,201,113,.25);background:linear-gradient(180deg,#171c17,#111411);box-shadow:0 0 26px -14px rgba(49,201,113,.5)}
+.count b{text-shadow:0 0 18px rgba(49,201,113,.45)}
+.phone{box-shadow:0 40px 80px -20px rgba(0,0,0,.7),0 0 0 1px #2e352e,0 0 60px -10px rgba(49,201,113,.35)}
+.chip{border-color:rgba(49,201,113,.3);border-radius:16px}
+.feat,.w-ep{border-radius:22px;border-color:rgba(49,201,113,.22);box-shadow:0 24px 50px -32px #000,inset 0 1px 0 rgba(255,255,255,.03)}
+.feat:hover{border-color:rgba(49,201,113,.55);box-shadow:0 24px 50px -30px #000,0 0 34px -12px rgba(49,201,113,.45)}
+.ic{background:linear-gradient(160deg,#8ff0b4,#31C971 55%,#1f8a4a);color:#06230F;box-shadow:0 10px 22px -10px rgba(49,201,113,.6)}
+.plats span{border-color:rgba(49,201,113,.25)}
+.w-fig video{border-radius:18px;border-color:rgba(49,201,113,.25);box-shadow:0 20px 44px -24px #000}
+.join{box-shadow:0 10px 24px -10px rgba(245,196,81,.7)}
+.mode{width:78px;height:40px;border-radius:999px;padding:3px;border:1px solid rgba(49,201,113,.35);background:rgba(0,0,0,.38);cursor:pointer;display:flex;align-items:center;flex:none}
+.knob{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(160deg,#f6e08f,#c9a24a);color:#2a1d05;box-shadow:0 4px 12px rgba(0,0,0,.35);transition:transform .28s ease}
+.knob svg{width:17px;height:17px}
+html[data-mode="light"] .knob{transform:translateX(38px)}
+@media (max-width:520px){.status{display:none}}
+@media (prefers-reduced-motion:reduce){.knob{transition:none}}
+/* Day mode */
+html[data-mode="light"]{color-scheme:light;--bg:#f3f6f2;--card:#ffffff;--card-2:#f8fbf7;--line:#d6e2d8;--text:#0f1d13;--muted:#4b5a4f;--faint:#6a776d;--green:#1f9a52;--green-deep:#e1f3e7;--gold:#b8860b}
+html[data-mode="light"] #luxStars{opacity:.25;filter:invert(1)}
+html[data-mode="light"] .grid-bg{opacity:.5}
+html[data-mode="light"] .lead,html[data-mode="light"] .plats span{color:#3b4a3f}
+html[data-mode="light"] .field,html[data-mode="light"] .count div,html[data-mode="light"] .feat,html[data-mode="light"] .w-ep,html[data-mode="light"] .plats span{background:linear-gradient(180deg,#ffffff,#f8fbf7);box-shadow:0 16px 36px -28px rgba(15,29,19,.35)}
+html[data-mode="light"] .ks{background:#ffffff}
+html[data-mode="light"] .status{background:#ffffff}
+html[data-mode="light"] h1 em,html[data-mode="light"] h1 .gold,html[data-mode="light"] .count b{text-shadow:none}
+html[data-mode="light"] .mode{background:rgba(255,255,255,.9)}
+html[data-mode="light"] footer a{color:#3b4a3f}
+html[data-mode="light"] .chip{background:rgba(255,255,255,.95);color:#0f1d13;box-shadow:0 16px 36px -18px rgba(15,29,19,.4)}
+html[data-mode="light"] .count div{color:#0f1d13}
+html[data-mode="light"] .phone{--gold:#F5C451;--text:#E9EDE9;--green:#31C971}
 </style>
 <script>
 /* Fade sections in as they scroll into view. Started here, before the page's other code, so an error
@@ -186,8 +229,12 @@
   window.addEventListener('load', check);
 })();
 </script>
+<script>try{if(localStorage.getItem("card-mode")==="light")document.documentElement.setAttribute("data-mode","light")}catch(e){}</script>
+<script>/* Partner referrals (codes starting "pt", 2026-11-23): hide the App Planet USA credit */
+(function(){ try { var m=/[?&]ref=(pt[a-z0-9]{3,38})(?:&|$)/i.exec(location.search), c=(m&&m[1].toLowerCase())||localStorage.getItem('cn_ref')||''; if(c.indexOf('pt')===0){ var st=document.createElement('style'); st.textContent='.by-ap{display:none!important}'; document.head.appendChild(st);} } catch(e){} })();</script>
 </head>
 <body>
+<canvas id="luxStars" aria-hidden="true"></canvas>
 <div class="glow" aria-hidden="true"></div>
 <div class="grid-bg" aria-hidden="true"></div>
 
@@ -203,7 +250,7 @@
 <header>
   <div class="wrap top">
     <a class="brand" href="/"><span class="brand-mark">CN</span>ClipNow</a>
-    <span class="status"><span class="dot"></span>Launching soon</span>
+    <div class="top-right"><span class="status"><span class="dot"></span>Launching soon</span><button class="mode" type="button" id="modeBtn" aria-label="Switch to light mode"><span class="knob" id="knob"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span></button></div>
   </div>
 </header>
 
@@ -344,7 +391,7 @@
 
 <footer>
   <div class="wrap">
-    <span>© <span id="yr">2026</span> ClipNow · by <a href="https://georgialea.com/apps/" target="_blank" rel="noopener">App Planet</a></span>
+    <span>© <span id="yr">2026</span> ClipNow <span class="by-ap">· by <a href="https://appplanetusa.com/" target="_blank" rel="noopener">App Planet USA</a></span></span>
     <nav><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a><a href="/refunds.html">Refunds</a></nav>
   </div>
 </footer>
@@ -446,6 +493,29 @@
 })();
 </script>
 <script src="/chat.js?v=1" defer></script>
+<script>
+/* App Planet luxury pages: day/night switch + starfield. Needs #modeBtn/#knob and (optionally) canvas#luxStars. */
+(function () {
+  var root = document.documentElement, btn = document.getElementById('modeBtn'), knob = document.getElementById('knob');
+  var MOON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>';
+  function paint() { var light = root.getAttribute('data-mode') === 'light'; if (knob) knob.innerHTML = light ? SUN : MOON; if (btn) btn.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode'); }
+  if (btn) btn.addEventListener('click', function () { var light = root.getAttribute('data-mode') !== 'light'; if (light) root.setAttribute('data-mode', 'light'); else root.removeAttribute('data-mode'); try { localStorage.setItem('card-mode', light ? 'light' : 'dark'); } catch (e) {} paint(); });
+  paint();
+  var c = document.getElementById('luxStars'); if (!c || !c.getContext) return; var x = c.getContext('2d');
+  function draw() { var w = c.clientWidth, h = c.clientHeight, d = window.devicePixelRatio || 1; c.width = w * d; c.height = h * d; x.setTransform(d, 0, 0, d, 0, 0);
+    var s = 9; function n() { s = s * 16807 % 2147483647; return s / 2147483647; }
+    for (var i = 0; i < w * h / 2600; i++) { x.globalAlpha = .2 + n() * .7; x.fillStyle = n() > .88 ? '#34c46c' : '#e9ede9'; x.beginPath(); x.arc(n() * w, n() * h, n() * 1.3 + .3, 0, 7); x.fill(); } }
+  draw(); window.addEventListener('resize', draw);
+})();
+</script>
 <script src="/a.js" data-p="/coming-soon" defer></script>
+<script>/* Referral links on the coming-soon page (2026-11-23): remember ?ref=code for 60 days (same keys as the app) and count the visit */
+(function(){ var m=/[?&]ref=([A-Za-z0-9_-]{3,40})(?:&|$)/.exec(location.search); if(!m) return; var code=m[1].toLowerCase();
+  try { localStorage.setItem('cn_ref', code); localStorage.setItem('cn_ref_t', String(Date.now())); } catch(e){}
+  (function count(retry){ fetch('/api/affiliate.php?click=' + encodeURIComponent(code), { credentials:'same-origin' }).then(function(r){ return r.text(); }).then(function(t){
+    var h=!retry && t.match(/document\.cookie\s*=\s*"(humans_\d+=[^";]*)/); if(h){ document.cookie=h[1]+'; path=/'; count(true); } }).catch(function(){}); })(false);
+  try { var q=location.search.replace(/([?&])ref=[^&]*&?/, '$1').replace(/[?&]$/, ''); history.replaceState(null, '', location.pathname + q + location.hash); } catch(e){}
+})();</script>
 </body>
 </html>

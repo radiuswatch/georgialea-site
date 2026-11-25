@@ -50,3 +50,18 @@ AddType application/manifest+json .webmanifest
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
 </IfModule>
+
+# ---- Security (Joseph: "protect all sites from cyber attacks", 2026-11-23) ----
+# HTTPS only for a year, no MIME sniffing, no clickjacking by other sites, private referrers, no camera/mic/location.
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), usb=(), interest-cohort=()"
+  Header always setifempty Content-Security-Policy "frame-ancestors 'self' https://clipnow.vip"
+  Header always unset X-Powered-By
+</IfModule>
+# Leftover copies, backups, logs and settings files are never served.
+<FilesMatch "(?i)(\.(bak|old|orig|save|swp|sql|log|ini|sh|py|md|env|dist|lock)|~|-backup-[0-9-]+\.html|\.pre-[a-z-]+-[0-9-]+\.html)$">
+  Require all denied
+</FilesMatch>

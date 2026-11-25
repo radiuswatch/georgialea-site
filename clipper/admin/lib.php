@@ -452,12 +452,17 @@ function cn_member_lookup(string $email): ?array {
 /** Rate limit sign-in requests: $max per 15 minutes per key. */
 function cn_rate_ok(string $key, int $max): bool {
   $f = cn_dir('rate') . '/' . hash('sha256', $key) . '.json';
+  $lk = cn_lock_open($f);   // security (2026-11-23): read-check-write under one lock, so parallel requests can't all slip through
   $hits = array_values(array_filter(cn_json_file($f, []), fn($t) => $t > time() - 900));
-  if (count($hits) >= $max) return false;
+  if (count($hits) >= $max) { cn_lock_close($lk); return false; }
   $hits[] = time();
-  file_put_contents($f, json_encode($hits), LOCK_EX);
+  file_put_contents($f, json_encode($hits));
+  cn_lock_close($lk);
   return true;
 }
+/** An exclusive lock beside $f (held until cn_lock_close). */
+function cn_lock_open(string $f) { $h = @fopen($f . '.lock', 'c'); if ($h) flock($h, LOCK_EX); return $h; }
+function cn_lock_close($h): void { if ($h) { flock($h, LOCK_UN); fclose($h); } }
 function cn_json_file(string $f, $default) {
   if (!is_file($f)) return $default;
   $j = json_decode((string)file_get_contents($f), true);
@@ -501,11 +506,19 @@ function cn_code_file(string $email): string { return cn_dir('logins') . '/code-
 function cn_code_hash(string $email, string $code): string { return hash_hmac('sha256', strtolower(trim($email)) . '|' . $code, cn_config()['secret']); }
 /** Use a sign-in code. Returns [email, ''] on success, or [null, why]. */
 function cn_use_login_code(string $email, string $code): array {
-  $code = preg_replace('/\D/', '', $code);
   $f = cn_code_file($email);
+  $lk = cn_lock_open($f);   // security (2026-11-23): one guess at a time per email
+  try { return cn_use_login_code_locked($email, $code, $f); } finally { cn_lock_close($lk); }
+}
+function cn_use_login_code_locked(string $email, string $code, string $f): array {
+  $code = preg_replace('/\D/', '', $code);
+  // and at most 20 wrong codes per email per day, however many new codes are requested
+  $ff = cn_dir('rate') . '/fails-' . hash('sha256', strtolower(trim($email)) . '|' . gmdate('Y-m-d')) . '.txt';
+  if ((int)@file_get_contents($ff) >= 20) return [null, 'Too many wrong codes today. Please try again tomorrow, or contact support.'];
   $j = cn_json_file($f, null);
   if (!$j || ($j['exp'] ?? 0) < time()) { if (is_file($f)) unlink($f); return [null, 'That code has expired. Request a new one.']; }
   if (strlen($code) !== 6 || !hash_equals((string)$j['hash'], cn_code_hash($email, $code))) {
+    @file_put_contents($ff, (string)((int)@file_get_contents($ff) + 1));
     $j['tries'] = (int)($j['tries'] ?? 0) + 1;
     if ($j['tries'] >= 5) { unlink($f); return [null, 'Too many wrong codes. Request a new one.']; }
     file_put_contents($f, json_encode($j), LOCK_EX);
@@ -770,7 +783,8 @@ function cn_post_results(array $s, bool $learn = true): array {
   return $out;
 }
 /** Platforms' own posting limits per account, enforced before we send (posts per rolling 24 hours). */
-const CN_DAILY_CAPS = ['tiktok' => 15];
+// x: 5 per 24 h (2026-11-23): X locked a member account for automated-looking activity after bursts of up to 29 posts a day.
+const CN_DAILY_CAPS = ['tiktok' => 15, 'x' => 5];
 /** Clips sent to the app's drafts/inbox for the member to finish posting by hand (TikTok: about 5 pending per 24 hours). */
 const CN_DRAFT_CAPS = ['tiktok' => 5];
 /**
@@ -1254,8 +1268,11 @@ function cn_camp_sync(array &$c): bool {
     $was = [$s['auto'] ?? false, $s['tracked_at'] ?? 0, $s['tracked_error'] ?? '', $s['views']];
     $s['auto'] = $auto;
     if ($clip) { $s['tracked_at'] = (int)$clip['checked']; $s['tracked_error'] = (string)($clip['error'] ?? ''); }
-    if ($auto && (int)$clip['views'] > (int)$s['views'] && $s['status'] !== 'rejected') {
-      $s['views'] = (int)$clip['views']; $s['updated'] = time();
+    // Security (2026-11-23): only views ClipNow itself read from the platform ('auto') count as tracked,
+    // never a number the clipper typed into My stats.
+    $tracked = 0; foreach (array_reverse($clip['history'] ?? []) as $hh) if (($hh['how'] ?? '') === 'auto') { $tracked = (int)$hh['views']; break; }
+    if ($auto && $tracked > (int)$s['views'] && $s['status'] !== 'rejected') {
+      $s['views'] = $tracked; $s['updated'] = time();
       if ($s['status'] === 'approved' && $s['views'] > (int)$s['approved_views']) { $s['prev_status'] = 'approved'; $s['status'] = 'pending'; }
     }
     if ($was !== [$s['auto'], $s['tracked_at'] ?? 0, $s['tracked_error'] ?? '', $s['views']]) $changed = true;
