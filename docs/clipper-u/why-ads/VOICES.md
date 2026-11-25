@@ -30,3 +30,4 @@ For every ad made with real-looking people (not the Clipper U cartoon cast):
 - **How they're made:** a photorealistic still for each shot, animated into a 5-second shot with Seedance 2.5 at 1080p, 9:16, no generated audio (about 80 credits per shot). Each still keeps the top of the frame plain for captions.
 - **Same ending as every ad:** the tagline pops, then the CN keychain zooms into the end card with "Start your 7-day free trial" and the small print.
 - If a real-people ad ever needs someone to speak on camera, treat that person as a new character: send the owner a voice audition first.
+- **Word-of-mouth ads (ads 7-8, Nov 25, 2026):** people pass the news by whispering behind a hand or showing their phone; a speech bubble "You know ClipNow is live?" pops up each time and Evie narrates where it is (barbershop, coffee shop, locker room…). Builder: `launch-ads/real-source/rbuild78.py`.
