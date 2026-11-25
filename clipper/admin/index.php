@@ -206,12 +206,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     back('codes');
   }
 
+  if ($do === 'make_promo') {
+    $note = trim((string)($_POST['note'] ?? '')); $pct = (int)($_POST['pct'] ?? 0);
+    try {
+      $p = cn_create_promo_code($pct, $note);
+      $_SESSION['new_promo'] = ['code' => $p['code'], 'note' => $note, 'pct' => $pct];
+      flash("New $pct% code {$p['code']} is ready. It works once.");
+    } catch (Throwable $ex) { flash($ex->getMessage(), false); }
+    back('promo');
+  }
+
   if (in_array($do, ['code_off', 'code_on', 'code_delete'], true)) {
+    $codeView = ($_POST['from'] ?? '') === 'promo' ? 'promo' : 'codes';
     try {
       $id = (string)($_POST['promo'] ?? '');
       if (!preg_match('/^promo_\w+$/', $id)) throw new RuntimeException('Unknown code.');
       $p = cn_stripe('GET', '/v1/promotion_codes/' . $id);
-      if (($p['metadata']['purpose'] ?? '') !== 'family') throw new RuntimeException('That isn\'t a family code.');
+      if (!in_array($p['metadata']['purpose'] ?? '', ['family', 'promo'], true)) throw new RuntimeException('That isn\'t a code made in this portal.');
       if ($do === 'code_on') {
         if ((int)$p['times_redeemed'] >= (int)($p['max_redemptions'] ?? PHP_INT_MAX)) throw new RuntimeException("{$p['code']} has already been used, so it can't be turned back on.");
         cn_stripe('POST', '/v1/promotion_codes/' . $id, ['active' => 'true']);
@@ -229,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
       }
     } catch (Throwable $ex) { flash($ex->getMessage(), false); }
-    back('codes');
+    back($codeView);
   }
 
   if ($do === 'settings') {
@@ -414,6 +425,7 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
     <nav>
       <a href="./" class="<?= $view === 'subs' ? 'on' : '' ?>">Subscriptions</a>
       <a href="?view=codes" class="<?= $view === 'codes' ? 'on' : '' ?>">Family codes</a>
+      <a href="?view=promo" class="<?= $view === 'promo' ? 'on' : '' ?>">Promo codes</a>
       <a href="?view=campaigns" class="<?= $view === 'campaigns' ? 'on' : '' ?>">Campaigns</a>
       <a href="?view=affiliates" class="<?= $view === 'affiliates' ? 'on' : '' ?>">Affiliates</a>
       <a href="?view=site" class="<?= $view === 'site' ? 'on' : '' ?>">Site status</a>
@@ -587,6 +599,81 @@ if ($authed && $view === 'site' && isset($_GET['export'])) {
   <?php endif; ?>
   </div></div>
   <p class="sub" style="margin-top:12px"><b>Turn off</b> pauses an unused code (you can turn it back on). <b>Delete</b> stops a code for good and removes it from this list. Neither one takes away a membership someone already started with a code; to end that, cancel their subscription from the Subscriptions page (Stripe button).</p>
+  <script>
+  document.querySelectorAll('[data-copy]').forEach(function(b){ b.addEventListener('click', function(){
+    var el=document.getElementById(b.dataset.copy), t=el.value!==undefined?el.value:el.textContent;
+    (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; }, function(){ if(el.select){el.select();} document.execCommand('copy'); b.textContent='Copied'; });
+    setTimeout(function(){ b.textContent=b.dataset.copy==='newCode'?'Copy code':'Copy message'; },1500); }); });
+  </script>
+
+<?php elseif ($view === 'promo'):
+  $codes = []; $error = '';
+  try { $codes = cn_promo_codes(cn_subscriptions()); } catch (Throwable $ex) { $error = $ex->getMessage(); }
+  $hidden = cn_read('deleted-codes.json', []);
+  $codes = array_values(array_filter($codes, fn($c) => !isset($hidden[$c['id']])));
+  $new = $_SESSION['new_promo'] ?? null; unset($_SESSION['new_promo']);
+  $unused = count(array_filter($codes, fn($c) => $c['status'] === 'unused'));
+  $usedN = count(array_filter($codes, fn($c) => $c['status'] === 'used'));
+  $perm = $error !== '' && str_contains($error, 'Permission denied');
+?>
+  <?php if ($perm): ?>
+    <div class="flash bad">Your Stripe key needs permission to make codes. In Stripe, open <b>Developers → API keys</b>, click <b>⋯ → Edit</b> on your restricted key, set <b>Coupons</b> and <b>Promotion codes</b> to <b>Write</b> (and <b>Products</b> to <b>Read</b>), and save. Then reload this page.</div>
+  <?php elseif ($error): ?><div class="flash bad"><?= e($error) ?></div><?php endif; ?>
+  <?php if ($new):
+    $msg = "Here's {$new['pct']}% off your first ClipNow payment. Pick a plan at " . CN_SITE . "/#pricing, tap \"Add promotion code\" at checkout, and enter {$new['code']}. It works one time."; ?>
+  <div class="panel" style="border-color:var(--green)">
+    <h2>Your new <?= (int)$new['pct'] ?>% code</h2>
+    <p><?= $new['note'] !== '' ? 'For ' . e($new['note']) . '. ' : '' ?><?= (int)$new['pct'] ?>% off the first payment of any ClipNow plan. Works one time.</p>
+    <div class="bar" style="margin:0 0 14px">
+      <code id="newCode" style="font:600 30px var(--mono);letter-spacing:.06em;color:var(--green);background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:8px 16px"><?= e($new['code']) ?></code>
+      <button class="btn" type="button" data-copy="newCode">Copy code</button>
+    </div>
+    <label for="shareMsg">Message to send</label>
+    <textarea id="shareMsg" rows="3" readonly style="width:100%;background:var(--card-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font:inherit;resize:vertical"><?= e($msg) ?></textarea>
+    <p style="margin:10px 0 0"><button class="btn" type="button" data-copy="shareMsg">Copy message</button></p>
+  </div>
+  <?php endif; ?>
+
+  <div class="panel">
+    <h2>Make a promo code</h2>
+    <p>Each code works <b>one time only</b> and never expires. It takes the discount off the <b>first payment</b> of any ClipNow plan (Silver, Gold, Platinum or Corporate, monthly or yearly). After a free trial, the discount applies to the first real charge. Customers enter it under "Add promotion code" at checkout.</p>
+    <form method="post" class="grid2" style="align-items:end">
+      <input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="do" value="make_promo">
+      <div><label for="pct">Discount</label><select id="pct" name="pct"><option value="25">25% off first payment</option><option value="50">50% off first payment</option></select></div>
+      <div><label for="note">Who is it for? (only you see this)</label><input id="note" name="note" maxlength="200" placeholder="e.g. Instagram giveaway winner"></div>
+      <div><button class="btn go" <?= $perm ? 'disabled' : '' ?>>Generate one-time code</button></div>
+    </form>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b><?= $unused ?></b><span>Unused codes</span></div>
+    <div class="stat"><b><?= $usedN ?></b><span>Used</span></div>
+    <div class="stat"><b><?= count($codes) ?></b><span>All codes</span></div>
+  </div>
+  <div class="card"><div class="scroll">
+  <?php if (!$codes): ?><div class="empty">No promo codes yet.</div><?php else: ?>
+  <table class="members"><thead><tr><th>Code</th><th>Discount</th><th>For</th><th>Status</th><th class="hide-sm">Made</th><th></th></tr></thead><tbody>
+  <?php foreach ($codes as $c):
+    $badge = ['unused' => ['s-trialing', 'Unused'], 'used' => ['s-active', 'Used'], 'off' => ['s-canceled', 'Turned off']][$c['status']]; ?>
+    <tr>
+      <td class="who"><b class="num" style="font-family:var(--mono)"><?= e($c['code']) ?></b></td>
+      <td class="num"><?= (int)$c['pct'] ?>% off</td>
+      <td><?= e($c['note'] ?: '—') ?></td>
+      <td><span class="badge <?= $badge[0] ?>"><?= $badge[1] ?></span><?php if ($c['by']): ?><div class="sub">by <?= e($c['by']) ?><?= $c['by_plan'] ? ' · ' . e($c['by_plan']) : '' ?></div><?php endif; ?></td>
+      <td class="hide-sm num"><?= day($c['created']) ?></td>
+      <td class="acts" style="white-space:nowrap">
+        <form method="post" class="inline"><input type="hidden" name="csrf" value="<?= e($csrf) ?>"><input type="hidden" name="promo" value="<?= e($c['id']) ?>"><input type="hidden" name="from" value="promo">
+          <?php if ($c['status'] === 'unused'): ?><button class="btn" name="do" value="code_off" onclick="return confirm('Turn off <?= e($c['code']) ?>? It will stop working until you turn it back on.')">Turn off</button><?php endif; ?>
+          <?php if ($c['status'] === 'off'): ?><button class="btn" name="do" value="code_on">Turn on</button><?php endif; ?>
+          <button class="btn warn" name="do" value="code_delete" onclick="return confirm('Delete <?= e($c['code']) ?>? It will stop working for good and disappear from this list.')">Delete</button>
+        </form>
+      </td>
+    </tr>
+  <?php endforeach; ?>
+  </tbody></table>
+  <?php endif; ?>
+  </div></div>
+  <p class="sub" style="margin-top:12px"><b>Turn off</b> pauses an unused code (you can turn it back on). <b>Delete</b> stops a code for good and removes it from this list. A discount someone already got stays on their first payment.</p>
   <script>
   document.querySelectorAll('[data-copy]').forEach(function(b){ b.addEventListener('click', function(){
     var el=document.getElementById(b.dataset.copy), t=el.value!==undefined?el.value:el.textContent;

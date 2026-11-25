@@ -323,6 +323,69 @@ function cn_family_codes(array $subs): array {
   return $out;
 }
 
+/* ---------- Promo codes (single-use, 25% or 50% off the first payment) ---------- */
+
+const CN_PROMO_PCTS = [25, 50];
+
+/** The "X% off the first payment" coupon for ClipNow plans (metadata purpose=promo). Created on first use. */
+function cn_promo_coupon(int $pct): string {
+  if (!in_array($pct, CN_PROMO_PCTS, true)) throw new RuntimeException('Pick 25% or 50%.');
+  foreach (cn_stripe('GET', '/v1/coupons', ['limit' => 100])['data'] as $c) {
+    if (($c['metadata']['purpose'] ?? '') === 'promo' && (int)($c['metadata']['pct'] ?? 0) === $pct && !empty($c['valid'])) return $c['id'];
+  }
+  // Only ClipNow's plans (the Stripe account also sells App Planet USA products).
+  $products = [];
+  foreach (cn_stripe('GET', '/v1/products', ['active' => 'true', 'limit' => 100])['data'] as $p) {
+    if (in_array($p['metadata']['plan'] ?? '', ['starter', 'pro', 'agency', 'corporate'], true)) $products[] = $p['id'];
+  }
+  if (!$products) throw new RuntimeException('No ClipNow plan products found in Stripe (products with metadata plan=starter/pro/agency/corporate).');
+  $c = cn_stripe('POST', '/v1/coupons', ['percent_off' => $pct, 'duration' => 'once', 'name' => "ClipNow $pct% off first payment",
+    'applies_to' => ['products' => $products], 'metadata' => ['purpose' => 'promo', 'pct' => (string)$pct]]);
+  return $c['id'];
+}
+
+/** Make a new single-use promo code: CN25-XXXXXX or CN50-XXXXXX. It never expires. */
+function cn_create_promo_code(int $pct, string $note): array {
+  $coupon = cn_promo_coupon($pct);
+  $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for ($try = 0; $try < 5; $try++) {
+    $code = "CN$pct-";
+    for ($i = 0; $i < 6; $i++) $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+    try {
+      return cn_stripe('POST', '/v1/promotion_codes', ['coupon' => $coupon, 'code' => $code, 'max_redemptions' => 1,
+        'metadata' => ['purpose' => 'promo', 'pct' => (string)$pct, 'note' => mb_substr($note, 0, 200), 'created_by' => 'admin portal']]);
+    } catch (RuntimeException $e) { if (!str_contains($e->getMessage(), 'already exists')) throw $e; }
+  }
+  throw new RuntimeException('Could not make a unique code. Please try again.');
+}
+
+/** Every 25%/50% promo code, newest first, with who redeemed it (from $subs). */
+function cn_promo_codes(array $subs): array {
+  $byPromo = [];
+  foreach ($subs as $s) if ($s['promo_id'] !== '') $byPromo[$s['promo_id']][] = $s;
+  $coupons = [];
+  foreach (cn_stripe('GET', '/v1/coupons', ['limit' => 100])['data'] as $c) if (($c['metadata']['purpose'] ?? '') === 'promo') $coupons[] = $c['id'];
+  $out = [];
+  foreach ($coupons as $coupon) {
+    $after = null;
+    do {
+      $q = ['coupon' => $coupon, 'limit' => 100]; if ($after) $q['starting_after'] = $after;
+      $page = cn_stripe('GET', '/v1/promotion_codes', $q);
+      foreach ($page['data'] as $p) {
+        $used = (int)$p['times_redeemed'];
+        $status = $used >= (int)($p['max_redemptions'] ?? PHP_INT_MAX) ? 'used' : (!$p['active'] ? 'off' : 'unused');
+        $who = $byPromo[$p['id']] ?? [];
+        $out[] = ['id' => $p['id'], 'code' => $p['code'], 'pct' => (int)($p['metadata']['pct'] ?? $p['coupon']['percent_off'] ?? 0), 'note' => $p['metadata']['note'] ?? '',
+                  'created' => (int)$p['created'], 'status' => $status, 'used' => $used,
+                  'by' => $who ? ($who[0]['email'] ?: $who[0]['name']) : '', 'by_plan' => $who ? $who[0]['plan'] : ''];
+      }
+      $after = $page['data'] ? end($page['data'])['id'] : null;
+    } while (!empty($page['has_more']));
+  }
+  usort($out, fn($a, $b) => $b['created'] <=> $a['created']);
+  return $out;
+}
+
 /* ---------- Member sign-in ---------- */
 // Members sign in with an emailed one-time link (or automatically after Stripe checkout).
 // Sessions and links are stored server-side in ~/clipnow-data/{sessions,logins}/ by the
