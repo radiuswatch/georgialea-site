@@ -3,6 +3,7 @@
    sendBeacon can't see that answer, so first-time visitors (everyone from ads) were never counted. Now: fetch, and on that answer set the
    cookie and send once more. */
 (function () {
+  try { document.cookie = 'humans_21909=1; path=/; max-age=31536000; SameSite=Lax; Secure'; } catch (e) {}   // Bluehost bot check: set it up front
   var me = document.currentScript;
   try { if (navigator.webdriver || localStorage.getItem('tr-off') === '1') return; } catch (e) {}
   var q = new URLSearchParams(location.search);
