@@ -214,6 +214,14 @@
   .cp-box p{margin:0 0 8px;font-size:15px}
   .cp-pre{white-space:pre-wrap;color:var(--muted);font-size:15px;margin:0}
   .cp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+  .pv-group{margin:18px 0 10px;font:600 12px/1 var(--mono, monospace);letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+  .pv-group:first-child{margin-top:0}
+  .pv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px 12px}
+  .pv-card{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .pv-card video{width:100%;aspect-ratio:9/16;border-radius:12px;background:#000;object-fit:cover;display:block}
+  .pv-card b{font-size:14px;line-height:1.3}
+  .pv-acts{display:flex;flex-direction:column;gap:6px}
+  .pv-acts .btn{width:100%;justify-content:center;text-align:center;padding-left:8px;padding-right:8px;font-size:13px;white-space:nowrap}
   .cp-stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
   .cp-stat b{display:block;font-family:var(--mono);font-size:19px;color:var(--text)}
   .cp-stat span{font-size:12.5px;color:var(--muted)}
@@ -1261,6 +1269,11 @@
         <p class="cp-fine" style="margin:8px 0 0">Tip: any ClipNow page works too. Add <b id="afSuffix"></b> to the end of the address.</p>
       </div>
       <div class="cp-stats" id="afStats"></div>
+      <div class="cp-box" id="afPromo">
+        <h4>Promo videos</h4>
+        <p class="cp-fine" style="margin:0 0 14px">Ready-made 30-second ClipNow ads to post on TikTok, Reels, Shorts or anywhere. Download one, post it, then paste its caption. Your link is already in the caption.</p>
+        <div id="afVids"><p class="note" style="margin:0">Loading videos…</p></div>
+      </div>
       <div class="cp-box">
         <h4>Your referrals</h4>
         <div id="afRefs"></div>
@@ -5196,13 +5209,35 @@ window.Push = (function(){
   function post(b){ return req('api/affiliate.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(b) }); }
   function say(el, t, bad){ el.textContent = t; el.className = 'cp-msg' + (bad ? ' bad' : ''); }
 
+  var promoFor = '';
+  function promo(link){
+    if (promoFor === link) return; promoFor = link;
+    fetch('/promo/videos.json', { credentials:'same-origin' }).then(function(r){ return r.json(); }).then(function(j){
+      var box = $('#afVids'), groups = [], by = {};
+      (j.videos || []).forEach(function(v){ if (!by[v.group]){ by[v.group] = []; groups.push(v.group); } by[v.group].push(v); });
+      box.innerHTML = groups.map(function(g){
+        return '<p class="pv-group">' + esc(g) + '</p><div class="pv-grid">' + by[g].map(function(v){
+          var src = '/promo/' + encodeURIComponent(v.file);
+          return '<div class="pv-card"><video src="' + src + '.mp4" poster="' + src + '.jpg" preload="none" controls playsinline></video>'
+            + '<b>' + esc(v.title) + '</b><div class="pv-acts"><a class="btn btn-green btn-sm" href="' + src + '.mp4" download="' + esc(v.file) + '.mp4">Download</a>'
+            + '<button class="btn btn-ghost btn-sm" type="button" data-cap="' + esc(v.caption.replace('{link}', link)) + '">Copy caption</button></div></div>';
+        }).join('') + '</div>';
+      }).join('');
+      box.querySelectorAll('[data-cap]').forEach(function(b){ b.addEventListener('click', function(){
+        var t = b.getAttribute('data-cap');
+        (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ toast('Caption copied, with your link'); }, function(){ window.prompt('Copy this caption:', t); });
+      }); });
+      // Only one video plays at a time.
+      box.addEventListener('play', function(e){ box.querySelectorAll('video').forEach(function(x){ if (x !== e.target) x.pause(); }); }, true);
+    }).catch(function(){ promoFor = ''; $('#afVids').innerHTML = '<p class="note" style="margin:0">Couldn’t load the videos. Refresh to try again.</p>'; });
+  }
   function load(){
     req('api/affiliate.php').then(function(j){
       $('#afLoading').hidden = true;
       if (!j.ok){ $('#afJoin').hidden = false; $('#afDash').hidden = true; return; }
       $('#afJoin').hidden = true; $('#afDash').hidden = false;
       var me = j.me, s = j.stats;
-      $('#afLink').value = me.link; $('#afSuffix').textContent = '?ref=' + me.code;
+      $('#afLink').value = me.link; $('#afSuffix').textContent = '?ref=' + me.code; promo(me.link);
       $('#adName').value = me.name || ''; $('#adHandle').value = me.handle || '';
       $('#afStats').innerHTML = [[me.clicks, 'Visits through your link'], [s.signups, 'Sign-ups'], [s.sales, 'Paid sales'], [money(s.earned_cents), 'Earned'], [money(s.pending_cents), 'In the ' + j.hold_days + '-day hold'], [money(s.balance_cents), 'Ready to be paid'], [money(s.paid_cents), 'Paid to you']]
         .map(function(x){ return '<div class="cp-stat"><b>' + (typeof x[0] === 'number' ? x[0].toLocaleString() : x[0]) + '</b><span>' + x[1] + '</span></div>'; }).join('');
