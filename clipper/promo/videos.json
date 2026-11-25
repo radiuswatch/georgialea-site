@@ -107,6 +107,47 @@
    "file": "clipper-u-ad10",
    "title": "Phase One… Complete",
    "caption": "Welcome to Clipper U 🎓 Clip it. Post it. Get paid for the views. Try ClipNow free for 7 days 👉 {link} #ClipNow #ClipperU #Clipping"
+  },
+  {
+   "group": "Clipper U story",
+   "file": "clipper-u-episode-1",
+   "title": "Episode 1 (full, 4.5 min)",
+   "caption": "Clipper U, Episode 1 🎓 The story of how a whole campus started clipping. Try ClipNow free for 7 days 👉 {link} #ClipNow #ClipperU",
+   "src": "/clipper-u-episode-1.mp4",
+   "poster": "/clipper-u-poster.jpg"
+  },
+  {
+   "group": "How-to videos",
+   "file": "explainer",
+   "title": "How ClipNow works",
+   "caption": "See how ClipNow works 👇 Turn long videos into short clips and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping",
+   "src": "/explainer.mp4",
+   "poster": "/explainer-poster.jpg",
+   "wide": true
+  },
+  {
+   "group": "How-to videos",
+   "file": "schedule-explainer",
+   "title": "Scheduling posts",
+   "caption": "See how ClipNow works 👇 Turn long videos into short clips and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping",
+   "src": "/schedule-explainer.mp4",
+   "poster": "/schedule-explainer-poster.jpg"
+  },
+  {
+   "group": "How-to videos",
+   "file": "campaign-explainer",
+   "title": "How campaigns work",
+   "caption": "See how ClipNow works 👇 Turn long videos into short clips and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping",
+   "src": "/campaign-explainer.mp4",
+   "poster": "/campaign-explainer-poster.jpg"
+  },
+  {
+   "group": "How-to videos",
+   "file": "campaign-post-explainer",
+   "title": "Posting a campaign",
+   "caption": "See how ClipNow works 👇 Turn long videos into short clips and post them everywhere at once. Try it free for 7 days 👉 {link} #ClipNow #Clipping",
+   "src": "/campaign-post-explainer.mp4",
+   "poster": "/campaign-post-explainer-poster.jpg"
   }
  ]
 }

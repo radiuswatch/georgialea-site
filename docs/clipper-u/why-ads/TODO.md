@@ -24,4 +24,5 @@ Each ad is about a money problem, and the fix is earning from something people a
 - **End card:** "Start your 7-day free trial", plus the small print.
 - **Format:** 30 seconds, vertical 1080x1920. Check every voice take for repeated or jumbled words before building.
 - **Delivery:** Send each line to the owner to hear before the full render when a line changes.
+- **Affiliate library:** every finished ClipNow ad goes into the affiliate Promo videos library (`clipper/promo/` plus an entry in `clipper/promo/videos.json` with a ready-to-post caption), then the site is deployed.
 - **Desktop copies:** Save copies to the CLIPNOW FILES desktop folder once the laptop is connected.
