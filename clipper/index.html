@@ -446,6 +446,7 @@
   @media (max-width:560px){.vq li:not(.on):not(.done) .st{display:none}.vq li .st{font-size:12px}.vq li button{padding:6px 4px}}
   .vq li button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px}
   .vq li button:hover{color:var(--text,#fff)}
+  .vq li .vq-rm{font-size:20px;line-height:1;padding:2px 8px}
   .vq-next{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border:1px solid var(--green-dim);border-radius:12px;background:#0F1A12;font-size:14.5px}
   .note{font-size:13.5px;color:var(--faint);margin:14px 0 0}
   .note b{color:var(--muted)}
@@ -1041,7 +1042,7 @@
           <h3 id="dropTitle">Drop videos here, or click to choose</h3>
           <p id="dropSub">Pick one video or several at once. MP4, MOV or WebM. A 10 to 60 minute video works best.</p>
         </label>
-        <div class="vq" id="vidQueue" hidden><div class="vq-head"><span><b id="vqCount"></b> · ClipNow works on one at a time. Finished clips from every video stay in step 3.</span><button type="button" class="link-btn" id="vqAdd">+ Add more videos</button></div><ol id="vqList"></ol></div>
+        <div class="vq" id="vidQueue" hidden><div class="vq-head"><span><b id="vqCount"></b><span id="vqNote"></span></span><button type="button" class="link-btn" id="vqAdd">+ Add more videos</button></div><ol id="vqList"></ol></div>
         <p class="note" style="margin-top:10px">Already have finished clips? <button type="button" class="link-btn" id="toAddClips">Add them straight to Your clips →</button></p>
         <p class="note"><b>Only clip videos you have the right to use:</b> your own, or a campaign that allows reposting. Reposting other people's videos without permission can get accounts banned and payouts withheld.</p>
 
@@ -1831,23 +1832,33 @@ function useVideo(i){
   $('.stage-tab[data-stage="1"]').classList.remove('done'); $('.stage-tab[data-stage="2"]').classList.remove('done');
   renderClips(); renderQueue();
 }
+/** Clears step 1 (no video picked). Exported clips in step 3 are kept. */
+function resetStep1(){
+  if (S.url) { try { URL.revokeObjectURL(S.url); } catch(e){} }
+  S.file = null; S.url = null; S.clips = []; S.energy = null; S.duration = 0; S.queue = []; S.qi = -1;
+  try { srcV.removeAttribute('src'); srcV.load(); } catch(e){}
+  $('#srcGrid').hidden = true; $('#anStatus').textContent = '';
+  clearSource();
+  var t = $('#topic'); if (t.value === S.autoTopic) t.value = ''; S.autoTopic = '';
+  $('.stage-tab[data-stage="1"]').classList.remove('done'); $('.stage-tab[data-stage="2"]').classList.remove('done');
+  renderClips(); renderQueue();
+}
+/** Removes a video from the list. Removing the one being worked on opens the next one, or clears step 1. */
+function removeVideo(i){
+  if (!S.queue[i]) return;
+  if (i !== S.qi){ S.queue.splice(i, 1); if (i < S.qi) S.qi--; renderQueue(); return; }
+  if (S.clips.length && !confirm('Remove “' + S.queue[i].file.name + '”? The moments found in it will be cleared. Clips you already exported stay in step 3.')) return;
+  S.queue.splice(i, 1); S.qi = -1;
+  if (S.queue.length){ var n = Math.min(i, S.queue.length - 1); useVideo(n); goStage(1); toast('Video removed. Now on ' + S.queue[n].file.name); }
+  else { resetStep1(); goStage(1); toast('Video removed. Pick a video to clip.'); }
+}
 /** Every clip is posted or scheduled: open the next video in the list, or clear step 1 for a new one. Sent clips stay in step 3. */
 function allSentBackToStart(){
   if (S.exports.some(function(x){ return !x.sent; })) return;   // a new clip arrived meanwhile
   if (S.qi >= 0 && S.queue[S.qi]) S.queue[S.qi].done = true;
   var nx = S.queue.length > 1 ? nextVideo() : -1;
   if (nx >= 0){ useVideo(nx); toast('All clips are posted or scheduled. Next up: ' + S.queue[nx].file.name); }
-  else {
-    if (S.url) { try { URL.revokeObjectURL(S.url); } catch(e){} }
-    S.file = null; S.url = null; S.clips = []; S.energy = null; S.duration = 0; S.queue = []; S.qi = -1;
-    try { srcV.removeAttribute('src'); srcV.load(); } catch(e){}
-    $('#srcGrid').hidden = true; $('#anStatus').textContent = '';
-    clearSource();
-    var t = $('#topic'); if (t.value === S.autoTopic) t.value = ''; S.autoTopic = '';
-    $('.stage-tab[data-stage="1"]').classList.remove('done'); $('.stage-tab[data-stage="2"]').classList.remove('done');
-    renderClips(); renderQueue();
-    toast('All clips are posted or scheduled. Pick your next video.');
-  }
+  else { resetStep1(); toast('All clips are posted or scheduled. Pick your next video.'); }
   goStage(1);
   var st = document.getElementById('studio'); if (st) st.scrollIntoView({ behavior:'smooth' });
 }
@@ -1857,19 +1868,20 @@ function nextVideo(){
 }
 function renderQueue(){
   var box = $('#vidQueue'), many = S.queue.length > 1;
-  box.hidden = !many;
-  $('#vqCount').textContent = many ? 'Video ' + (S.qi + 1) + ' of ' + S.queue.length : '';
+  box.hidden = !S.queue.length;
+  $('#vqCount').textContent = many ? 'Video ' + (S.qi + 1) + ' of ' + S.queue.length : 'Your video';
+  $('#vqNote').textContent = many ? ' · ClipNow works on one at a time. Finished clips from every video stay in step 3.' : ' · Changed your mind? Tap × to remove it.';
   var ol = $('#vqList'); ol.innerHTML = '';
   S.queue.forEach(function(q, i){
     var li = document.createElement('li'); li.className = (i === S.qi ? 'on' : '') + (q.done ? ' done' : '');
     li.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="nm"></span><span class="st">' + (i === S.qi ? 'Working on it' : q.done ? '✓ Clipped' : 'Waiting') + '</span>' +
-      (i === S.qi ? '' : '<button type="button" data-q="use">Clip This</button><button type="button" data-q="rm" aria-label="Remove from list">×</button>');
+      (i === S.qi ? '' : '<button type="button" data-q="use">Clip This</button>') + '<button type="button" data-q="rm" class="vq-rm" aria-label="Remove this video">×</button>';
     $('.nm', li).textContent = q.file.name;
     li.addEventListener('click', function(e){
       var b = e.target.closest('button');
       if (!b){ if (i !== S.qi){ useVideo(i); goStage(1); } return; }
       if (b.dataset.q === 'use'){ useVideo(i); goStage(1); }
-      else { S.queue.splice(i, 1); if (i < S.qi) S.qi--; renderQueue(); }
+      else removeVideo(i);
     });
     ol.appendChild(li);
   });
