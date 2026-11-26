@@ -433,14 +433,17 @@
   .vq[hidden],.vq-next[hidden]{display:none}
   .vq-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:14px;color:var(--muted)}
   .vq-head b{color:var(--text,#fff);font-weight:600}
-  .vq ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-  .vq li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);font-size:14px}
+  .vq{min-width:0;overflow:hidden}
+  .vq ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+  .vq li{display:flex;align-items:center;gap:10px;min-width:0;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);font-size:14px}
+  .vq li:not(.on){cursor:pointer}
+  .vq li .st,.vq li button{flex:none}
   .vq li.on{outline:1.5px solid var(--green);background:#0F1A12}
   .vq li .n{font-family:var(--mono);color:var(--faint);min-width:22px}
   .vq li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .vq li .st{font-size:12.5px;color:var(--muted);white-space:nowrap}
   .vq li.done .st{color:var(--green)}
-  @media (max-width:560px){.vq li:not(.on):not(.done) .st{display:none}}
+  @media (max-width:560px){.vq li:not(.on):not(.done) .st{display:none}.vq li .st{font-size:12px}.vq li button{padding:6px 4px}}
   .vq li button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px}
   .vq li button:hover{color:var(--text,#fff)}
   .vq-next{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border:1px solid var(--green-dim);border-radius:12px;background:#0F1A12;font-size:14.5px}
@@ -1860,10 +1863,11 @@ function renderQueue(){
   S.queue.forEach(function(q, i){
     var li = document.createElement('li'); li.className = (i === S.qi ? 'on' : '') + (q.done ? ' done' : '');
     li.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="nm"></span><span class="st">' + (i === S.qi ? 'Working on it' : q.done ? '✓ Clipped' : 'Waiting') + '</span>' +
-      (i === S.qi ? '' : '<button type="button" data-q="use">Clip This One</button><button type="button" data-q="rm" aria-label="Remove from list">×</button>');
+      (i === S.qi ? '' : '<button type="button" data-q="use">Clip This</button><button type="button" data-q="rm" aria-label="Remove from list">×</button>');
     $('.nm', li).textContent = q.file.name;
     li.addEventListener('click', function(e){
-      var b = e.target.closest('button'); if (!b) return;
+      var b = e.target.closest('button');
+      if (!b){ if (i !== S.qi){ useVideo(i); goStage(1); } return; }
       if (b.dataset.q === 'use'){ useVideo(i); goStage(1); }
       else { S.queue.splice(i, 1); if (i < S.qi) S.qi--; renderQueue(); }
     });
