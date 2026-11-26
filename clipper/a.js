@@ -6,6 +6,13 @@
   try { document.cookie = 'humans_21909=1; path=/; max-age=31536000; SameSite=Lax; Secure'; } catch (e) {}   // Bluehost bot check: set it up front
   var me = document.currentScript;
   try { if (navigator.webdriver || localStorage.getItem('tr-off') === '1') return; } catch (e) {}
+  // Second, independent counter (2026-11-26): Cloudflare Web Analytics, to cross-check our own numbers. Main site only.
+  try {
+    if (location.hostname.replace(/^www\./, '') === 'clipnow.vip' && !document.querySelector('script[data-cf-beacon]')) {
+      var cf = document.createElement('script'); cf.defer = true; cf.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+      cf.setAttribute('data-cf-beacon', '{"token": "5765c59674f2412dba7f1b978645607c"}'); document.head.appendChild(cf);
+    }
+  } catch (e) {}
   var q = new URLSearchParams(location.search);
   var b = JSON.stringify({ p: (me && me.getAttribute('data-p')) || location.pathname, r: document.referrer, s: q.get('s') || q.get('utm_source') || q.get('ref') || '' });
   function send(again) {
