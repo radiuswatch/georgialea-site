@@ -1778,7 +1778,7 @@ $$('[data-brand]').forEach(function(el){ el.textContent = CONFIG.brand; });
 if (MOBILE){ $('#dropTitle').textContent = 'Tap to choose videos'; $('#dropSub').textContent = 'Pick one or several from Photos, Files or Downloads. A 10 to 60 minute video works best.'; }
 
 /* ---------- State ---------- */
-var S = { queue:[], qi:-1, autoTopic:'', file:null, url:null, duration:0, len:30, count:5, frame:'fill', clips:[], exports:[], energy:null, hop:0.5 };
+var S = { queue:[], qi:-1, autoTopic:'', hadReady:false, file:null, url:null, duration:0, len:30, count:5, frame:'fill', clips:[], exports:[], energy:null, hop:0.5 };
 
 /* ---------- Stage tabs ---------- */
 function goStage(n){
@@ -1827,6 +1827,26 @@ function useVideo(i){
   S.qi = i; loadFile(S.queue[i].file);
   $('.stage-tab[data-stage="1"]').classList.remove('done'); $('.stage-tab[data-stage="2"]').classList.remove('done');
   renderClips(); renderQueue();
+}
+/** Every clip is posted or scheduled: open the next video in the list, or clear step 1 for a new one. Sent clips stay in step 3. */
+function allSentBackToStart(){
+  if (S.exports.some(function(x){ return !x.sent; })) return;   // a new clip arrived meanwhile
+  if (S.qi >= 0 && S.queue[S.qi]) S.queue[S.qi].done = true;
+  var nx = S.queue.length > 1 ? nextVideo() : -1;
+  if (nx >= 0){ useVideo(nx); toast('All clips are posted or scheduled. Next up: ' + S.queue[nx].file.name); }
+  else {
+    if (S.url) { try { URL.revokeObjectURL(S.url); } catch(e){} }
+    S.file = null; S.url = null; S.clips = []; S.energy = null; S.duration = 0; S.queue = []; S.qi = -1;
+    try { srcV.removeAttribute('src'); srcV.load(); } catch(e){}
+    $('#srcGrid').hidden = true; $('#anStatus').textContent = '';
+    clearSource();
+    var t = $('#topic'); if (t.value === S.autoTopic) t.value = ''; S.autoTopic = '';
+    $('.stage-tab[data-stage="1"]').classList.remove('done'); $('.stage-tab[data-stage="2"]').classList.remove('done');
+    renderClips(); renderQueue();
+    toast('All clips are posted or scheduled. Pick your next video.');
+  }
+  goStage(1);
+  var st = document.getElementById('studio'); if (st) st.scrollIntoView({ behavior:'smooth' });
 }
 function nextVideo(){
   for (var k = 1; k < S.queue.length; k++){ var j = (S.qi + k) % S.queue.length; if (!S.queue[j].done) return j; }
@@ -2552,6 +2572,9 @@ function renderExports(){
   S.exports.forEach(function(x){ x.id = x.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); });
   var ready = S.exports.filter(function(x){ return !x.sent && !x.manual; }), sent = S.exports.filter(function(x){ return x.sent; }), manual = S.exports.filter(function(x){ return x.manual && !x.sent; });
   if (!ready.length) box.innerHTML = '<p class="note">Every clip here has been sent. Export more in step 2, or find them under Sent below.</p>';
+  // Once the last clip is posted or scheduled, go back to step 1 for the next video (owner rule, Nov 26, 2026).
+  if (ready.length || manual.length) S.hadReady = true;
+  else if (S.hadReady && sent.length){ S.hadReady = false; setTimeout(allSentBackToStart, 2500); }
   if (window.AutoPost && ready.length > 1) AutoPost.bulk(box, ready);
   ready.forEach(function(x){
     var row = document.createElement('div'); row.className = 'export-item';
