@@ -1710,12 +1710,13 @@ function cn_stats_background(int $budget = 70): array {
  * clipnow.vip/?ref=CODE. The site remembers the code for 60 days and passes it to Stripe
  * checkout as client_reference_id "aff_CODE". Once a day cn_aff_sync() matches completed
  * checkouts to affiliates and pays 50% of each new customer's first real payment (after any
- * trial, before tax), one time per sale, payable after a 14-day hold if not refunded.
+ * trial, before tax), one time per sale, payable after a 7-day hold if not refunded (was 14 days until 2026-11-27).
+ * Affiliates also get their own single-use 50% off the first payment on any plan (cn_aff_own_promo).
  * Payouts are made by the owner (PayPal etc.) and recorded in the admin portal.
  * Data: ~/clipnow-data/affiliates.json and referrals.json.
  */
 const CN_AFF_RATE = 0.50;
-const CN_AFF_HOLD_DAYS = 14;
+const CN_AFF_HOLD_DAYS = 7;
 const CN_AFF_COOKIE = 'cn_aff';
 
 /** Read-modify-write a JSON file in ~/clipnow-data under a lock. $fn gets the data by reference. */
@@ -1740,6 +1741,19 @@ function cn_site_flag(): string { return dirname(__DIR__) . '/site-live.on'; }
 function cn_site_live(): bool { return is_file(cn_site_flag()); }
 function cn_waitlist(): array { $d = cn_read('waitlist.json', []); arsort($d); return $d; }
 
+/** The affiliate's own single-use "50% off the first payment on any plan" code (Joseph, 2026-11-27).
+ *  Made on their first dashboard visit and kept in affiliates.json; ['code' => '', 'used' => false] if Stripe is unreachable. */
+function cn_aff_own_promo(array $a): array {
+  $p = $a['own_promo'] ?? null;
+  if (!$p) {
+    $pc = cn_create_promo_code(50, 'Affiliate member discount: ' . $a['email'] . ' (' . $a['code'] . ')');
+    $p = ['id' => $pc['id'], 'code' => $pc['code'], 'created' => time()];
+    cn_locked('affiliates.json', function (&$d) use ($a, $p) { if (isset($d['by_id'][$a['id']])) $d['by_id'][$a['id']]['own_promo'] = $p; });
+  }
+  $used = false;
+  try { $used = (int)(cn_stripe('GET', '/v1/promotion_codes/' . rawurlencode($p['id']))['times_redeemed'] ?? 0) > 0; } catch (Throwable $e) {}
+  return ['code' => $p['code'], 'used' => $used];
+}
 function cn_affs(): array { $d = cn_read('affiliates.json', []); return $d + ['by_id' => [], 'codes' => [], 'emails' => []]; }
 function cn_refs(): array { return cn_read('referrals.json', []); }
 
@@ -1844,6 +1858,8 @@ function cn_aff_sync(): array {
   $now = time();
   foreach ($refs as $sid => &$r) {
     try {
+      // hold shortened to 7 days (2026-11-27): commissions already waiting move up too
+      if ($r['status'] === 'earned' && !empty($r['earned_at'])) $r['payable_at'] = min((int)$r['payable_at'], (int)$r['earned_at'] + CN_AFF_HOLD_DAYS * 86400);
       if ($r['status'] === 'signed_up') {
         $inv = cn_stripe('GET', '/v1/invoices', ['subscription' => $r['subscription'], 'status' => 'paid', 'limit' => 10]);
         $paid = array_values(array_filter($inv['data'] ?? [], fn($i) => (int)($i['amount_paid'] ?? 0) > 0));

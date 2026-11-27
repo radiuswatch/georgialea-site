@@ -36,9 +36,10 @@ try {
     $list = array_map(fn($r) => ['date' => $r['created'], 'who' => $r['who'], 'plan' => $r['plan'], 'status' => $r['status'],
       'commission_cents' => $r['commission_cents'], 'payable_at' => $r['payable_at'], 'why' => $r['why'] ?? ''], array_slice($s['list'], 0, 200));
     unset($s['list']);
+    $disc = ['code' => '', 'used' => false]; try { $disc = cn_aff_own_promo($a); } catch (Throwable $e) {}
     cn_json_out(['ok' => true, 'me' => ['name' => $a['name'], 'email' => $a['email'], 'code' => $a['code'], 'handle' => $a['handle'],
       'link' => CN_SITE . '/?ref=' . $a['code'], 'clicks' => (int)($a['clicks'] ?? 0)], 'stats' => $s, 'referrals' => $list,
-      'rate' => CN_AFF_RATE, 'hold_days' => CN_AFF_HOLD_DAYS]);
+      'rate' => CN_AFF_RATE, 'hold_days' => CN_AFF_HOLD_DAYS, 'discount' => $disc]);
   }
 
   if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !cn_same_origin()) cn_json_out(['ok' => false, 'error' => 'bad request'], 400);

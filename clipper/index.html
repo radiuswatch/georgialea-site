@@ -1323,7 +1323,7 @@
     <div class="sect-head">
       <p class="eyebrow">Affiliate program</p>
       <h2>Earn 50% of every sale you refer</h2>
-      <p class="sub">Share ClipNow with clippers, streamers and creators. When someone you refer buys a plan, you get 50% of their first payment. Free to join, and you don’t need a ClipNow plan.</p>
+      <p class="sub">Share ClipNow with clippers, streamers and creators. When someone you refer buys a plan, you get 50% of their first payment. Free to join, and you don’t need a ClipNow plan. <b>Bonus:</b> affiliates get 50% off their first payment on any ClipNow plan.</p>
     </div>
 
     <div class="cp-gate-grid af-steps">
@@ -1360,6 +1360,13 @@
         <p class="cp-fine" style="margin:8px 0 0">Tip: any ClipNow page works too. Add <b id="afSuffix"></b> to the end of the address.</p>
       </div>
       <div class="cp-stats" id="afStats"></div>
+      <div class="cp-box" id="afDisc" hidden>
+        <h4>Your affiliate discount: 50% off</h4>
+        <p class="cp-fine" style="margin:0 0 12px">Get 50% off your first payment on any ClipNow plan. Your code works once and is already filled in when you use the buttons below. (Your own purchase doesn’t earn a commission.)</p>
+        <div class="cp-acts"><input type="text" id="afDiscCode" readonly style="flex:1;min-width:160px;font-weight:800;letter-spacing:.06em"><button class="btn btn-green btn-sm" type="button" id="afDiscCopy">Copy code</button></div>
+        <div class="cp-acts" id="afDiscPlans" style="margin-top:12px"></div>
+        <p class="cp-fine" id="afDiscNote" style="margin:8px 0 0"></p>
+      </div>
       <div class="cp-box" id="afPromo">
         <h4>Promo videos</h4>
         <p class="cp-fine" style="margin:0 0 14px">Ready-made 30-second ClipNow ads to post on TikTok, Reels, Shorts or anywhere. Download one, post it, then paste its caption. Your link is already in the caption.</p>
@@ -5425,6 +5432,16 @@ window.Push = (function(){
       $('#afJoin').hidden = true; $('#afDash').hidden = false;
       var me = j.me, s = j.stats;
       $('#afLink').value = me.link; $('#afSuffix').textContent = '?ref=' + me.code; promo(me.link);
+      // affiliate's own 50%-off-first-payment code (2026-11-27)
+      var dc = j.discount || {};
+      $('#afDisc').hidden = !dc.code;
+      if (dc.code){
+        $('#afDiscCode').value = dc.code;
+        $('#afDiscPlans').innerHTML = dc.used ? '' : [['starter', 'Silver'], ['pro', 'Gold'], ['agency', 'Platinum']].map(function(p){
+          return '<a class="btn btn-green btn-sm" href="' + esc(CONFIG.stripe[p[0]].m + '?prefilled_promo_code=' + encodeURIComponent(dc.code) + '&prefilled_email=' + encodeURIComponent(me.email)) + '">' + p[1] + ' at 50% Off</a>';
+        }).join('');
+        $('#afDiscNote').textContent = dc.used ? 'You’ve used your 50% off code. Thanks for being a member!' : 'Corporate or a yearly plan? Pick it on the Plans section and enter your code at checkout.';
+      }
       $('#adName').value = me.name || ''; $('#adHandle').value = me.handle || '';
       $('#afStats').innerHTML = [[me.clicks, 'Visits through your link'], [s.signups, 'Sign-ups'], [s.sales, 'Paid sales'], [money(s.earned_cents), 'Earned'], [money(s.pending_cents), 'In the ' + j.hold_days + '-day hold'], [money(s.balance_cents), 'Ready to be paid'], [money(s.paid_cents), 'Paid to you']]
         .map(function(x){ return '<div class="cp-stat"><b>' + (typeof x[0] === 'number' ? x[0].toLocaleString() : x[0]) + '</b><span>' + x[1] + '</span></div>'; }).join('');
@@ -5436,6 +5453,7 @@ window.Push = (function(){
       $('#afRule').textContent = 'You earn ' + Math.round(j.rate * 100) + '% of each new customer’s first payment (after any free trial, before tax), one time per customer. It becomes payable ' + j.hold_days + ' days later if it wasn’t refunded. New sales show up within a day.' + (me.handle ? '' : ' Add your payout details below so we can pay you.');
     });
   }
+  $('#afDiscCopy').addEventListener('click', function(){ var t = $('#afDiscCode').value; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ toast('Code copied'); }, function(){ window.prompt('Copy your code:', t); }); });
   $('#ajGo').addEventListener('click', function(){
     var b = this, msg = $('#ajMsg');
     b.disabled = true; say(msg, 'Sending…');
