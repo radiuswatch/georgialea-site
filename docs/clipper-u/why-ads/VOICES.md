@@ -31,3 +31,11 @@ For every ad made with real-looking people (not the Clipper U cartoon cast):
 - **Same ending as every ad:** the tagline pops, then the CN keychain zooms into the end card with "Start your 7-day free trial" and the small print.
 - If a real-people ad ever needs someone to speak on camera, treat that person as a new character: send the owner a voice audition first.
 - **Word-of-mouth ads (ads 7-8, Nov 25, 2026):** people pass the news by whispering behind a hand or showing their phone; a speech bubble "You know ClipNow is live?" pops up each time and Evie narrates where it is (barbershop, coffee shop, locker room…). Builder: `launch-ads/real-source/rbuild78.py`.
+
+## All ads: text and prices (owner rule, Nov 27, 2026)
+- No prices in ads (not on screen, not in the narration). People see prices on the website.
+- No word ever falls to a third line. Write every headline line by line (two lines at most) and keep each line whole,
+  shrinking the font until it fits ("Your website +" / "a staff dashboard").
+- The App Planet USA church ads are the template for future product ads: a designed thumbnail, then real product screens in
+  a phone frame with one short headline per scene, a narrator, a feature card, and an end card with the brand, the features,
+  the call to action and the web address.
